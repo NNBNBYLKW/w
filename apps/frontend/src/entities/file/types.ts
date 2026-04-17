@@ -12,6 +12,8 @@ export type FileListSortOrder = "asc" | "desc";
 export type FilesListQueryInput = {
   source_id?: number;
   parent_path?: string;
+  tag_id?: number;
+  color_tag?: ColorTagValue;
   page: number;
   page_size: number;
   sort_by: FileListSortBy;
@@ -37,6 +39,8 @@ export type FilesListResponseVM = {
 export type SearchQueryInput = {
   query?: string;
   file_type?: FileType;
+  tag_id?: number;
+  color_tag?: ColorTagValue;
   page: number;
   page_size: number;
   sort_by: SearchSortBy;
@@ -72,6 +76,14 @@ export type FileDetailItemVM = {
   source_id: number;
   tags: TagItemVM[];
   color_tag: ColorTagValue | null;
+  metadata:
+    | {
+        width: number | null;
+        height: number | null;
+        duration_ms: number | null;
+        page_count: number | null;
+      }
+    | null;
 };
 
 export type FileDetailResponseVM = {

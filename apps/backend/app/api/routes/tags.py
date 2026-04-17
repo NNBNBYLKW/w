@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Path, Query, Response, status
 from sqlalchemy.orm import Session
 
-from app.api.schemas.tag import TagCreateRequest, TagListResponse, TagResponse
+from app.api.schemas.file import FileListResponse, FileListSortBy, SortOrder
+from app.api.schemas.tag import TagCreateRequest, TagFileListQueryParams, TagListResponse, TagResponse
 from app.db.session.session import get_db
 from app.services.tags.service import TagsService
 
@@ -24,3 +25,21 @@ def create_tag(
     tag_response, created = tags_service.create_tag(db, payload)
     response.status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
     return tag_response
+
+
+@router.get("/tags/{tag_id}/files", response_model=FileListResponse)
+def list_tag_files(
+    tag_id: int = Path(..., ge=1),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=100),
+    sort_by: FileListSortBy = Query(default="modified_at"),
+    sort_order: SortOrder = Query(default="desc"),
+    db: Session = Depends(get_db),
+) -> FileListResponse:
+    params = TagFileListQueryParams(
+        page=page,
+        page_size=page_size,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+    return tags_service.list_files_for_tag(db, tag_id, params)

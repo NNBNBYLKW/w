@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Path, Query
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.api.schemas.file import (
@@ -16,6 +17,7 @@ from app.services.color_tags.service import ColorTagsService
 from app.services.details.service import DetailsService
 from app.services.files.service import FilesService
 from app.services.tags.service import TagsService
+from app.services.thumbnails.service import ThumbnailService
 
 
 router = APIRouter(tags=["files"])
@@ -23,12 +25,15 @@ details_service = DetailsService()
 files_service = FilesService()
 tags_service = TagsService()
 color_tags_service = ColorTagsService()
+thumbnail_service = ThumbnailService()
 
 
 @router.get("/files", response_model=FileListResponse)
 def list_files(
     source_id: int | None = Query(default=None, ge=1),
     parent_path: str | None = Query(default=None),
+    tag_id: int | None = Query(default=None, ge=1),
+    color_tag: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=100),
     sort_by: FileListSortBy = Query(default="modified_at"),
@@ -38,6 +43,8 @@ def list_files(
     params = FileListQueryParams(
         source_id=source_id,
         parent_path=parent_path,
+        tag_id=tag_id,
+        color_tag=color_tag,
         page=page,
         page_size=page_size,
         sort_by=sort_by,
@@ -52,6 +59,19 @@ def get_file_details(
     db: Session = Depends(get_db),
 ) -> FileDetailResponse:
     return details_service.get_file_details(db, file_id)
+
+
+@router.get("/files/{file_id}/thumbnail")
+def get_file_thumbnail(
+    file_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+) -> FileResponse:
+    thumbnail_path = thumbnail_service.get_thumbnail_path(db, file_id)
+    return FileResponse(
+        path=thumbnail_path,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.post("/files/{file_id}/tags", response_model=TagListResponse)

@@ -12,6 +12,10 @@ function getApiBaseUrl() {
   return desktopApi?.getBackendBaseUrl?.() ?? import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
 }
 
+export function getFileThumbnailUrl(fileId: number): string {
+  return `${getApiBaseUrl()}/files/${fileId}/thumbnail`;
+}
+
 
 async function parseResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {

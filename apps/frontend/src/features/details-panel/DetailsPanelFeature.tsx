@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useUIStore } from "../../app/providers/uiStore";
 import type { ColorTagValue, FileDetailResponseVM } from "../../entities/file/types";
 import { updateFileColorTag } from "../../services/api/colorTagsApi";
+import { getFileThumbnailUrl } from "../../services/api/fileDetailsApi";
 import {
   hasDesktopOpenActionsBridge,
   normalizeIndexedFilePath,
@@ -24,6 +25,14 @@ function formatBytes(value: number | null): string {
   return value === null ? "Unavailable" : `${value.toLocaleString()} bytes`;
 }
 
+function formatMetadataValue(value: number | null, suffix?: string): string {
+  if (value === null) {
+    return "Unavailable";
+  }
+
+  return suffix ? `${value.toLocaleString()} ${suffix}` : value.toLocaleString();
+}
+
 
 const COLOR_TAG_OPTIONS: ColorTagValue[] = ["red", "yellow", "green", "blue", "purple"];
 
@@ -36,6 +45,7 @@ export function DetailsPanelFeature() {
   const [colorTagMutationError, setColorTagMutationError] = useState<string | null>(null);
   const [openActionError, setOpenActionError] = useState<string | null>(null);
   const [pendingOpenAction, setPendingOpenAction] = useState<"file" | "folder" | null>(null);
+  const [previewLoadFailed, setPreviewLoadFailed] = useState(false);
   const parsedFileId = selectedItemId !== null ? Number(selectedItemId) : null;
   const hasInvalidSelectedId =
     selectedItemId !== null && (!Number.isInteger(parsedFileId) || parsedFileId === null || parsedFileId <= 0);
@@ -104,6 +114,7 @@ export function DetailsPanelFeature() {
     setColorTagMutationError(null);
     setOpenActionError(null);
     setPendingOpenAction(null);
+    setPreviewLoadFailed(false);
   }, [selectedItemId]);
 
   const handleOpenAction = async (action: "file" | "folder", filePath: string | null | undefined) => {
@@ -217,6 +228,52 @@ export function DetailsPanelFeature() {
             <dd>{item.is_deleted ? "Yes" : "No"}</dd>
           </div>
         </dl>
+        <section className="metadata-section">
+          <div className="metadata-section__header">
+            <h4>Metadata</h4>
+          </div>
+          {item.metadata === null ? (
+            <p>No extracted metadata available yet.</p>
+          ) : (
+            <dl className="details-list">
+              <div className="details-list__row">
+                <dt>Width</dt>
+                <dd>{formatMetadataValue(item.metadata.width, "px")}</dd>
+              </div>
+              <div className="details-list__row">
+                <dt>Height</dt>
+                <dd>{formatMetadataValue(item.metadata.height, "px")}</dd>
+              </div>
+              <div className="details-list__row">
+                <dt>Duration</dt>
+                <dd>{formatMetadataValue(item.metadata.duration_ms, "ms")}</dd>
+              </div>
+              <div className="details-list__row">
+                <dt>Page count</dt>
+                <dd>{formatMetadataValue(item.metadata.page_count)}</dd>
+              </div>
+            </dl>
+          )}
+        </section>
+        {item.file_type === "image" ? (
+          <section className="details-preview-section">
+            <div className="details-preview-section__header">
+              <h4>Preview</h4>
+            </div>
+            {previewLoadFailed ? (
+              <p>Preview is not available for this image right now.</p>
+            ) : (
+              <div className="details-preview-frame">
+                <img
+                  className="details-preview-image"
+                  src={getFileThumbnailUrl(item.id)}
+                  alt={`Preview for ${item.name}`}
+                  onError={() => setPreviewLoadFailed(true)}
+                />
+              </div>
+            )}
+          </section>
+        ) : null}
         <section className="open-actions-section">
           <div className="open-actions-section__header">
             <h4>Open Actions</h4>

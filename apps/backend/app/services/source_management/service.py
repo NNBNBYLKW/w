@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.api.schemas.source import SourceCreateRequest, SourceResponse, SourceUpdateRequest, TriggerScanResponse
 from app.core.errors.exceptions import ConflictError, NotFoundError
 from app.db.models.source import Source
+from app.db.models.task import Task
 from app.repositories.source.repository import SourceRepository
 from app.services.scanning.service import ScanningService
 from app.services.tasks.service import TaskService
@@ -24,7 +25,14 @@ class SourceManagementService:
 
     def list_sources(self, session: Session) -> list[SourceResponse]:
         sources = self.source_repository.list_sources(session)
-        return [SourceResponse.model_validate(source) for source in sources]
+        latest_tasks_by_source_id = self.task_service.list_latest_scan_tasks_by_source_ids(
+            session,
+            [source.id for source in sources],
+        )
+        return [
+            self._build_source_response(source, latest_tasks_by_source_id.get(source.id))
+            for source in sources
+        ]
 
     def create_source(self, session: Session, payload: SourceCreateRequest) -> SourceResponse:
         canonical_path = self._canonicalize_source_path(payload.path)
@@ -45,7 +53,7 @@ class SourceManagementService:
         self.source_repository.add(session, source)
         session.commit()
         session.refresh(source)
-        return SourceResponse.model_validate(source)
+        return self._build_source_response(source)
 
     def update_source(self, session: Session, source_id: int, payload: SourceUpdateRequest) -> SourceResponse:
         source = self.source_repository.get_by_id(session, source_id)
@@ -61,7 +69,8 @@ class SourceManagementService:
         source.updated_at = _utcnow()
         session.commit()
         session.refresh(source)
-        return SourceResponse.model_validate(source)
+        latest_task = self.task_service.list_latest_scan_tasks_by_source_ids(session, [source.id]).get(source.id)
+        return self._build_source_response(source, latest_task)
 
     def delete_source(self, session: Session, source_id: int) -> None:
         source = self.source_repository.get_by_id(session, source_id)
@@ -74,9 +83,33 @@ class SourceManagementService:
         source = self.source_repository.get_by_id(session, source_id)
         if source is None:
             raise NotFoundError("SOURCE_NOT_FOUND", "Source not found.")
+        active_task = self.task_service.get_active_scan_task_for_source(session, source_id)
+        if active_task is not None:
+            raise ConflictError("SCAN_ALREADY_RUNNING", "A scan is already running for this source.")
         task = self.task_service.create_pending_scan_task(session, source_id)
         task = self.scanning_service.run_source_scan_inline(session, source, task)
         return TriggerScanResponse(task_id=task.id, status=task.status)
+
+    def _build_source_response(self, source: Source, latest_scan_task: Task | None = None) -> SourceResponse:
+        return SourceResponse(
+            id=source.id,
+            path=source.path,
+            display_name=source.display_name,
+            is_enabled=source.is_enabled,
+            scan_mode=source.scan_mode,
+            last_scan_at=source.last_scan_at,
+            last_scan_status=source.last_scan_status,
+            last_scan_error_message=self._derive_last_scan_error_message(latest_scan_task),
+            created_at=source.created_at,
+            updated_at=source.updated_at,
+        )
+
+    def _derive_last_scan_error_message(self, latest_scan_task: Task | None) -> str | None:
+        if latest_scan_task is None:
+            return None
+        if latest_scan_task.status != "failed":
+            return None
+        return latest_scan_task.error_message
 
     def _canonicalize_source_path(self, raw_path: str) -> str:
         candidate = raw_path.strip()

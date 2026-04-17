@@ -84,6 +84,18 @@ CREATE TABLE IF NOT EXISTS file_user_meta (
     FOREIGN KEY(file_id) REFERENCES files(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS collections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    file_type TEXT NULL,
+    tag_id INTEGER NULL,
+    color_tag TEXT NULL,
+    source_id INTEGER NULL,
+    parent_path TEXT NULL,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     task_type TEXT NOT NULL,

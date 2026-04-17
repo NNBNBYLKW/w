@@ -7,6 +7,8 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from app.db.models.file import File
+from app.db.models.file_tag import FileTag
+from app.db.models.file_user_meta import FileUserMeta
 from app.workers.scanning.scanner import DiscoveredFileRecord
 
 
@@ -19,6 +21,22 @@ class FileRepository:
     def get_latest_last_seen_at_for_source(self, session: Session, source_id: int) -> datetime | None:
         statement = select(func.max(File.last_seen_at)).where(File.source_id == source_id)
         return session.scalar(statement)
+
+    def list_seen_files_for_source_scan(
+        self,
+        session: Session,
+        *,
+        source_id: int,
+        scanned_at: datetime,
+    ) -> list[File]:
+        statement = (
+            select(File)
+            .where(File.source_id == source_id)
+            .where(File.last_seen_at == scanned_at)
+            .where(File.is_deleted.is_(False))
+            .order_by(File.id.asc())
+        )
+        return list(session.scalars(statement))
 
     def upsert_discovered_files(
         self,
@@ -95,18 +113,40 @@ class FileRepository:
         self,
         session: Session,
         *,
+        file_type: str | None = None,
         source_id: int | None,
         parent_path: str | None,
+        tag_id: int | None,
+        color_tag: str | None,
         page: int,
         page_size: int,
         sort_by: str,
         sort_order: str,
     ) -> tuple[list[File], int]:
         filters = [File.is_deleted.is_(False)]
+        if file_type is not None:
+            filters.append(File.file_type == file_type)
         if source_id is not None:
             filters.append(File.source_id == source_id)
         if parent_path is not None:
             filters.append(func.lower(File.parent_path) == parent_path.lower())
+        if tag_id is not None:
+            filters.append(
+                select(1)
+                .select_from(FileTag)
+                .where(FileTag.file_id == File.id, FileTag.tag_id == tag_id)
+                .exists()
+            )
+        if color_tag is not None:
+            filters.append(
+                select(1)
+                .select_from(FileUserMeta)
+                .where(
+                    FileUserMeta.file_id == File.id,
+                    FileUserMeta.color_tag == color_tag,
+                )
+                .exists()
+            )
         return self._select_files(
             session,
             filters=filters,
@@ -122,6 +162,8 @@ class FileRepository:
         *,
         query: str | None,
         file_type: str | None,
+        tag_id: int | None,
+        color_tag: str | None,
         page: int,
         page_size: int,
         sort_by: str,
@@ -138,6 +180,23 @@ class FileRepository:
             )
         if file_type is not None:
             filters.append(File.file_type == file_type)
+        if tag_id is not None:
+            filters.append(
+                select(1)
+                .select_from(FileTag)
+                .where(FileTag.file_id == File.id, FileTag.tag_id == tag_id)
+                .exists()
+            )
+        if color_tag is not None:
+            filters.append(
+                select(1)
+                .select_from(FileUserMeta)
+                .where(
+                    FileUserMeta.file_id == File.id,
+                    FileUserMeta.color_tag == color_tag,
+                )
+                .exists()
+            )
 
         return self._select_files(
             session,
@@ -198,6 +257,46 @@ class FileRepository:
             sort_by="discovered_at",
             sort_order=sort_order,
         )
+
+    def list_files_for_tag(
+        self,
+        session: Session,
+        *,
+        tag_id: int,
+        page: int,
+        page_size: int,
+        sort_by: str,
+        sort_order: str,
+    ) -> tuple[list[File], int]:
+        modified_expr = func.coalesce(File.modified_at_fs, File.discovered_at)
+        if sort_by == "name":
+            primary_order = func.lower(File.name)
+        elif sort_by == "discovered_at":
+            primary_order = File.discovered_at
+        else:
+            primary_order = modified_expr
+
+        ordered_primary = primary_order.asc() if sort_order == "asc" else primary_order.desc()
+        offset = (page - 1) * page_size
+
+        statement = (
+            select(File)
+            .join(FileTag, FileTag.file_id == File.id)
+            .where(FileTag.tag_id == tag_id, File.is_deleted.is_(False))
+            .order_by(ordered_primary, File.path.asc(), File.id.asc())
+            .offset(offset)
+            .limit(page_size)
+        )
+        items = list(session.scalars(statement))
+
+        total_statement = (
+            select(func.count())
+            .select_from(File)
+            .join(FileTag, FileTag.file_id == File.id)
+            .where(FileTag.tag_id == tag_id, File.is_deleted.is_(False))
+        )
+        total = int(session.scalar(total_statement) or 0)
+        return items, total
 
     def _select_files(
         self,

@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from app.db.models.file import File
+from app.db.models.file_metadata import FileMetadata
 from app.db.models.file_tag import FileTag
 from app.db.models.file_user_meta import FileUserMeta
 from app.db.models.source import Source
@@ -47,6 +48,7 @@ class Phase2BFileDetailsTestCase(unittest.TestCase):
                 "source_id": source_id,
                 "tags": [],
                 "color_tag": None,
+                "metadata": None,
             },
             response.json()["item"],
         )
@@ -91,6 +93,7 @@ class Phase2BFileDetailsTestCase(unittest.TestCase):
         self.assertIsNone(item["modified_at_fs"])
         self.assertEqual([], item["tags"])
         self.assertIsNone(item["color_tag"])
+        self.assertIsNone(item["metadata"])
 
         engine.dispose()
 
@@ -125,6 +128,32 @@ class Phase2BFileDetailsTestCase(unittest.TestCase):
 
         engine.dispose()
 
+    def test_returns_metadata_block_with_all_expected_keys_when_present(self) -> None:
+        file_id, _, _ = self._seed_file(
+            metadata={
+                "width": 1920,
+                "height": 1080,
+                "duration_ms": None,
+                "page_count": None,
+            }
+        )
+
+        with TestClient(app) as client:
+            response = client.get(f"/files/{file_id}")
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            {
+                "width": 1920,
+                "height": 1080,
+                "duration_ms": None,
+                "page_count": None,
+            },
+            response.json()["item"]["metadata"],
+        )
+
+        engine.dispose()
+
     def _seed_file(
         self,
         *,
@@ -134,6 +163,7 @@ class Phase2BFileDetailsTestCase(unittest.TestCase):
         modified_at_fs: datetime | None = _dt(10),
         tags: list[tuple[str, str]] | None = None,
         color_tag: str | None = None,
+        metadata: dict[str, int | None] | None = None,
     ) -> tuple[int, int, list[int]]:
         with SessionLocal() as session:
             source = Source(
@@ -198,6 +228,23 @@ class Phase2BFileDetailsTestCase(unittest.TestCase):
                         rating=None,
                         is_favorite=False,
                         updated_at=_dt(9, 50),
+                    )
+                )
+
+            if metadata is not None:
+                session.add(
+                    FileMetadata(
+                        file_id=file.id,
+                        width=metadata["width"],
+                        height=metadata["height"],
+                        duration_ms=metadata["duration_ms"],
+                        page_count=metadata["page_count"],
+                        title=None,
+                        author=None,
+                        series=None,
+                        codec_info=None,
+                        extra_json=None,
+                        updated_at=_dt(10, 5),
                     )
                 )
             session.commit()

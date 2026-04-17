@@ -38,6 +38,53 @@
 - 颜色标签
 - 素材库（图片 / 视频）
 - 最近导入
+- 最小 Collections baseline
+
+---
+
+## Collections baseline update
+
+当前 repo 已把 Collections 作为新的一级对象最小落地。
+
+### 当前表结构补充
+
+新增表：
+- `collections`
+  - `id`
+  - `name`
+  - `file_type`
+  - `tag_id`
+  - `color_tag`
+  - `source_id`
+  - `parent_path`
+  - `created_at`
+  - `updated_at`
+
+当前实现选择：
+- 不保存 free-form query
+- 不使用 `criteria_json`
+- `tag_id` / `source_id` 当前为显式整数列，但不加 DB-level foreign keys
+
+### 当前 API 补充
+
+新增：
+- `GET /collections`
+- `POST /collections`
+- `DELETE /collections/{id}`
+- `GET /collections/{id}/files`
+
+当前语义：
+- collection 条件按纯 `AND` 叠加
+- collection 结果是实时查询，不是 snapshots
+- collection 结果列表复用当前 `/files` 列表项契约
+
+### 当前数据库初始化现实
+
+当前 backend 仍然通过反复执行 `app/db/migrations/0001_initial_core.sql` 来补齐 schema，而不是顺序执行多条 migration 文件。
+
+因此 Collections 基线在当前代码里的真实落点是：
+- 直接更新 `0001_initial_core.sql`
+- 不引入新的 migration runner
 - 全部文件
 - 统一详情侧栏
 
@@ -168,7 +215,8 @@
 - `updated_at` DATETIME NOT NULL
 
 ### 说明
-- 第一阶段重点使用：`width`、`height`、`duration_ms`
+- 当前实际已激活的最小范围是 image `width`、`height`
+- `duration_ms`、`page_count` 在当前 detail wire shape 中保留，但仍为 inactive
 - 电子书与软件相关字段先轻量预留，不在第一阶段做深逻辑
 
 ---
@@ -465,7 +513,7 @@ Phase 4A 当前实际字段：
 - `sort_order`
 - `query`
 - `file_type`
-- `tag_ids`
+- `tag_id`
 - `color_tag`
 - `source_id`
 - `date_from`
@@ -520,7 +568,8 @@ Phase 4A 当前实际字段：
       "display_name": "Assets",
       "is_enabled": true,
       "last_scan_at": "2026-04-16T10:00:00",
-      "last_scan_status": "succeeded"
+      "last_scan_status": "succeeded",
+      "last_scan_error_message": null
     }
   ]
 }
@@ -590,6 +639,12 @@ Phase 4A 当前实际字段：
 }
 ```
 
+#### 当前实际补充
+- 当前 scan 仍是 inline run
+- 同一 source 若已有 `pending` / `running` 的 `scan_source` task：
+  - 返回 `409 SCAN_ALREADY_RUNNING`
+- 当前不新增 tasks page / tasks route / runtime center
+
 ---
 
 ## 9.2 搜索与文件查询相关
@@ -601,16 +656,25 @@ Phase 4A 当前实际字段：
 #### 查询参数示例
 - `query=cyberpunk`
 - `file_type=image`
+- `tag_id=3`
+- `color_tag=blue`
 - `page=1&page_size=50`
 - `sort_by=modified_at&sort_order=desc`
 
 #### Phase 2A 当前实际范围
 - 仅搜索已索引 `files`
 - 仅支持名称 / 路径文本匹配
-- 仅支持 `file_type` 过滤
+- 当前支持：
+  - `file_type`
+  - `tag_id`
+  - `color_tag`
+  三种可选过滤
 - 空 query、空白 query、未传 query 视为同一种 empty-query 状态
 - 默认只返回 `is_deleted=false` 的有效记录
 - `modified_at` 为返回层字段，来源于 `coalesce(modified_at_fs, discovered_at)`
+- 过滤组合语义统一为纯 `AND`
+- `tag_id` 不存在返回 `404 TAG_NOT_FOUND`
+- `color_tag` 非法返回 `400 COLOR_TAG_INVALID`
 
 #### 返回
 ```json
@@ -641,12 +705,17 @@ Phase 4A 当前实际字段：
 - 当前只返回 `is_deleted=false` 的有效索引记录
 - 当前支持按扫描源与 exact `parent_path` 浏览
 - 不做路径树 / breadcrumb 浏览
-- 不做 query / tag / color_tag / file_type 过滤
+- 当前支持额外过滤：
+  - `tag_id`
+  - `color_tag`
+- 当前不做文本 query 与 `file_type` 过滤
 - `modified_at` 为返回层字段，来源于 `coalesce(modified_at_fs, discovered_at)`
 
 #### 当前支持查询参数
 - `source_id`
 - `parent_path`
+- `tag_id`
+- `color_tag`
 - `page`
 - `page_size`
 - `sort_by=modified_at|name|discovered_at`
@@ -654,11 +723,14 @@ Phase 4A 当前实际字段：
 
 #### 当前参数规则
 - `parent_path` 只能与 `source_id` 一起使用
+- `tag_id` 不存在时返回 `404 TAG_NOT_FOUND`
+- `color_tag` 非法时返回 `400 COLOR_TAG_INVALID`
 - `parent_path` 在服务端会做轻量规范化：
   - trim 外部空白
   - `/` 替换为 `\`
   - 去除尾部 `\`，盘符根路径如 `D:\` 除外
 - 当前 `parent_path` 为 exact-directory 过滤，不是递归后代路径过滤
+- 过滤组合语义统一为纯 `AND`
 
 #### 返回
 ```json
@@ -685,13 +757,22 @@ Phase 4A 当前实际字段：
 #### 作用
 获取统一详情侧栏所需详情数据。
 
-#### Phase 3B 当前实际范围
+#### Phase 2A 当前实际范围
 - 直接按 `files.id` 查询
-- 当前返回基础 indexed-file 字段、普通 tags 与 `color_tag`
-- 不联表读取 thumbnails / metadata
+- 当前返回基础 indexed-file 字段、普通 tags、`color_tag` 与最小 `metadata`
+- 当前不联表读取 thumbnails
 - 即使记录 `is_deleted=true`，按 id 查询仍可返回
 - `/files/{id}` 本身仍然只返回数据，不承载 open file / open containing folder 行为
 - 打开文件、打开所在目录在当前实现中属于桌面桥接动作，由详情侧栏直接调用 `window.assetWorkbench.openFile(path)` 与 `window.assetWorkbench.openContainingFolder(path)`
+- `metadata` 当前只稳定激活 image `width` / `height`
+- 当前没有 metadata row 时返回 `metadata: null`
+- 若 `metadata` 非空，当前总是固定返回：
+  - `width`
+  - `height`
+  - `duration_ms`
+  - `page_count`
+- 当前 image preview 仍不通过 `/files/{id}` JSON 返回 preview URL，而是通过独立 thumbnail route 读取
+  其中 inactive 字段显式为 `null`
 
 #### 返回
 ```json
@@ -709,6 +790,12 @@ Phase 4A 当前实际字段：
     "is_deleted": false,
     "source_id": 1,
     "color_tag": "blue",
+    "metadata": {
+      "width": 1920,
+      "height": 1080,
+      "duration_ms": null,
+      "page_count": null
+    },
     "tags": [
       {
         "id": 3,
@@ -718,6 +805,24 @@ Phase 4A 当前实际字段：
   }
 }
 ```
+
+---
+
+### GET /files/{file_id}/thumbnail
+#### 作用
+按 `files.id` 返回当前 image 文件的最小 JPEG thumbnail。
+
+#### Phase 2B 当前实际范围
+- 当前只支持 `file_type == image`
+- 当前按请求惰性生成 thumbnail
+- 当前使用 backend data directory 下的本地缓存文件
+- 当前成功时直接返回 `image/jpeg`
+- 当前不引入 thumbnails 数据库表或 JSON preview URL 契约
+
+#### 错误语义
+- file 不存在：`404 FILE_NOT_FOUND`
+- file 存在但不是 image：`404 THUMBNAIL_NOT_AVAILABLE`
+- image 读取失败或无法生成 thumbnail：`404 THUMBNAIL_NOT_AVAILABLE`
 
 ---
 
@@ -733,6 +838,11 @@ Phase 4A 当前实际字段：
 - 当前支持 `view_scope=all|image|video`
 - 当前不返回 thumbnail、preview_url、metadata
 - `modified_at` 为返回层字段，来源于 `coalesce(modified_at_fs, discovered_at)`
+
+#### Phase 2B 当前前端消费补充
+- `/library/media` 的 response shape 当前仍不变
+- image 卡片缩略图由前端直接按 `file_type == image` 请求 `/files/{id}/thumbnail`
+- video 卡片继续保持占位 poster
 
 #### 当前支持查询参数
 - `view_scope=all|image|video`
@@ -860,13 +970,45 @@ Phase 4A 当前实际字段：
 #### 作用
 获取某标签下的文件列表。
 
-#### 查询参数建议
+#### Phase 6B 当前实际范围
+- 当前只服务标签页的 tag-scoped retrieval
+- 当前只返回 `is_deleted=false` 的 active indexed files
+- 当前返回字段与 `/files` 列表项保持一致：
+  - `id`
+  - `name`
+  - `path`
+  - `file_type`
+  - `modified_at`
+  - `size_bytes`
+- `modified_at` 为返回层字段，来源于 `coalesce(modified_at_fs, discovered_at)`
+- 当前支持稳定分页与排序
+- 若标签不存在，返回 `404`，错误码 `TAG_NOT_FOUND`
+- 当前不支持 tag 内 query、`file_type`、`color_tag`、source/path 过滤
+
+#### 当前查询参数
 - `page`
 - `page_size`
 - `sort_by`
 - `sort_order`
-- `file_type`
-- `color_tag`
+
+#### 返回
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "name": "cover.png",
+      "path": "D:\\Assets\\cover.png",
+      "file_type": "image",
+      "modified_at": "2026-04-16T10:00:00",
+      "size_bytes": 12345
+    }
+  ],
+  "page": 1,
+  "page_size": 50,
+  "total": 12
+}
+```
 
 ---
 
@@ -966,14 +1108,13 @@ Phase 4A 当前实际字段：
 #### 作用
 供首页 / 设置页查看系统整体状态。
 
-#### 返回建议
+#### 当前实际字段
 ```json
 {
   "app": "ok",
   "database": "ok",
-  "task_runtime": "ok",
-  "active_tasks": 1,
   "sources_count": 3,
+  "tasks_count": 1,
   "files_count": 25432
 }
 ```
@@ -993,9 +1134,13 @@ Phase 4A 当前实际字段：
 ### 10.2 首页
 需要：
 - `GET /recent`
-- `GET /tags`
 - `GET /system/status`
 - `GET /sources`
+
+说明：
+- 当前首页只做轻量工作台入口
+- 当前首页显示 system status、recent preview、sources overview 与 quick links
+- 当前首页不承担 dashboard redesign 或页面内详情系统
 
 ### 10.3 搜索页
 需要：
@@ -1026,14 +1171,23 @@ Phase 4A 当前实际字段：
 需要：
 - `GET /tags`
 - `GET /tags/{id}/files`
-- `POST /tags`
 - `GET /files/{id}`
+
+说明：
+- 当前标签页只做“按标签找回文件”
+- 当前标签页不做标签创建、重命名、删除、统计或搜索
+- 文件详情仍通过共享详情侧栏承载
 
 ### 10.8 设置页
 需要：
 - `GET /sources`
+- `POST /sources`
 - `POST /sources/{id}/scan`
 - `GET /system/status`
+
+说明：
+- 当前设置页只承载 source management 与 system status
+- 当前不扩展偏好设置、规则编辑器或桌面行为设置
 
 ---
 

@@ -17,6 +17,9 @@ function createMainWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      // The preload bridge uses node:fs and node:path to implement desktop open
+      // actions, so it must run outside the sandboxed preload environment.
+      sandbox: false,
     },
   });
 

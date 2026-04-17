@@ -8,6 +8,7 @@ const navItems = [
   { to: "/library/media", label: "Media" },
   { to: "/recent", label: "Recent" },
   { to: "/tags", label: "Tags" },
+  { to: "/collections", label: "Collections" },
   { to: "/settings", label: "Settings" },
 ];
 
