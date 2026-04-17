@@ -1,4 +1,15 @@
-import type { TagListResponseVM, TagResponseVM } from "../../entities/tag/types";
+import type { TagFilesListResponseVM, TagFilesQueryInput, TagListResponseVM, TagResponseVM } from "../../entities/tag/types";
+
+
+export class TagsApiError extends Error {
+  code: string | null;
+
+  constructor(message: string, code: string | null = null) {
+    super(message);
+    this.name = "TagsApiError";
+    this.code = code;
+  }
+}
 
 
 function getApiBaseUrl() {
@@ -16,9 +27,9 @@ function getApiBaseUrl() {
 async function parseResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as
-      | { error?: { message?: string } }
+      | { error?: { code?: string; message?: string } }
       | null;
-    throw new Error(payload?.error?.message ?? "Request failed.");
+    throw new TagsApiError(payload?.error?.message ?? "Request failed.", payload?.error?.code ?? null);
   }
   return response.json() as Promise<T>;
 }
@@ -55,4 +66,16 @@ export async function removeTagFromFile(fileId: number, tagId: number): Promise<
     method: "DELETE",
   });
   return parseResponse<TagListResponseVM>(response);
+}
+
+
+export async function listFilesForTag(tagId: number, params: Omit<TagFilesQueryInput, "tagId">): Promise<TagFilesListResponseVM> {
+  const searchParams = new URLSearchParams({
+    page: String(params.page),
+    page_size: String(params.page_size),
+    sort_by: params.sort_by,
+    sort_order: params.sort_order,
+  });
+  const response = await fetch(`${getApiBaseUrl()}/tags/${tagId}/files?${searchParams.toString()}`);
+  return parseResponse<TagFilesListResponseVM>(response);
 }

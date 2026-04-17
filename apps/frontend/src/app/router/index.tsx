@@ -1,6 +1,7 @@
 import { Route, Routes } from "react-router-dom";
 
 import { AppShell } from "../shell/AppShell";
+import { CollectionsPage } from "../../pages/collections/CollectionsPage";
 import { FilesPage } from "../../pages/files/FilesPage";
 import { HomePage } from "../../pages/home/HomePage";
 import { MediaLibraryPage } from "../../pages/media-library/MediaLibraryPage";
@@ -22,6 +23,7 @@ export function AppRouter() {
         <Route path="/library/media" element={<MediaLibraryPage />} />
         <Route path="/recent" element={<RecentImportsPage />} />
         <Route path="/tags" element={<TagsPage />} />
+        <Route path="/collections" element={<CollectionsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
     </Routes>

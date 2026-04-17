@@ -3,7 +3,8 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
-from app.api.schemas.tag import TagCreateRequest, TagItemResponse, TagListResponse, TagResponse
+from app.api.schemas.file import FileListItemResponse, FileListResponse
+from app.api.schemas.tag import TagCreateRequest, TagFileListQueryParams, TagItemResponse, TagListResponse, TagResponse
 from app.core.errors.exceptions import BadRequestError, NotFoundError
 from app.db.models.tag import Tag
 from app.repositories.file.repository import FileRepository
@@ -65,6 +66,42 @@ class TagsService:
         self.file_tag_repository.attach_tag(session, file_id, tag.id, _utcnow())
         session.commit()
         return self._build_file_tag_list(session, file_id)
+
+    def list_files_for_tag(
+        self,
+        session: Session,
+        tag_id: int,
+        params: TagFileListQueryParams,
+    ) -> FileListResponse:
+        tag = self.tag_repository.get_by_id(session, tag_id)
+        if tag is None:
+            raise NotFoundError("TAG_NOT_FOUND", "Tag not found.")
+
+        files, total = self.file_repository.list_files_for_tag(
+            session,
+            tag_id=tag_id,
+            page=params.page,
+            page_size=params.page_size,
+            sort_by=params.sort_by,
+            sort_order=params.sort_order,
+        )
+        items = [
+            FileListItemResponse(
+                id=file.id,
+                name=file.name,
+                path=file.path,
+                file_type=file.file_type,
+                modified_at=file.modified_at_fs or file.discovered_at,
+                size_bytes=file.size_bytes,
+            )
+            for file in files
+        ]
+        return FileListResponse(
+            items=items,
+            page=params.page,
+            page_size=params.page_size,
+            total=total,
+        )
 
     def remove_tag_from_file(self, session: Session, file_id: int, tag_id: int) -> TagListResponse:
         file = self.file_repository.get_by_id(session, file_id)

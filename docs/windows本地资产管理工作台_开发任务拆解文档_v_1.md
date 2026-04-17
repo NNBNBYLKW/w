@@ -19,6 +19,14 @@
 
 > **一份可以直接指导实现排期的阶段化任务清单。**
 
+当前 repo 状态补充：
+- MVP 主链已经成立
+- Phase 2A metadata baseline 已实现
+- Phase 2B image thumbnail / preview surface 已实现
+- Phase 2C tag / color retrieval loop 已实现
+- Phase 2D scan / task runtime hardening 已实现
+- Phase 2E Smart Collections baseline 现在也已实现为最小 saved retrieval surface
+
 ---
 
 ## 2. 任务拆解原则
@@ -632,6 +640,21 @@
 ## 10.1 目标
 把前面阶段的能力统一成可交付 MVP，而不是若干独立功能点。
 
+## 10.1A Phase 6B 当前实际范围
+
+当前收口阶段聚焦于：
+- 首页从占位页补为轻量工作台入口
+- 设置页从占位页补为 system status + source management 页面
+- 标签页从占位页补为 tag-scoped retrieval 页面
+- 共享详情侧栏继续作为唯一详情 / 动作面板
+
+当前不在 Phase 6B 扩展：
+- Search / Files / Media / Recent 的新产品能力
+- 标签管理扩展
+- dashboard redesign
+- 设置系统扩张
+- 新的页面级动作系统
+
 ## 10.2 子任务包
 
 ### Task 6.1 全局布局与导航统一
@@ -689,19 +712,23 @@
 
 ---
 
-### Task 6.4 首页与设置页补全
+### Task 6.4 首页、设置页与标签页补全
 内容：
 - 首页作为方向盘页
 - 设置页承载扫描源与索引底座操作
+- 标签页承载按普通标签找回文件
 
 产出：
 - 体系完整性补齐
 
 依赖：
 - Phase 1~5
+- 标签与详情主链已经成立
 
 验收：
-- 首页与设置页满足基本导航与配置职责
+- 首页满足轻量入口职责
+- 设置页满足当前 source/system 配置职责
+- 标签页可作为一级找回入口使用
 
 ---
 
@@ -723,6 +750,7 @@
   - 搜索
   - 查看详情
   - 打标签
+  - 在标签页找回
   - 在素材库再找回
   - 打开文件 / 打开目录
 

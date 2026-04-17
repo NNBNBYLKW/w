@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useUIStore } from "../../app/providers/uiStore";
 import type { FileListSortBy, FileListSortOrder } from "../../entities/file/types";
 import type { MediaViewScope } from "../../entities/media/types";
+import { getFileThumbnailUrl } from "../../services/api/fileDetailsApi";
 import { listMediaLibrary } from "../../services/api/mediaLibraryApi";
 import { queryKeys } from "../../services/query/queryKeys";
 
@@ -18,6 +19,38 @@ const VIEW_SCOPE_OPTIONS: Array<{ label: string; value: MediaViewScope }> = [
   { label: "Images", value: "image" },
   { label: "Videos", value: "video" },
 ];
+
+function MediaPoster({
+  fileId,
+  fileType,
+  name,
+}: {
+  fileId: number;
+  fileType: "image" | "video";
+  name: string;
+}) {
+  const [thumbnailFailed, setThumbnailFailed] = useState(false);
+
+  if (fileType !== "image" || thumbnailFailed) {
+    return (
+      <div className="media-card__poster">
+        <span>{fileType === "image" ? "Image" : "Video"}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="media-card__poster media-card__poster--image">
+      <img
+        className="media-card__thumbnail"
+        src={getFileThumbnailUrl(fileId)}
+        alt={`Thumbnail for ${name}`}
+        loading="lazy"
+        onError={() => setThumbnailFailed(true)}
+      />
+    </div>
+  );
+}
 
 
 export function MediaLibraryFeature() {
@@ -131,9 +164,7 @@ export function MediaLibraryFeature() {
                 type="button"
                 onClick={() => selectItem(String(item.id))}
               >
-                <div className="media-card__poster">
-                  <span>{item.file_type === "image" ? "Image" : "Video"}</span>
-                </div>
+                <MediaPoster fileId={item.id} fileType={item.file_type} name={item.name} />
                 <div className="media-card__body">
                   <strong>{item.name}</strong>
                   <p>{item.path}</p>

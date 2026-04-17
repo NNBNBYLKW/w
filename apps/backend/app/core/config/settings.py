@@ -36,5 +36,9 @@ class Settings(BaseSettings):
     def allowed_origins(self) -> list[str]:
         return [self.frontend_origin, self.frontend_origin_alt]
 
+    @property
+    def allowed_origin_regex(self) -> str:
+        return r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
+
 
 settings = Settings()

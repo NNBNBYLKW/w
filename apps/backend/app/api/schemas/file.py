@@ -29,6 +29,8 @@ def normalize_directory_path(value: str | None) -> str | None:
 class FileListQueryParams(BaseModel):
     source_id: int | None = Field(default=None, ge=1)
     parent_path: str | None = None
+    tag_id: int | None = Field(default=None, ge=1)
+    color_tag: str | None = None
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=50, ge=1, le=100)
     sort_by: FileListSortBy = "modified_at"
@@ -38,6 +40,13 @@ class FileListQueryParams(BaseModel):
     @classmethod
     def normalize_parent_path(cls, value: str | None) -> str | None:
         return normalize_directory_path(value)
+
+    @field_validator("color_tag", mode="before")
+    @classmethod
+    def normalize_color_tag(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip()
 
 
 class FileListItemResponse(BaseModel):
@@ -56,6 +65,13 @@ class FileListResponse(BaseModel):
     total: int
 
 
+class FileMetadataResponse(BaseModel):
+    width: int | None
+    height: int | None
+    duration_ms: int | None
+    page_count: int | None
+
+
 class FileDetailItemResponse(BaseModel):
     id: int
     name: str
@@ -70,6 +86,7 @@ class FileDetailItemResponse(BaseModel):
     source_id: int
     tags: list[TagItemResponse]
     color_tag: ColorTagValue | None
+    metadata: FileMetadataResponse | None
 
 
 class FileDetailResponse(BaseModel):

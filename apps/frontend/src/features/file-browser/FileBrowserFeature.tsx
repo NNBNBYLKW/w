@@ -2,15 +2,26 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { useUIStore } from "../../app/providers/uiStore";
-import type { FileListSortBy, FileListSortOrder } from "../../entities/file/types";
+import type { ColorTagValue, FileListSortBy, FileListSortOrder } from "../../entities/file/types";
 import { listIndexedFiles } from "../../services/api/filesApi";
 import { getSources } from "../../services/api/sourcesApi";
+import { listTags } from "../../services/api/tagsApi";
 import { queryKeys } from "../../services/query/queryKeys";
 
 
 function formatBytes(value: number | null): string {
   return value === null ? "Size unavailable" : `${value.toLocaleString()} bytes`;
 }
+
+
+const COLOR_TAG_OPTIONS: Array<{ label: string; value: ColorTagValue | "all" }> = [
+  { label: "All colors", value: "all" },
+  { label: "Red", value: "red" },
+  { label: "Yellow", value: "yellow" },
+  { label: "Green", value: "green" },
+  { label: "Blue", value: "blue" },
+  { label: "Purple", value: "purple" },
+];
 
 
 function isDriveRoot(value: string): boolean {
@@ -66,12 +77,18 @@ export function FileBrowserFeature() {
   const [draftParentPath, setDraftParentPath] = useState("");
   const [appliedParentPath, setAppliedParentPath] = useState<string | null>(null);
   const [browseError, setBrowseError] = useState<string | null>(null);
+  const [selectedTagId, setSelectedTagId] = useState("all");
+  const [selectedColorTag, setSelectedColorTag] = useState<ColorTagValue | "all">("all");
   const [sortBy, setSortBy] = useState<FileListSortBy>("modified_at");
   const [sortOrder, setSortOrder] = useState<FileListSortOrder>("desc");
   const [page, setPage] = useState(1);
   const sourcesQuery = useQuery({
     queryKey: queryKeys.sources,
     queryFn: getSources,
+  });
+  const tagsQuery = useQuery({
+    queryKey: queryKeys.tags,
+    queryFn: listTags,
   });
   const selectedSource =
     selectedSourceId === "all"
@@ -84,6 +101,8 @@ export function FileBrowserFeature() {
   const queryParams = {
     source_id: selectedSource?.id,
     parent_path: currentDirectoryPath ?? undefined,
+    tag_id: selectedTagId === "all" ? undefined : Number(selectedTagId),
+    color_tag: selectedColorTag === "all" ? undefined : selectedColorTag,
     page,
     page_size: 50,
     sort_by: sortBy,
@@ -228,6 +247,42 @@ export function FileBrowserFeature() {
             <option value="modified_at">Modified</option>
             <option value="name">Name</option>
             <option value="discovered_at">Discovered</option>
+            </select>
+          </label>
+        <label className="field-stack files-toolbar__field">
+          <span>Tag</span>
+          <select
+            className="select-input"
+            value={selectedTagId}
+            onChange={(event) => {
+              setSelectedTagId(event.target.value);
+              setPage(1);
+            }}
+            disabled={tagsQuery.isLoading || tagsQuery.error instanceof Error}
+          >
+            <option value="all">{tagsQuery.error instanceof Error ? "Tags unavailable" : "All tags"}</option>
+            {(tagsQuery.data?.items ?? []).map((tag) => (
+              <option key={tag.id} value={tag.id}>
+                {tag.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field-stack files-toolbar__field">
+          <span>Color</span>
+          <select
+            className="select-input"
+            value={selectedColorTag}
+            onChange={(event) => {
+              setSelectedColorTag(event.target.value as ColorTagValue | "all");
+              setPage(1);
+            }}
+          >
+            {COLOR_TAG_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </label>
         <label className="field-stack files-toolbar__field">
@@ -302,6 +357,13 @@ export function FileBrowserFeature() {
         <div className="status-block page-card">
           <strong>Source list unavailable</strong>
           <p>{sourcesQuery.error.message}</p>
+        </div>
+      ) : null}
+
+      {tagsQuery.error instanceof Error ? (
+        <div className="status-block page-card">
+          <strong>Tag filters unavailable</strong>
+          <p>{tagsQuery.error.message}</p>
         </div>
       ) : null}
 

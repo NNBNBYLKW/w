@@ -23,6 +23,7 @@ class SourceResponse(BaseModel):
     scan_mode: str
     last_scan_at: datetime | None
     last_scan_status: str | None
+    last_scan_error_message: str | None = None
     created_at: datetime
     updated_at: datetime
 

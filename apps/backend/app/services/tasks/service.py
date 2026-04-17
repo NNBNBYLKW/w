@@ -34,6 +34,12 @@ class TaskService:
         session.refresh(task)
         return task
 
+    def get_active_scan_task_for_source(self, session: Session, source_id: int) -> Task | None:
+        return self.task_repository.get_active_scan_task_for_source(session, source_id)
+
+    def list_latest_scan_tasks_by_source_ids(self, session: Session, source_ids: list[int]) -> dict[int, Task]:
+        return self.task_repository.list_latest_scan_tasks_by_source_ids(session, source_ids)
+
     def mark_running(self, task: Task, started_at: datetime) -> None:
         task.status = "running"
         task.started_at = started_at

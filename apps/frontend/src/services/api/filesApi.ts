@@ -32,6 +32,12 @@ export async function listIndexedFiles(input: FilesListQueryInput): Promise<File
   if (input.parent_path !== undefined) {
     params.set("parent_path", input.parent_path);
   }
+  if (input.tag_id !== undefined) {
+    params.set("tag_id", String(input.tag_id));
+  }
+  if (input.color_tag) {
+    params.set("color_tag", input.color_tag);
+  }
   params.set("page", String(input.page));
   params.set("page_size", String(input.page_size));
   params.set("sort_by", input.sort_by);

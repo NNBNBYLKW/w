@@ -8,6 +8,7 @@ from app.db.models.source import Source
 from app.db.models.task import Task
 from app.repositories.file.repository import FileRepository
 from app.repositories.source.repository import SourceRepository
+from app.services.metadata.service import MetadataService
 from app.services.tasks.service import TaskService
 from app.workers.scanning.scanner import ScannerWorker
 
@@ -19,6 +20,7 @@ def _utcnow() -> datetime:
 class ScanningService:
     def __init__(self) -> None:
         self.file_repository = FileRepository()
+        self.metadata_service = MetadataService()
         self.source_repository = SourceRepository()
         self.task_service = TaskService()
         self.worker = ScannerWorker()
@@ -36,6 +38,12 @@ class ScanningService:
             records = self.worker.scan_source(source.path)
             self.file_repository.upsert_discovered_files(session, source.id, records, scanned_at)
             self.file_repository.mark_unseen_files_deleted(session, source.id, scanned_at)
+            seen_files = self.file_repository.list_seen_files_for_source_scan(
+                session,
+                source_id=source.id,
+                scanned_at=scanned_at,
+            )
+            self.metadata_service.enrich_scanned_files(session, seen_files)
 
             finished_at = _utcnow()
             self.task_service.mark_succeeded(task, finished_at)

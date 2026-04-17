@@ -34,6 +34,12 @@ export async function searchFiles(input: SearchQueryInput): Promise<SearchRespon
   if (input.file_type) {
     params.set("file_type", input.file_type);
   }
+  if (input.tag_id !== undefined) {
+    params.set("tag_id", String(input.tag_id));
+  }
+  if (input.color_tag) {
+    params.set("color_tag", input.color_tag);
+  }
 
   params.set("page", String(input.page));
   params.set("page_size", String(input.page_size));

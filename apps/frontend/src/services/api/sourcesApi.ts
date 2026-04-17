@@ -7,6 +7,17 @@ type SourceListResponse = {
 };
 
 
+export class SourcesApiError extends Error {
+  code: string | null;
+
+  constructor(message: string, code: string | null = null) {
+    super(message);
+    this.name = "SourcesApiError";
+    this.code = code;
+  }
+}
+
+
 function getApiBaseUrl() {
   const desktopApi = (
     window as typeof window & {
@@ -22,9 +33,9 @@ function getApiBaseUrl() {
 async function parseResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as
-      | { error?: { message?: string } }
+      | { error?: { code?: string; message?: string } }
       | null;
-    throw new Error(payload?.error?.message ?? "Request failed.");
+    throw new SourcesApiError(payload?.error?.message ?? "Request failed.", payload?.error?.code ?? null);
   }
   return response.json() as Promise<T>;
 }
