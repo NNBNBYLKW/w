@@ -212,6 +212,8 @@ class FileRepository:
         session: Session,
         *,
         view_scope: str,
+        tag_id: int | None,
+        color_tag: str | None,
         page: int,
         page_size: int,
         sort_by: str,
@@ -223,6 +225,70 @@ class FileRepository:
         ]
         if view_scope != "all":
             filters.append(File.file_type == view_scope)
+        if tag_id is not None:
+            filters.append(
+                select(1)
+                .select_from(FileTag)
+                .where(FileTag.file_id == File.id, FileTag.tag_id == tag_id)
+                .exists()
+            )
+        if color_tag is not None:
+            filters.append(
+                select(1)
+                .select_from(FileUserMeta)
+                .where(
+                    FileUserMeta.file_id == File.id,
+                    FileUserMeta.color_tag == color_tag,
+                )
+                .exists()
+            )
+
+        return self._select_files(
+            session,
+            filters=filters,
+            page=page,
+            page_size=page_size,
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
+
+    def list_book_files(
+        self,
+        session: Session,
+        *,
+        page: int,
+        page_size: int,
+        sort_by: str,
+        sort_order: str,
+    ) -> tuple[list[File], int]:
+        filters = [
+            File.is_deleted.is_(False),
+            func.lower(File.extension).in_(("epub", "pdf")),
+        ]
+
+        return self._select_files(
+            session,
+            filters=filters,
+            page=page,
+            page_size=page_size,
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
+
+    def list_software_files(
+        self,
+        session: Session,
+        *,
+        page: int,
+        page_size: int,
+        sort_by: str,
+        sort_order: str,
+    ) -> tuple[list[File], int]:
+        normalized_extension = func.ltrim(func.lower(func.coalesce(File.extension, "")), ".")
+        filters = [
+            File.is_deleted.is_(False),
+            normalized_extension.in_(("exe", "msi", "zip")),
+        ]
 
         return self._select_files(
             session,

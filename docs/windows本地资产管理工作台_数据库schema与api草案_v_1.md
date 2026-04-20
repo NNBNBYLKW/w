@@ -1,5 +1,15 @@
 # Windows 本地资产管理工作台 数据库 Schema 与 API 草案 v1
 
+> **历史文档说明**
+>
+> 本文档保留为较早阶段的数据协议草案，不再作为当前仓库的 canonical current-state source。
+>
+> 当前应优先阅读：
+>
+> - `README.md`
+> - `docs/current-project-status-dossier.md`
+> - release-facing current-state docs
+
 ## 1. 文档目的
 
 本文件用于将当前 PRD v1、低保真线框文案 v1、技术架构初稿，继续下沉为第一阶段可执行的**数据协议草案**。

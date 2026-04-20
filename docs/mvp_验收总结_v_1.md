@@ -1,5 +1,15 @@
 # MVP 验收总结 v1
 
+> **历史文档说明**
+>
+> 本文档保留为较早阶段的验收总结记录，不再作为当前仓库的 canonical current-state source。
+>
+> 当前应优先阅读：
+>
+> - `README.md`
+> - `docs/current-project-status-dossier.md`
+> - release-facing current-state docs
+
 ## 1. 当前版本结论
 
 当前版本已达到 **可用 MVP** 水平，核心主链已跑通并完成手工验收与构建/测试验证。
@@ -356,4 +366,3 @@
 - 小步增量
 - 每阶段单独验收
 - 不把 browse / search / media / shell 行为一次性混做
-

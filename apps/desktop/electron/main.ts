@@ -1,9 +1,10 @@
 import path from "node:path";
 
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, type OpenDialogOptions } from "electron";
 
 
 const frontendUrl = process.env.FRONTEND_URL ?? "http://127.0.0.1:5173";
+const selectFolderChannel = "asset-workbench:select-folder";
 
 
 function createMainWindow() {
@@ -28,6 +29,23 @@ function createMainWindow() {
 
 
 app.whenReady().then(() => {
+  ipcMain.handle(selectFolderChannel, async () => {
+    const ownerWindow = BrowserWindow.getFocusedWindow();
+    const options: OpenDialogOptions = {
+      properties: ["openDirectory"],
+      title: "Choose source folder",
+    };
+    const result = ownerWindow
+      ? await dialog.showOpenDialog(ownerWindow, options)
+      : await dialog.showOpenDialog(options);
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+
+    return result.filePaths[0] ?? null;
+  });
+
   createMainWindow();
 
   app.on("activate", () => {

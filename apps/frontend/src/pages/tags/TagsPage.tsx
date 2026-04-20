@@ -7,7 +7,7 @@ export function TagsPage() {
       <header className="page-header">
         <span className="page-header__eyebrow">Tag-scoped retrieval</span>
         <h3>Tags</h3>
-        <p>Use normal tags as a retrieval entry point for active indexed files, without expanding into tag-management tooling.</p>
+        <p>Use normal tags as a retrieval entry point for active indexed files.</p>
       </header>
       <TagBrowserFeature />
     </section>

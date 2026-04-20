@@ -9,17 +9,32 @@ import { SystemStatusFeature } from "../system-status/SystemStatusFeature";
 
 
 const QUICK_LINKS = [
-  { to: "/search", label: "Open Search" },
-  { to: "/files", label: "Browse Files" },
-  { to: "/library/media", label: "Open Media Library" },
-  { to: "/recent", label: "Review Recent Imports" },
-  { to: "/tags", label: "Find By Tag" },
-  { to: "/settings", label: "Open Settings" },
+  { to: "/search", label: "Indexed search results" },
+  { to: "/files", label: "Indexed-files browse" },
+  { to: "/library/media", label: "Indexed media listing" },
+  { to: "/recent", label: "Recently indexed files" },
+  { to: "/tags", label: "Tag-scoped retrieval" },
+  { to: "/collections", label: "Saved collections" },
+  { to: "/settings", label: "Source / system entry" },
 ];
 
 
 function formatTimestamp(value: string): string {
   return new Date(value).toLocaleString();
+}
+
+
+function formatScanStatusLabel(value: string | null): string {
+  if (value === "running") {
+    return "Scan running";
+  }
+  if (value === "failed") {
+    return "Last scan failed";
+  }
+  if (value === "succeeded") {
+    return "Last scan succeeded";
+  }
+  return "No scan yet";
 }
 
 
@@ -47,9 +62,9 @@ export function HomeOverviewFeature() {
   return (
     <section className="home-overview">
       <SystemStatusFeature
-        eyebrow="Workbench entry"
+        eyebrow="Overview entry"
         title="System status"
-        description="Use this page as a lightweight entry point for current runtime health and indexed-content coverage."
+        description="Use this lightweight overview entry to review current runtime health and indexed-content coverage before opening a workbench flow."
       />
 
       <div className="home-overview-grid">
@@ -100,7 +115,7 @@ export function HomeOverviewFeature() {
           <div className="feature-header">
             <span className="page-header__eyebrow">Sources overview</span>
             <h3>Indexed source coverage</h3>
-            <p>Review persisted source rows and jump into settings when you need to add or rescan a source.</p>
+            <p>Review saved source rows and their latest scan state before opening source setup and scan control in Settings.</p>
           </div>
 
           {sourcesQuery.isLoading ? <p>Loading sources overview...</p> : null}
@@ -113,7 +128,7 @@ export function HomeOverviewFeature() {
           ) : null}
 
           {sourcesQuery.data && sourcesQuery.data.length === 0 ? (
-            <div className="future-frame">No persisted sources yet. Open Settings to add your first indexed source.</div>
+            <div className="future-frame">No saved sources yet. Open Settings to start source setup and run a first scan.</div>
           ) : null}
 
           {sourcesQuery.data && sourcesQuery.data.length > 0 ? (
@@ -128,7 +143,7 @@ export function HomeOverviewFeature() {
                     ) : null}
                   </div>
                   <div className="source-row__actions">
-                    <span className="status-pill">{source.last_scan_status ?? "No scan yet"}</span>
+                    <span className="status-pill">{formatScanStatusLabel(source.last_scan_status)}</span>
                   </div>
                 </article>
               ))}
@@ -140,7 +155,7 @@ export function HomeOverviewFeature() {
           <div className="feature-header">
             <span className="page-header__eyebrow">Quick links</span>
             <h3>Jump into a workbench flow</h3>
-            <p>Open the existing search, browse, media, recent, tags, or settings flows without changing the shared shell.</p>
+            <p>Open the current search, browse, media, recent, tag, collections, or source-entry pages without leaving the shared shell.</p>
           </div>
 
           <div className="quick-links-grid">

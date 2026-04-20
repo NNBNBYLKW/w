@@ -6,14 +6,14 @@ export function SettingsPage() {
   return (
     <section className="page-card">
       <header className="page-header">
-        <span className="page-header__eyebrow">Current MVP settings</span>
+        <span className="page-header__eyebrow">Source and system entry</span>
         <h3>Settings</h3>
-        <p>Manage the current source and system capabilities here without expanding into a broader preferences surface.</p>
+        <p>Use this lightweight page as the source and system entry for the local-first workbench.</p>
       </header>
       <SystemStatusFeature
-        eyebrow="Current runtime"
+        eyebrow="System overview"
         title="System status"
-        description="Review the current runtime and indexed-content totals before adding or rescanning sources."
+        description="Review current runtime and indexed-content totals before adding or rescanning sources."
       />
       <SourceManagementFeature />
     </section>

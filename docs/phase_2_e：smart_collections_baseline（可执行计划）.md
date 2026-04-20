@@ -1,5 +1,15 @@
 # Phase 2E：Smart Collections Baseline（可执行计划）
 
+> **历史文档说明**
+>
+> 本文档保留为较早阶段的执行记录，不再作为当前仓库的 canonical current-state source。
+>
+> 当前应优先阅读：
+>
+> - `README.md`
+> - `docs/current-project-status-dossier.md`
+> - release-facing current-state docs
+
 ## Implementation status update
 
 当前 repo 已经按窄范围实现了 Phase 2E baseline：
