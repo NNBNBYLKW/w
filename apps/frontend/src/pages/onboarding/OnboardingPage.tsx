@@ -5,9 +5,9 @@ export function OnboardingPage() {
   return (
     <section className="page-card">
       <header className="page-header">
-        <span className="page-header__eyebrow">Phase 0</span>
-        <h3>Source onboarding</h3>
-        <p>Add sources, review persisted source rows, and trigger placeholder scan tasks.</p>
+        <span className="page-header__eyebrow">Getting started</span>
+        <h3>Source setup</h3>
+        <p>Start source setup for the local-first workbench, review saved source rows, and run an initial scan.</p>
       </header>
       <SourceManagementFeature />
     </section>

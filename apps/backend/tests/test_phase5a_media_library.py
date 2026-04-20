@@ -5,7 +5,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from app.db.models.file import File
+from app.db.models.file_tag import FileTag
+from app.db.models.file_user_meta import FileUserMeta
 from app.db.models.source import Source
+from app.db.models.tag import Tag
 from app.db.session.engine import engine
 from app.db.session.session import SessionLocal
 from app.main import app
@@ -92,7 +95,64 @@ class Phase5AMediaLibraryTestCase(unittest.TestCase):
         self.assertEqual(["Loop.mp4", "Trailer.mp4"], [item["name"] for item in page_one.json()["items"]])
         self.assertEqual(["SceneA.png", "SceneB.png"], [item["name"] for item in page_two.json()["items"]])
 
-    def _seed_sources_and_files(self) -> None:
+    def test_filters_by_tag_id(self) -> None:
+        seeded = self._seed_sources_and_files()
+
+        with TestClient(app) as client:
+            response = client.get(
+                "/library/media",
+                params={"tag_id": seeded["concept_tag_id"], "sort_by": "name", "sort_order": "asc"},
+            )
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(["SceneA.png", "Trailer.mp4"], [item["name"] for item in response.json()["items"]])
+
+    def test_filters_by_color_tag(self) -> None:
+        self._seed_sources_and_files()
+
+        with TestClient(app) as client:
+            response = client.get("/library/media", params={"color_tag": "blue", "sort_by": "name", "sort_order": "asc"})
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(["Loop.mp4", "SceneA.png"], [item["name"] for item in response.json()["items"]])
+
+    def test_combines_view_scope_with_tag_filter(self) -> None:
+        seeded = self._seed_sources_and_files()
+
+        with TestClient(app) as client:
+            response = client.get(
+                "/library/media",
+                params={"view_scope": "image", "tag_id": seeded["concept_tag_id"], "sort_by": "name", "sort_order": "asc"},
+            )
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(["SceneA.png"], [item["name"] for item in response.json()["items"]])
+
+    def test_combines_view_scope_with_color_tag_filter(self) -> None:
+        self._seed_sources_and_files()
+
+        with TestClient(app) as client:
+            response = client.get(
+                "/library/media",
+                params={"view_scope": "video", "color_tag": "blue", "sort_by": "name", "sort_order": "asc"},
+            )
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(["Loop.mp4"], [item["name"] for item in response.json()["items"]])
+
+    def test_combines_tag_and_color_tag_filters(self) -> None:
+        seeded = self._seed_sources_and_files()
+
+        with TestClient(app) as client:
+            response = client.get(
+                "/library/media",
+                params={"tag_id": seeded["concept_tag_id"], "color_tag": "blue", "sort_by": "name", "sort_order": "asc"},
+            )
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(["SceneA.png"], [item["name"] for item in response.json()["items"]])
+
+    def _seed_sources_and_files(self) -> dict[str, int]:
         with SessionLocal() as session:
             source = Source(
                 path=r"D:\Assets",
@@ -106,120 +166,146 @@ class Phase5AMediaLibraryTestCase(unittest.TestCase):
             )
             session.add(source)
             session.flush()
+            concept_tag = Tag(
+                name="Concept",
+                normalized_name="concept",
+                created_at=_dt(8),
+                updated_at=_dt(8),
+            )
+            loopable_tag = Tag(
+                name="Loopable",
+                normalized_name="loopable",
+                created_at=_dt(8),
+                updated_at=_dt(8),
+            )
+            session.add_all([concept_tag, loopable_tag])
+            session.flush()
 
+            scene_a = File(
+                source_id=source.id,
+                path=r"D:\Assets\Refs\SceneA.png",
+                parent_path=r"D:\Assets\Refs",
+                name="SceneA.png",
+                stem="SceneA",
+                extension="png",
+                file_type="image",
+                mime_type=None,
+                size_bytes=120,
+                created_at_fs=_dt(9, 20),
+                modified_at_fs=_dt(11),
+                discovered_at=_dt(9, 25),
+                last_seen_at=_dt(11),
+                is_deleted=False,
+                checksum_hint=None,
+                updated_at=_dt(11),
+            )
+            scene_b = File(
+                source_id=source.id,
+                path=r"D:\Assets\Refs\SceneB.png",
+                parent_path=r"D:\Assets\Refs",
+                name="SceneB.png",
+                stem="SceneB",
+                extension="png",
+                file_type="image",
+                mime_type=None,
+                size_bytes=None,
+                created_at_fs=_dt(9, 22),
+                modified_at_fs=_dt(11),
+                discovered_at=_dt(9, 28),
+                last_seen_at=_dt(11),
+                is_deleted=False,
+                checksum_hint=None,
+                updated_at=_dt(11),
+            )
+            trailer = File(
+                source_id=source.id,
+                path=r"D:\Assets\Videos\Trailer.mp4",
+                parent_path=r"D:\Assets\Videos",
+                name="Trailer.mp4",
+                stem="Trailer",
+                extension="mp4",
+                file_type="video",
+                mime_type=None,
+                size_bytes=500,
+                created_at_fs=_dt(11, 30),
+                modified_at_fs=None,
+                discovered_at=_dt(12),
+                last_seen_at=_dt(12),
+                is_deleted=False,
+                checksum_hint=None,
+                updated_at=_dt(12),
+            )
+            loop = File(
+                source_id=source.id,
+                path=r"D:\Assets\Videos\Loop.mp4",
+                parent_path=r"D:\Assets\Videos",
+                name="Loop.mp4",
+                stem="Loop",
+                extension="mp4",
+                file_type="video",
+                mime_type=None,
+                size_bytes=700,
+                created_at_fs=_dt(12, 15),
+                modified_at_fs=_dt(13),
+                discovered_at=_dt(12, 20),
+                last_seen_at=_dt(13),
+                is_deleted=False,
+                checksum_hint=None,
+                updated_at=_dt(13),
+            )
+            notes = File(
+                source_id=source.id,
+                path=r"D:\Assets\Docs\Notes.pdf",
+                parent_path=r"D:\Assets\Docs",
+                name="Notes.pdf",
+                stem="Notes",
+                extension="pdf",
+                file_type="document",
+                mime_type=None,
+                size_bytes=300,
+                created_at_fs=_dt(10),
+                modified_at_fs=_dt(10, 30),
+                discovered_at=_dt(10, 35),
+                last_seen_at=_dt(10, 30),
+                is_deleted=False,
+                checksum_hint=None,
+                updated_at=_dt(10, 30),
+            )
+            deleted_scene = File(
+                source_id=source.id,
+                path=r"D:\Assets\Refs\deleted-scene.png",
+                parent_path=r"D:\Assets\Refs",
+                name="deleted-scene.png",
+                stem="deleted-scene",
+                extension="png",
+                file_type="image",
+                mime_type=None,
+                size_bytes=60,
+                created_at_fs=_dt(8, 45),
+                modified_at_fs=_dt(9),
+                discovered_at=_dt(9),
+                last_seen_at=_dt(9),
+                is_deleted=True,
+                checksum_hint=None,
+                updated_at=_dt(14),
+            )
+            session.add_all([scene_a, scene_b, trailer, loop, notes, deleted_scene])
+            session.flush()
             session.add_all(
                 [
-                    File(
-                        source_id=source.id,
-                        path=r"D:\Assets\Refs\SceneA.png",
-                        parent_path=r"D:\Assets\Refs",
-                        name="SceneA.png",
-                        stem="SceneA",
-                        extension="png",
-                        file_type="image",
-                        mime_type=None,
-                        size_bytes=120,
-                        created_at_fs=_dt(9, 20),
-                        modified_at_fs=_dt(11),
-                        discovered_at=_dt(9, 25),
-                        last_seen_at=_dt(11),
-                        is_deleted=False,
-                        checksum_hint=None,
-                        updated_at=_dt(11),
-                    ),
-                    File(
-                        source_id=source.id,
-                        path=r"D:\Assets\Refs\SceneB.png",
-                        parent_path=r"D:\Assets\Refs",
-                        name="SceneB.png",
-                        stem="SceneB",
-                        extension="png",
-                        file_type="image",
-                        mime_type=None,
-                        size_bytes=None,
-                        created_at_fs=_dt(9, 22),
-                        modified_at_fs=_dt(11),
-                        discovered_at=_dt(9, 28),
-                        last_seen_at=_dt(11),
-                        is_deleted=False,
-                        checksum_hint=None,
-                        updated_at=_dt(11),
-                    ),
-                    File(
-                        source_id=source.id,
-                        path=r"D:\Assets\Videos\Trailer.mp4",
-                        parent_path=r"D:\Assets\Videos",
-                        name="Trailer.mp4",
-                        stem="Trailer",
-                        extension="mp4",
-                        file_type="video",
-                        mime_type=None,
-                        size_bytes=500,
-                        created_at_fs=_dt(11, 30),
-                        modified_at_fs=None,
-                        discovered_at=_dt(12),
-                        last_seen_at=_dt(12),
-                        is_deleted=False,
-                        checksum_hint=None,
-                        updated_at=_dt(12),
-                    ),
-                    File(
-                        source_id=source.id,
-                        path=r"D:\Assets\Videos\Loop.mp4",
-                        parent_path=r"D:\Assets\Videos",
-                        name="Loop.mp4",
-                        stem="Loop",
-                        extension="mp4",
-                        file_type="video",
-                        mime_type=None,
-                        size_bytes=700,
-                        created_at_fs=_dt(12, 15),
-                        modified_at_fs=_dt(13),
-                        discovered_at=_dt(12, 20),
-                        last_seen_at=_dt(13),
-                        is_deleted=False,
-                        checksum_hint=None,
-                        updated_at=_dt(13),
-                    ),
-                    File(
-                        source_id=source.id,
-                        path=r"D:\Assets\Docs\Notes.pdf",
-                        parent_path=r"D:\Assets\Docs",
-                        name="Notes.pdf",
-                        stem="Notes",
-                        extension="pdf",
-                        file_type="document",
-                        mime_type=None,
-                        size_bytes=300,
-                        created_at_fs=_dt(10),
-                        modified_at_fs=_dt(10, 30),
-                        discovered_at=_dt(10, 35),
-                        last_seen_at=_dt(10, 30),
-                        is_deleted=False,
-                        checksum_hint=None,
-                        updated_at=_dt(10, 30),
-                    ),
-                    File(
-                        source_id=source.id,
-                        path=r"D:\Assets\Refs\deleted-scene.png",
-                        parent_path=r"D:\Assets\Refs",
-                        name="deleted-scene.png",
-                        stem="deleted-scene",
-                        extension="png",
-                        file_type="image",
-                        mime_type=None,
-                        size_bytes=60,
-                        created_at_fs=_dt(8, 45),
-                        modified_at_fs=_dt(9),
-                        discovered_at=_dt(9),
-                        last_seen_at=_dt(9),
-                        is_deleted=True,
-                        checksum_hint=None,
-                        updated_at=_dt(14),
-                    ),
+                    FileTag(file_id=scene_a.id, tag_id=concept_tag.id, created_at=_dt(13, 5)),
+                    FileTag(file_id=trailer.id, tag_id=concept_tag.id, created_at=_dt(13, 6)),
+                    FileTag(file_id=loop.id, tag_id=loopable_tag.id, created_at=_dt(13, 7)),
+                    FileUserMeta(file_id=scene_a.id, color_tag="blue", status=None, rating=None, is_favorite=False, updated_at=_dt(13, 8)),
+                    FileUserMeta(file_id=trailer.id, color_tag="red", status=None, rating=None, is_favorite=False, updated_at=_dt(13, 9)),
+                    FileUserMeta(file_id=loop.id, color_tag="blue", status=None, rating=None, is_favorite=False, updated_at=_dt(13, 10)),
                 ]
             )
             session.commit()
+            return {
+                "concept_tag_id": concept_tag.id,
+                "loopable_tag_id": loopable_tag.id,
+            }
 
     def _reset_database(self) -> None:
         with SessionLocal() as session:

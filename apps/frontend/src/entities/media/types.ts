@@ -1,10 +1,12 @@
-import type { FileListSortBy, FileListSortOrder } from "../file/types";
+import type { ColorTagValue, FileListSortBy, FileListSortOrder } from "../file/types";
 
 
 export type MediaViewScope = "all" | "image" | "video";
 
 export type MediaListQueryInput = {
   view_scope: MediaViewScope;
+  tag_id?: number;
+  color_tag?: ColorTagValue;
   page: number;
   page_size: number;
   sort_by: FileListSortBy;

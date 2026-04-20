@@ -1,6 +1,7 @@
 import { Route, Routes } from "react-router-dom";
 
 import { AppShell } from "../shell/AppShell";
+import { BooksPage } from "../../pages/books/BooksPage";
 import { CollectionsPage } from "../../pages/collections/CollectionsPage";
 import { FilesPage } from "../../pages/files/FilesPage";
 import { HomePage } from "../../pages/home/HomePage";
@@ -9,6 +10,7 @@ import { OnboardingPage } from "../../pages/onboarding/OnboardingPage";
 import { RecentImportsPage } from "../../pages/recent/RecentImportsPage";
 import { SearchPage } from "../../pages/search/SearchPage";
 import { SettingsPage } from "../../pages/settings/SettingsPage";
+import { SoftwarePage } from "../../pages/software/SoftwarePage";
 import { TagsPage } from "../../pages/tags/TagsPage";
 
 
@@ -20,6 +22,8 @@ export function AppRouter() {
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/files" element={<FilesPage />} />
+        <Route path="/books" element={<BooksPage />} />
+        <Route path="/software" element={<SoftwarePage />} />
         <Route path="/library/media" element={<MediaLibraryPage />} />
         <Route path="/recent" element={<RecentImportsPage />} />
         <Route path="/tags" element={<TagsPage />} />

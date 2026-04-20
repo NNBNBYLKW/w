@@ -1,5 +1,15 @@
 # Phase 2C：Tag / Color Retrieval Loop Expansion（可执行计划）
 
+> **历史文档说明**
+>
+> 本文档保留为较早阶段的执行记录，不再作为当前仓库的 canonical current-state source。
+>
+> 当前应优先阅读：
+>
+> - `README.md`
+> - `docs/current-project-status-dossier.md`
+> - release-facing current-state docs
+
 ## 1. 任务目标
 
 当前项目已经具备以下已成立能力：

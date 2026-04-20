@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const node_path_1 = __importDefault(require("node:path"));
 const electron_1 = require("electron");
 const frontendUrl = process.env.FRONTEND_URL ?? "http://127.0.0.1:5173";
+const selectFolderChannel = "asset-workbench:select-folder";
 function createMainWindow() {
     const window = new electron_1.BrowserWindow({
         width: 1440,
@@ -25,6 +26,20 @@ function createMainWindow() {
     void window.loadURL(frontendUrl);
 }
 electron_1.app.whenReady().then(() => {
+    electron_1.ipcMain.handle(selectFolderChannel, async () => {
+        const ownerWindow = electron_1.BrowserWindow.getFocusedWindow();
+        const options = {
+            properties: ["openDirectory"],
+            title: "Choose source folder",
+        };
+        const result = ownerWindow
+            ? await electron_1.dialog.showOpenDialog(ownerWindow, options)
+            : await electron_1.dialog.showOpenDialog(options);
+        if (result.canceled || result.filePaths.length === 0) {
+            return null;
+        }
+        return result.filePaths[0] ?? null;
+    });
     createMainWindow();
     electron_1.app.on("activate", () => {
         if (electron_1.BrowserWindow.getAllWindows().length === 0) {

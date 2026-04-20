@@ -7,6 +7,7 @@ const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const electron_1 = require("electron");
 const backendBaseUrl = process.env.BACKEND_URL ?? "http://127.0.0.1:8000";
+const selectFolderChannel = "asset-workbench:select-folder";
 function normalizeInputPath(value) {
     const normalized = value.trim().replace(/\//g, "\\");
     return normalized || null;
@@ -78,7 +79,7 @@ async function openContainingFolder(filePath) {
 }
 electron_1.contextBridge.exposeInMainWorld("assetWorkbench", {
     getBackendBaseUrl: () => backendBaseUrl,
-    selectFolder: async () => null,
+    selectFolder: async () => electron_1.ipcRenderer.invoke(selectFolderChannel),
     openFile,
     openContainingFolder,
 });

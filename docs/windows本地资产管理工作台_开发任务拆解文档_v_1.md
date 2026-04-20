@@ -1,5 +1,15 @@
 # Windows 本地资产管理工作台 开发任务拆解文档 v1
 
+> **历史文档说明**
+>
+> 本文档保留为较早阶段的开发拆解记录，不再作为当前仓库的 canonical current-state source。
+>
+> 当前应优先阅读：
+>
+> - `README.md`
+> - `docs/current-project-status-dossier.md`
+> - release-facing current-state docs
+
 ## 1. 文档目的
 
 本文件用于将以下已完成文档正式转化为**可执行开发任务**：

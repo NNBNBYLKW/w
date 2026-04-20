@@ -1,5 +1,15 @@
 # Phase 2B：Thumbnail / Preview Surface（可执行计划）
 
+> **历史文档说明**
+>
+> 本文档保留为较早阶段的执行记录，不再作为当前仓库的 canonical current-state source。
+>
+> 当前应优先阅读：
+>
+> - `README.md`
+> - `docs/current-project-status-dossier.md`
+> - release-facing current-state docs
+
 ## 1. 任务目标
 
 Phase 2A 已经激活了 `file_metadata` 的第一层真实能力：

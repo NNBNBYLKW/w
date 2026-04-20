@@ -1,5 +1,15 @@
 # Windows 本地文件管理与素材库产品文档（草案）
 
+> **历史文档说明**
+>
+> 本文档保留为较早阶段的产品草案，不再作为当前仓库的 canonical current-state source。
+>
+> 当前应优先阅读：
+>
+> - `README.md`
+> - `docs/current-project-status-dossier.md`
+> - release-facing current-state docs
+
 ## 1. 产品概述
 
 ### 1.1 产品名称（暂定）
@@ -4167,4 +4177,3 @@ Toast 负责“轻反馈”，不负责复杂错误教育。
 5. 数据模型草案
 6. 技术架构草案
 7. 竞品分析文档
-

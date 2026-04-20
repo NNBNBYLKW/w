@@ -33,6 +33,16 @@ function formatMetadataValue(value: number | null, suffix?: string): string {
   return suffix ? `${value.toLocaleString()} ${suffix}` : value.toLocaleString();
 }
 
+function formatDimensions(width: number | null, height: number | null): string {
+  if (width === null && height === null) {
+    return "Unavailable";
+  }
+
+  const widthLabel = width === null ? "?" : width.toLocaleString();
+  const heightLabel = height === null ? "?" : height.toLocaleString();
+  return `${widthLabel} × ${heightLabel} px`;
+}
+
 
 const COLOR_TAG_OPTIONS: ColorTagValue[] = ["red", "yellow", "green", "blue", "purple"];
 
@@ -182,6 +192,10 @@ export function DetailsPanelFeature() {
     const isTagMutationPending = addTagMutation.isPending || removeTagMutation.isPending;
     const isColorTagMutationPending = colorTagMutation.isPending;
     const isOpenActionPending = pendingOpenAction !== null;
+    const isImageFile = item.file_type === "image";
+    const isVideoFile = item.file_type === "video";
+    const isMediaFile = isImageFile || isVideoFile;
+    const metadata = item.metadata;
     content = (
       <>
         <span className="placeholder-pill">Indexed file details</span>
@@ -230,9 +244,22 @@ export function DetailsPanelFeature() {
         </dl>
         <section className="metadata-section">
           <div className="metadata-section__header">
-            <h4>Metadata</h4>
+            <h4>{isMediaFile ? "Media Info" : "Metadata"}</h4>
           </div>
-          {item.metadata === null ? (
+          {isMediaFile ? (
+            <dl className="details-list">
+              <div className="details-list__row">
+                <dt>Dimensions</dt>
+                <dd>{formatDimensions(metadata?.width ?? null, metadata?.height ?? null)}</dd>
+              </div>
+              {isVideoFile ? (
+                <div className="details-list__row">
+                  <dt>Duration</dt>
+                  <dd>{formatMetadataValue(metadata?.duration_ms ?? null, "ms")}</dd>
+                </div>
+              ) : null}
+            </dl>
+          ) : item.metadata === null ? (
             <p>No extracted metadata available yet.</p>
           ) : (
             <dl className="details-list">
@@ -255,14 +282,12 @@ export function DetailsPanelFeature() {
             </dl>
           )}
         </section>
-        {item.file_type === "image" ? (
+        {isImageFile || isVideoFile ? (
           <section className="details-preview-section">
             <div className="details-preview-section__header">
               <h4>Preview</h4>
             </div>
-            {previewLoadFailed ? (
-              <p>Preview is not available for this image right now.</p>
-            ) : (
+            {isImageFile && !previewLoadFailed ? (
               <div className="details-preview-frame">
                 <img
                   className="details-preview-image"
@@ -270,6 +295,14 @@ export function DetailsPanelFeature() {
                   alt={`Preview for ${item.name}`}
                   onError={() => setPreviewLoadFailed(true)}
                 />
+              </div>
+            ) : (
+              <div className="details-preview-frame details-preview-frame--empty">
+                <p className="details-preview-state">
+                  {isImageFile
+                    ? "Preview is unavailable for this image right now."
+                    : "Preview is not available for this video yet."}
+                </p>
               </div>
             )}
           </section>

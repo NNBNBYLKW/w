@@ -1,5 +1,15 @@
 # Phase 2D：Scan / Task Runtime Hardening（已实现）
 
+> **历史文档说明**
+>
+> 本文档保留为较早阶段的实现记录，不再作为当前仓库的 canonical current-state source。
+>
+> 当前应优先阅读：
+>
+> - `README.md`
+> - `docs/current-project-status-dossier.md`
+> - release-facing current-state docs
+
 ## Summary
 
 当前 repo 已按窄范围落地 Phase 2D，目标只包括：

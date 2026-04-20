@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { contextBridge, shell } from "electron";
+import { contextBridge, ipcRenderer, shell } from "electron";
 
 
 const backendBaseUrl = process.env.BACKEND_URL ?? "http://127.0.0.1:8000";
+const selectFolderChannel = "asset-workbench:select-folder";
 
 
 type OpenActionResult =
@@ -103,7 +104,7 @@ async function openContainingFolder(filePath: string): Promise<OpenActionResult>
 
 contextBridge.exposeInMainWorld("assetWorkbench", {
   getBackendBaseUrl: () => backendBaseUrl,
-  selectFolder: async () => null,
+  selectFolder: async (): Promise<string | null> => ipcRenderer.invoke(selectFolderChannel),
   openFile,
   openContainingFolder,
 });

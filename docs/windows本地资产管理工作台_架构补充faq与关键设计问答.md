@@ -1,5 +1,15 @@
 # Windows 本地资产管理工作台 架构补充 FAQ 与关键设计问答
 
+> **历史文档说明**
+>
+> 本文档保留为较早阶段的架构问答补充，不再作为当前仓库的 canonical current-state source。
+>
+> 当前应优先阅读：
+>
+> - `README.md`
+> - `docs/current-project-status-dossier.md`
+> - release-facing current-state docs
+
 ## 1. 文档目的
 
 本文件用于补充当前项目文档链中，关于“未来扩展性、性能利用、稳定性、安全性、AI 生成 UI、索引存储与演进”的关键问答。
