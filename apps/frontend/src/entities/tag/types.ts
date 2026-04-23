@@ -14,6 +14,12 @@ export type TagListResponseVM = {
   items: TagItemVM[];
 };
 
+export type BatchTagAttachResponseVM = {
+  updated_file_ids: number[];
+  updated_count: number;
+  tag: TagItemVM;
+};
+
 export type TagFilesQueryInput = {
   tagId: number;
   page: number;

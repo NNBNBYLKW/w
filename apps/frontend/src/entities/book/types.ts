@@ -1,9 +1,11 @@
-import type { FileListSortBy, FileListSortOrder } from "../file/types";
+import type { ColorTagValue, FileListSortBy, FileListSortOrder, FileRatingValue } from "../file/types";
 
 
 export type BookFormat = "epub" | "pdf";
 
 export type BookListQueryInput = {
+  tag_id?: number;
+  color_tag?: ColorTagValue;
   page: number;
   page_size: number;
   sort_by: FileListSortBy;
@@ -17,6 +19,8 @@ export type BookListItemVM = {
   path: string;
   modified_at: string;
   size_bytes: number | null;
+  is_favorite: boolean;
+  rating: FileRatingValue | null;
 };
 
 export type BooksListResponseVM = {

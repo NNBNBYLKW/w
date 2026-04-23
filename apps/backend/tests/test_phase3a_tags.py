@@ -52,14 +52,37 @@ class Phase3ATagsTestCase(unittest.TestCase):
         engine.dispose()
 
     def test_lists_tags_sorted_by_normalized_name_then_id(self) -> None:
+        file_id = self._seed_file()
+
         with TestClient(app) as client:
-            client.post("/tags", json={"name": "beta"})
-            client.post("/tags", json={"name": "Alpha"})
-            client.post("/tags", json={"name": "Gamma"})
+            client.post(f"/files/{file_id}/tags", json={"name": "beta"})
+            client.post(f"/files/{file_id}/tags", json={"name": "Alpha"})
+            client.post(f"/files/{file_id}/tags", json={"name": "Gamma"})
             response = client.get("/tags")
 
         self.assertEqual(200, response.status_code)
         self.assertEqual(["Alpha", "beta", "Gamma"], [item["name"] for item in response.json()["items"]])
+
+        engine.dispose()
+
+    def test_does_not_list_tags_without_active_files(self) -> None:
+        with TestClient(app) as client:
+            client.post("/tags", json={"name": "Orphan"})
+            response = client.get("/tags")
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual([], response.json()["items"])
+
+        engine.dispose()
+
+    def test_does_not_list_tags_attached_only_to_deleted_files(self) -> None:
+        self._seed_deleted_file_with_tag("DeletedOnly")
+
+        with TestClient(app) as client:
+            response = client.get("/tags")
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual([], response.json()["items"])
 
         engine.dispose()
 
@@ -95,6 +118,57 @@ class Phase3ATagsTestCase(unittest.TestCase):
 
         engine.dispose()
 
+    def test_removing_last_active_file_tag_deletes_orphan_tag(self) -> None:
+        file_id = self._seed_file()
+
+        with TestClient(app) as client:
+            created = client.post(f"/files/{file_id}/tags", json={"name": "Reference"})
+            tag_id = created.json()["items"][0]["id"]
+            removed = client.delete(f"/files/{file_id}/tags/{tag_id}")
+            tags = client.get("/tags")
+
+        self.assertEqual(200, removed.status_code)
+        self.assertEqual([], removed.json()["items"])
+        self.assertEqual([], tags.json()["items"])
+
+        with SessionLocal() as session:
+            remaining_tag = session.get(Tag, tag_id)
+        self.assertIsNone(remaining_tag)
+
+        engine.dispose()
+
+    def test_removing_one_of_multiple_active_file_relations_keeps_tag_visible(self) -> None:
+        first_file_id = self._seed_file(
+            path="D:\\Assets\\Refs\\Cover.PNG",
+            parent_path="D:\\Assets\\Refs",
+            name="Cover.PNG",
+            stem="Cover",
+        )
+        second_file_id = self._seed_file(
+            path="D:\\Assets\\Refs\\Poster.PNG",
+            parent_path="D:\\Assets\\Refs",
+            name="Poster.PNG",
+            stem="Poster",
+        )
+
+        with TestClient(app) as client:
+            first_attach = client.post(f"/files/{first_file_id}/tags", json={"name": "Shared"})
+            tag_id = first_attach.json()["items"][0]["id"]
+            second_attach = client.post(f"/files/{second_file_id}/tags", json={"name": "Shared"})
+            removed = client.delete(f"/files/{first_file_id}/tags/{tag_id}")
+            tags = client.get("/tags")
+
+        self.assertEqual(200, second_attach.status_code)
+        self.assertEqual(200, removed.status_code)
+        self.assertEqual([], removed.json()["items"])
+        self.assertEqual(["Shared"], [item["name"] for item in tags.json()["items"]])
+
+        with SessionLocal() as session:
+            remaining_tag = session.get(Tag, tag_id)
+        self.assertIsNotNone(remaining_tag)
+
+        engine.dispose()
+
     def test_returns_file_not_found_when_attaching_to_missing_file(self) -> None:
         with TestClient(app) as client:
             response = client.post("/files/9999/tags", json={"name": "Reference"})
@@ -121,27 +195,36 @@ class Phase3ATagsTestCase(unittest.TestCase):
 
         engine.dispose()
 
-    def _seed_file(self) -> int:
+    def _seed_file(
+        self,
+        *,
+        path: str = "D:\\Assets\\Refs\\Cover.PNG",
+        parent_path: str = "D:\\Assets\\Refs",
+        name: str = "Cover.PNG",
+        stem: str = "Cover",
+    ) -> int:
         with SessionLocal() as session:
-            source = Source(
-                path="D:\\Assets",
-                display_name="Assets",
-                is_enabled=True,
-                scan_mode="manual_plus_basic_incremental",
-                last_scan_at=_dt(9),
-                last_scan_status="succeeded",
-                created_at=_dt(8),
-                updated_at=_dt(9),
-            )
-            session.add(source)
-            session.flush()
+            source = session.scalars(select(Source).where(Source.path == "D:\\Assets")).first()
+            if source is None:
+                source = Source(
+                    path="D:\\Assets",
+                    display_name="Assets",
+                    is_enabled=True,
+                    scan_mode="manual_plus_basic_incremental",
+                    last_scan_at=_dt(9),
+                    last_scan_status="succeeded",
+                    created_at=_dt(8),
+                    updated_at=_dt(9),
+                )
+                session.add(source)
+                session.flush()
 
             file = File(
                 source_id=source.id,
-                path="D:\\Assets\\Refs\\Cover.PNG",
-                parent_path="D:\\Assets\\Refs",
-                name="Cover.PNG",
-                stem="Cover",
+                path=path,
+                parent_path=parent_path,
+                name=name,
+                stem=stem,
                 extension="png",
                 file_type="image",
                 mime_type=None,
@@ -157,6 +240,60 @@ class Phase3ATagsTestCase(unittest.TestCase):
             session.add(file)
             session.commit()
             return int(file.id)
+
+    def _seed_deleted_file_with_tag(self, tag_name: str) -> None:
+        with SessionLocal() as session:
+            source = Source(
+                path="D:\\Assets",
+                display_name="Assets",
+                is_enabled=True,
+                scan_mode="manual_plus_basic_incremental",
+                last_scan_at=_dt(9),
+                last_scan_status="succeeded",
+                created_at=_dt(8),
+                updated_at=_dt(9),
+            )
+            session.add(source)
+            session.flush()
+
+            tag = Tag(
+                name=tag_name,
+                normalized_name=tag_name.casefold(),
+                created_at=_dt(8),
+                updated_at=_dt(8),
+            )
+            session.add(tag)
+            session.flush()
+
+            file = File(
+                source_id=source.id,
+                path="D:\\Assets\\Refs\\Deleted.PNG",
+                parent_path="D:\\Assets\\Refs",
+                name="Deleted.PNG",
+                stem="Deleted",
+                extension="png",
+                file_type="image",
+                mime_type=None,
+                size_bytes=123,
+                created_at_fs=_dt(9, 30),
+                modified_at_fs=_dt(10),
+                discovered_at=_dt(9, 35),
+                last_seen_at=_dt(10),
+                is_deleted=True,
+                checksum_hint=None,
+                updated_at=_dt(10),
+            )
+            session.add(file)
+            session.flush()
+
+            session.add(
+                FileTag(
+                    file_id=file.id,
+                    tag_id=tag.id,
+                    created_at=_dt(10, 15),
+                )
+            )
+            session.commit()
 
     def _reset_database(self) -> None:
         with SessionLocal() as session:

@@ -26,6 +26,15 @@ export type CreateCollectionInput = {
   parent_path?: string;
 };
 
+export type UpdateCollectionInput = {
+  name?: string | null;
+  file_type?: FileType | null;
+  tag_id?: number | null;
+  color_tag?: ColorTagValue | null;
+  source_id?: number | null;
+  parent_path?: string | null;
+};
+
 export type CollectionFilesQueryInput = {
   collectionId: number;
   page: number;

@@ -5,11 +5,11 @@ export function MediaLibraryPage() {
   return (
     <section className="page-card">
       <header className="page-header">
-        <span className="page-header__eyebrow">Indexed media library</span>
+        <span className="page-header__eyebrow">Visual subset surface</span>
         <h3>Media</h3>
         <p>
-          Browse active indexed images and videos as a visual media subset surface. Selection continues into the shared
-          details panel and existing open actions.
+          Browse indexed images and videos in a visual subset surface. Selection continues into shared details and the
+          existing open actions.
         </p>
       </header>
       <MediaLibraryFeature />

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import type { FileListSortBy, FileListSortOrder } from "../../entities/file/types";
@@ -15,11 +16,15 @@ function formatBytes(value: number | null): string {
 export function TagBrowserFeature() {
   const selectedItemId = useUIStore((state) => state.selectedItemId);
   const selectItem = useUIStore((state) => state.selectItem);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [selectedTagId, setSelectedTagId] = useState<number | null>(null);
   const [page, setPage] = useState(1);
   const pageSize = 50;
   const [sortBy, setSortBy] = useState<FileListSortBy>("modified_at");
   const [sortOrder, setSortOrder] = useState<FileListSortOrder>("desc");
+  const requestedTagId = searchParams.get("tag_id");
+  const requestedFocusId = searchParams.get("focus");
 
   const tagsQuery = useQuery({
     queryKey: ["tags"],
@@ -36,6 +41,17 @@ export function TagBrowserFeature() {
       return;
     }
 
+    if (requestedTagId !== null) {
+      const requestedId = Number(requestedTagId);
+      if (Number.isInteger(requestedId) && tagsQuery.data.items.some((tag) => tag.id === requestedId)) {
+        if (selectedTagId !== requestedId) {
+          setSelectedTagId(requestedId);
+          setPage(1);
+        }
+        return;
+      }
+    }
+
     const selectedTagStillExists = selectedTagId !== null && tagsQuery.data.items.some((tag) => tag.id === selectedTagId);
     if (selectedTagStillExists) {
       return;
@@ -43,7 +59,7 @@ export function TagBrowserFeature() {
 
     setSelectedTagId(tagsQuery.data.items[0].id);
     setPage(1);
-  }, [selectedTagId, tagsQuery.data]);
+  }, [requestedTagId, selectedTagId, tagsQuery.data]);
 
   const tagFilesQueryParams =
     selectedTagId === null
@@ -70,16 +86,29 @@ export function TagBrowserFeature() {
 
   const totalPages = tagFilesQuery.data ? Math.max(1, Math.ceil(tagFilesQuery.data.total / tagFilesQuery.data.page_size)) : 1;
   const missingSelectedTag = tagFilesQuery.error instanceof TagsApiError && tagFilesQuery.error.code === "TAG_NOT_FOUND";
+  const selectedTag = tagsQuery.data?.items.find((tag) => tag.id === selectedTagId) ?? null;
+  const tagFlowNote = requestedFocusId ? "Opened from a re-find path so you can land back on the tagged file directly." : null;
+
+  useEffect(() => {
+    if (!requestedFocusId || !tagFilesQuery.data) {
+      return;
+    }
+
+    const focusedItem = tagFilesQuery.data.items.find((item) => String(item.id) === requestedFocusId);
+    if (focusedItem) {
+      selectItem(String(focusedItem.id));
+    }
+  }, [requestedFocusId, selectItem, tagFilesQuery.data]);
 
   return (
     <section className="feature-shell">
       <div className="feature-header">
         <span className="page-header__eyebrow">Tag-scoped retrieval</span>
         <h3>Tagged indexed files</h3>
-        <p>Use normal tags as a retrieval entry point without expanding into tag-management tooling.</p>
+        <p>Use normal tags as a lightweight retrieval surface without expanding into tag-management tooling.</p>
       </div>
 
-      {tagsQuery.isLoading ? <p>Loading tags...</p> : null}
+      {tagsQuery.isLoading ? <p>Loading tag retrieval...</p> : null}
 
       {tagsQuery.error instanceof Error ? (
         <div className="status-block page-card">
@@ -89,7 +118,7 @@ export function TagBrowserFeature() {
       ) : null}
 
       {tagsQuery.data && tagsQuery.data.items.length === 0 ? (
-        <div className="future-frame">还没有普通标签。请先在详情侧栏给文件添加标签。</div>
+        <div className="future-frame">No normal tags are available yet. Add tags from shared details to start using Tags as a retrieval surface.</div>
       ) : null}
 
       {tagsQuery.data && tagsQuery.data.items.length > 0 ? (
@@ -105,6 +134,7 @@ export function TagBrowserFeature() {
                   key={tag.id}
                   className={`tag-browser-list__item${selectedTagId === tag.id ? " tag-browser-list__item--selected" : ""}`}
                   type="button"
+                  title={tag.name}
                   onClick={() => {
                     setSelectedTagId(tag.id);
                     setPage(1);
@@ -149,17 +179,77 @@ export function TagBrowserFeature() {
               </label>
             </div>
 
-            <div className="files-meta-row">
-              <p>Showing active indexed files attached to the selected normal tag.</p>
-              {tagFilesQuery.data ? <span>{tagFilesQuery.data.total} tagged files</span> : null}
-            </div>
+              <div className="files-meta-row">
+                <p>Showing active indexed files attached to the selected normal tag.</p>
+                <div className="files-meta-row__actions">
+                  {tagFilesQuery.data ? <span>{tagFilesQuery.data.total} tagged files</span> : null}
+                  {selectedTag ? (
+                    <>
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        onClick={() => {
+                          const params = new URLSearchParams({
+                            tag_id: String(selectedTag.id),
+                            entry: "tags",
+                          });
+                          navigate(`/library/media?${params.toString()}`);
+                        }}
+                      >
+                        Open matching media
+                      </button>
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        onClick={() => {
+                          const params = new URLSearchParams({
+                            tag_id: String(selectedTag.id),
+                            entry: "tags",
+                          });
+                          navigate(`/library/books?${params.toString()}`);
+                        }}
+                      >
+                        Open matching books
+                      </button>
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        onClick={() => {
+                          const params = new URLSearchParams({
+                            tag_id: String(selectedTag.id),
+                            entry: "tags",
+                          });
+                          navigate(`/library/games?${params.toString()}`);
+                        }}
+                      >
+                        Open matching games
+                      </button>
+                      <button
+                        className="ghost-button"
+                        type="button"
+                        onClick={() => {
+                          const params = new URLSearchParams({
+                            tag_id: String(selectedTag.id),
+                            entry: "tags",
+                          });
+                          navigate(`/library/software?${params.toString()}`);
+                        }}
+                      >
+                        Open matching software
+                      </button>
+                    </>
+                  ) : null}
+                </div>
+              </div>
 
-            {tagFilesQuery.isLoading ? <p>Loading tagged files...</p> : null}
+            {tagFlowNote ? <div className="context-flow-note">{tagFlowNote}</div> : null}
+
+            {tagFilesQuery.isLoading ? <p>Loading matching files...</p> : null}
 
             {missingSelectedTag ? (
               <div className="status-block page-card">
                 <strong>Selected tag no longer exists</strong>
-                <p>当前标签已不存在，请重新选择标签。</p>
+                <p>Select another tag to keep browsing tagged files.</p>
               </div>
             ) : null}
 
@@ -185,8 +275,8 @@ export function TagBrowserFeature() {
                       onClick={() => selectItem(String(item.id))}
                     >
                       <div className="files-list-row__meta">
-                        <strong>{item.name}</strong>
-                        <p>{item.path}</p>
+                        <strong title={item.name}>{item.name}</strong>
+                        <p title={item.path}>{item.path}</p>
                       </div>
                       <div className="files-list-row__badges">
                         <span className="status-pill">{item.file_type}</span>

@@ -1,7 +1,11 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
+import { BatchActionBar } from "../batch-organize/BatchActionBar";
+import { useBatchOrganizeActions } from "../batch-organize/useBatchOrganizeActions";
+import { useBatchSelection } from "../batch-organize/useBatchSelection";
 import type { ColorTagValue, FileListSortBy, FileListSortOrder } from "../../entities/file/types";
 import type { MediaViewScope } from "../../entities/media/types";
 import { getFileThumbnailUrl } from "../../services/api/fileDetailsApi";
@@ -33,6 +37,42 @@ const COLOR_TAG_OPTIONS: Array<{ label: string; value: ColorTagValue | "all" }> 
   { label: "Blue", value: "blue" },
   { label: "Purple", value: "purple" },
 ];
+
+const ENTRY_COPY: Record<string, string> = {
+  recent: "Opened from Recent so you can keep organizing this media subset after the latest scan window.",
+  tags: "Opened from Tags to continue working inside the media subset for the selected normal tag.",
+  collections: "Opened from Collections to keep browsing the media-compatible saved retrieval set.",
+  details: "Opened from shared details so you can re-find this media file inside the current subset surface.",
+};
+
+function buildCollectionPrefillName({
+  viewScope,
+  selectedTagName,
+  selectedColorTag,
+}: {
+  viewScope: MediaViewScope;
+  selectedTagName: string | null;
+  selectedColorTag: ColorTagValue | "all";
+}): string {
+  const parts = ["Media"];
+
+  if (viewScope === "image") {
+    parts.push("Images");
+  } else if (viewScope === "video") {
+    parts.push("Videos");
+  }
+
+  if (selectedTagName) {
+    parts.push(selectedTagName);
+  }
+
+  if (selectedColorTag !== "all") {
+    const colorLabel = COLOR_TAG_OPTIONS.find((option) => option.value === selectedColorTag)?.label ?? selectedColorTag;
+    parts.push(colorLabel);
+  }
+
+  return parts.join(" · ");
+}
 
 function MediaPoster({
   fileId,
@@ -93,18 +133,24 @@ function MediaCardSkeleton() {
 function MediaLibraryCard({
   fileId,
   fileType,
+  isFavorite,
+  isBatchMode,
   modifiedAt,
   name,
   path,
+  rating,
   selected,
   sizeBytes,
   onSelect,
 }: {
   fileId: number;
   fileType: "image" | "video";
+  isFavorite: boolean;
+  isBatchMode: boolean;
   modifiedAt: string;
   name: string;
   path: string;
+  rating: number | null;
   selected: boolean;
   sizeBytes: number | null;
   onSelect: () => void;
@@ -130,6 +176,9 @@ function MediaLibraryCard({
       type="button"
       onClick={onSelect}
       onDoubleClick={() => {
+        if (isBatchMode) {
+          return;
+        }
         void handleDoubleClick();
       }}
     >
@@ -142,6 +191,9 @@ function MediaLibraryCard({
         <span className="status-pill">{fileType}</span>
         <span className="status-pill">{formatBytes(sizeBytes)}</span>
         <span className="status-pill">{new Date(modifiedAt).toLocaleString()}</span>
+        {isFavorite ? <span className="status-pill status-pill--favorite">★ Favorite</span> : null}
+        {rating !== null ? <span className="status-pill status-pill--rating">★ {rating}</span> : null}
+        {isBatchMode && selected ? <span className="status-pill">Selected</span> : null}
       </div>
     </button>
   );
@@ -151,6 +203,8 @@ function MediaLibraryCard({
 export function MediaLibraryFeature() {
   const selectedItemId = useUIStore((state) => state.selectedItemId);
   const selectItem = useUIStore((state) => state.selectItem);
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [viewScope, setViewScope] = useState<MediaViewScope>("all");
   const [selectedTagId, setSelectedTagId] = useState("all");
   const [selectedColorTag, setSelectedColorTag] = useState<ColorTagValue | "all">("all");
@@ -161,6 +215,24 @@ export function MediaLibraryFeature() {
     queryKey: queryKeys.tags,
     queryFn: listTags,
   });
+  const {
+    clearSelection,
+    enterBatchMode,
+    exitBatchMode,
+    isBatchMode,
+    isSelected,
+    selectedCount,
+    selectedIds,
+    toggleSelection,
+  } = useBatchSelection({
+    pageLabel: "Media Library",
+    resetDeps: [viewScope, selectedTagId, selectedColorTag, sortBy, sortOrder, page],
+  });
+  const { applyColorTag, applyTag, isApplyingColorTag, isApplyingTag } = useBatchOrganizeActions({
+    onSuccess: clearSelection,
+  });
+  const entry = searchParams.get("entry");
+  const requestedFocusId = searchParams.get("focus");
 
   const queryParams = {
     view_scope: viewScope,
@@ -203,6 +275,65 @@ export function MediaLibraryFeature() {
         .filter(Boolean)
         .join(" · ")
     : "Showing all indexed images and videos.";
+  const entryCopy = entry ? ENTRY_COPY[entry] : null;
+  const saveCollectionHref = useMemo(() => {
+    if (!hasActiveFilters) {
+      return null;
+    }
+
+    const nextParams = new URLSearchParams();
+    nextParams.set(
+      "prefill_name",
+      buildCollectionPrefillName({
+        viewScope,
+        selectedTagName,
+        selectedColorTag,
+      }),
+    );
+    if (viewScope !== "all") {
+      nextParams.set("prefill_file_type", viewScope);
+    }
+    if (selectedTagId !== "all") {
+      nextParams.set("prefill_tag_id", selectedTagId);
+    }
+    if (selectedColorTag !== "all") {
+      nextParams.set("prefill_color_tag", selectedColorTag);
+    }
+    nextParams.set("entry", "media");
+    return `/collections?${nextParams.toString()}`;
+  }, [hasActiveFilters, selectedColorTag, selectedTagId, selectedTagName, viewScope]);
+
+  useEffect(() => {
+    const nextViewScope = searchParams.get("view_scope");
+    const nextTagId = searchParams.get("tag_id");
+    const nextColorTag = searchParams.get("color_tag");
+
+    setViewScope(nextViewScope === "image" || nextViewScope === "video" ? nextViewScope : "all");
+    setSelectedTagId(nextTagId ?? "all");
+    setSelectedColorTag(
+      nextColorTag === "red" ||
+        nextColorTag === "yellow" ||
+        nextColorTag === "green" ||
+        nextColorTag === "blue" ||
+        nextColorTag === "purple"
+        ? nextColorTag
+        : "all",
+    );
+    setSortBy("modified_at");
+    setSortOrder("desc");
+    setPage(1);
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!requestedFocusId || !mediaQuery.data) {
+      return;
+    }
+
+    const focusedItem = mediaQuery.data.items.find((item) => String(item.id) === requestedFocusId);
+    if (focusedItem) {
+      selectItem(String(focusedItem.id));
+    }
+  }, [mediaQuery.data, requestedFocusId, selectItem]);
 
   const resetFilters = () => {
     setViewScope("all");
@@ -211,15 +342,18 @@ export function MediaLibraryFeature() {
     setSortBy("modified_at");
     setSortOrder("desc");
     setPage(1);
+    setSearchParams({});
   };
 
   return (
     <section className="feature-shell">
       <div className="feature-header">
         <span className="page-header__eyebrow">Visual subset browsing</span>
-        <h3>Image and video library</h3>
-        <p>Select a card to load shared details. Double-click a card to open the indexed file in the desktop shell.</p>
+        <h3>Indexed images and videos</h3>
+        <p>Select a card to load shared details. Double-click a card to open the indexed file.</p>
       </div>
+
+      {entryCopy ? <div className="media-library-flow-note">{entryCopy}</div> : null}
 
       <div className="media-library-toolbar">
         <div className="field-stack media-library-toolbar__field media-library-toolbar__field--wide">
@@ -308,12 +442,42 @@ export function MediaLibraryFeature() {
       </div>
       <div className="media-library-filter-summary">
         <p>{filterSummary}</p>
-        {hasActiveFilters ? (
-          <button className="ghost-button media-library-filter-summary__clear" type="button" onClick={resetFilters}>
-            Clear filters
-          </button>
-        ) : null}
+        <div className="media-library-filter-summary__actions">
+          {!isBatchMode ? (
+            <button className="ghost-button" type="button" onClick={enterBatchMode}>
+              Batch organize
+            </button>
+          ) : null}
+          {saveCollectionHref ? (
+            <button
+              className="ghost-button"
+              type="button"
+              onClick={() => {
+                navigate(saveCollectionHref);
+              }}
+            >
+              Save current media filters as collection
+            </button>
+          ) : null}
+          {hasActiveFilters ? (
+            <button className="ghost-button media-library-filter-summary__clear" type="button" onClick={resetFilters}>
+              Clear filters
+            </button>
+          ) : null}
+        </div>
       </div>
+
+      {isBatchMode ? (
+        <BatchActionBar
+          isApplyingColorTag={isApplyingColorTag}
+          isApplyingTag={isApplyingTag}
+          onApplyColorTag={(colorTag) => applyColorTag(selectedIds, colorTag)}
+          onApplyTag={(name) => applyTag(selectedIds, name)}
+          onClearSelection={clearSelection}
+          onExitBatchMode={exitBatchMode}
+          selectedCount={selectedCount}
+        />
+      ) : null}
 
       <div className="media-library-meta-row">
         <p>
@@ -348,15 +512,14 @@ export function MediaLibraryFeature() {
 
       {showEmptyState ? (
         <div className="future-frame">
-          No active indexed image or video files are available yet. Add a source and run a scan to populate this
-          media subset surface.
+          No indexed images or videos are available yet. Add a source and run a scan to populate this subset surface.
         </div>
       ) : null}
 
       {showNoResultsState ? (
         <div className="future-frame">
-          No indexed media files match the current scope and filter set on this page. Adjust the filters or clear them
-          to keep browsing.
+          No indexed media files match the current scope and filters on this page. Adjust the filters or clear them to
+          keep browsing.
         </div>
       ) : null}
 
@@ -368,12 +531,21 @@ export function MediaLibraryFeature() {
                 key={item.id}
                 fileId={item.id}
                 fileType={item.file_type}
+                isFavorite={item.is_favorite}
+                isBatchMode={isBatchMode}
                 modifiedAt={item.modified_at}
                 name={item.name}
                 path={item.path}
-                selected={selectedItemId === String(item.id)}
+                rating={item.rating}
+                selected={isBatchMode ? isSelected(item.id) : selectedItemId === String(item.id)}
                 sizeBytes={item.size_bytes}
-                onSelect={() => selectItem(String(item.id))}
+                onSelect={() => {
+                  if (isBatchMode) {
+                    toggleSelection(item.id);
+                    return;
+                  }
+                  selectItem(String(item.id));
+                }}
               />
             ))}
           </div>

@@ -6,6 +6,15 @@ import { contextBridge, ipcRenderer, shell } from "electron";
 
 const backendBaseUrl = process.env.BACKEND_URL ?? "http://127.0.0.1:8000";
 const selectFolderChannel = "asset-workbench:select-folder";
+const minimizeWindowChannel = "asset-workbench:minimize-window";
+const toggleMaximizeWindowChannel = "asset-workbench:toggle-maximize-window";
+const closeWindowChannel = "asset-workbench:close-window";
+const getWindowStateChannel = "asset-workbench:get-window-state";
+const windowStateChangedChannel = "asset-workbench:window-state-changed";
+
+type WindowStatePayload = {
+  isMaximized: boolean;
+};
 
 
 type OpenActionResult =
@@ -107,4 +116,19 @@ contextBridge.exposeInMainWorld("assetWorkbench", {
   selectFolder: async (): Promise<string | null> => ipcRenderer.invoke(selectFolderChannel),
   openFile,
   openContainingFolder,
+  minimizeWindow: async (): Promise<void> => ipcRenderer.invoke(minimizeWindowChannel),
+  toggleMaximizeWindow: async (): Promise<WindowStatePayload> => ipcRenderer.invoke(toggleMaximizeWindowChannel),
+  closeWindow: async (): Promise<void> => ipcRenderer.invoke(closeWindowChannel),
+  getWindowState: async (): Promise<WindowStatePayload> => ipcRenderer.invoke(getWindowStateChannel),
+  onWindowStateChange: (callback: (payload: WindowStatePayload) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: WindowStatePayload) => {
+      callback(payload);
+    };
+
+    ipcRenderer.on(windowStateChangedChannel, listener);
+
+    return () => {
+      ipcRenderer.off(windowStateChangedChannel, listener);
+    };
+  },
 });

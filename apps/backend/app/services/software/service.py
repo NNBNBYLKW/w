@@ -19,8 +19,10 @@ class SoftwareLibraryService:
         return (extension or "").lstrip(".").lower()
 
     def list_software(self, session: Session, params: SoftwareListQueryParams) -> SoftwareListResponse:
-        files, total = self.file_repository.list_software_files(
+        rows, total = self.file_repository.list_software_files(
             session,
+            tag_id=params.tag_id,
+            color_tag=params.color_tag,
             page=params.page,
             page_size=params.page_size,
             sort_by=params.sort_by,
@@ -34,8 +36,10 @@ class SoftwareLibraryService:
                 path=file.path,
                 modified_at=file.modified_at_fs or file.discovered_at,
                 size_bytes=file.size_bytes,
+                is_favorite=is_favorite,
+                rating=rating,
             )
-            for file in files
+            for file, is_favorite, rating in rows
         ]
         return SoftwareListResponse(
             items=items,

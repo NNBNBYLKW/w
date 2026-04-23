@@ -26,6 +26,12 @@ async function parseResponse<T>(response: Response): Promise<T> {
 
 export async function listSoftware(input: SoftwareListQueryInput): Promise<SoftwareListResponseVM> {
   const params = new URLSearchParams();
+  if (input.tag_id !== undefined) {
+    params.set("tag_id", String(input.tag_id));
+  }
+  if (input.color_tag !== undefined) {
+    params.set("color_tag", input.color_tag);
+  }
   params.set("page", String(input.page));
   params.set("page_size", String(input.page_size));
   params.set("sort_by", input.sort_by);

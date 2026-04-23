@@ -3,19 +3,29 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.api.schemas.file import (
+    BatchColorTagUpdateRequest,
+    BatchColorTagUpdateResponse,
+    BatchTagAttachRequest,
+    BatchTagAttachResponse,
     ColorTagUpdateRequest,
     FileColorTagResponse,
     FileDetailResponse,
     FileListQueryParams,
     FileListResponse,
     FileListSortBy,
+    FileStatusResponse,
+    FileStatusUpdateRequest,
+    FileUserMetaPatchRequest,
+    FileUserMetaResponse,
     SortOrder,
 )
 from app.api.schemas.tag import TagCreateRequest, TagListResponse
 from app.db.session.session import get_db
 from app.services.color_tags.service import ColorTagsService
 from app.services.details.service import DetailsService
+from app.services.file_status.service import FileStatusService
 from app.services.files.service import FilesService
+from app.services.file_user_meta.service import FileUserMetaService
 from app.services.tags.service import TagsService
 from app.services.thumbnails.service import ThumbnailService
 
@@ -25,7 +35,25 @@ details_service = DetailsService()
 files_service = FilesService()
 tags_service = TagsService()
 color_tags_service = ColorTagsService()
+file_status_service = FileStatusService()
+file_user_meta_service = FileUserMetaService()
 thumbnail_service = ThumbnailService()
+
+
+@router.post("/files/batch/tags", response_model=BatchTagAttachResponse)
+def attach_tag_to_files_batch(
+    payload: BatchTagAttachRequest,
+    db: Session = Depends(get_db),
+) -> BatchTagAttachResponse:
+    return tags_service.attach_tag_to_files(db, payload)
+
+
+@router.patch("/files/batch/color-tag", response_model=BatchColorTagUpdateResponse)
+def update_color_tag_batch(
+    payload: BatchColorTagUpdateRequest,
+    db: Session = Depends(get_db),
+) -> BatchColorTagUpdateResponse:
+    return color_tags_service.update_color_tag_for_files(db, payload.file_ids, payload.color_tag)
 
 
 @router.get("/files", response_model=FileListResponse)
@@ -99,3 +127,21 @@ def update_color_tag(
     db: Session = Depends(get_db),
 ) -> FileColorTagResponse:
     return color_tags_service.update_color_tag(db, file_id, payload.color_tag)
+
+
+@router.patch("/files/{file_id}/status", response_model=FileStatusResponse)
+def update_file_status(
+    payload: FileStatusUpdateRequest,
+    file_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+) -> FileStatusResponse:
+    return file_status_service.update_status(db, file_id, payload.status)
+
+
+@router.patch("/files/{file_id}/user-meta", response_model=FileUserMetaResponse)
+def update_file_user_meta(
+    payload: FileUserMetaPatchRequest,
+    file_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+) -> FileUserMetaResponse:
+    return file_user_meta_service.update_user_meta(db, file_id, payload)

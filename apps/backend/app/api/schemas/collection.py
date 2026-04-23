@@ -26,6 +26,27 @@ class CollectionCreateRequest(BaseModel):
         return normalize_directory_path(value)
 
 
+class CollectionUpdateRequest(BaseModel):
+    name: str | None = None
+    file_type: FileTypeValue | None = None
+    tag_id: int | None = Field(default=None, ge=1)
+    color_tag: str | None = None
+    source_id: int | None = Field(default=None, ge=1)
+    parent_path: str | None = None
+
+    @field_validator("color_tag", mode="before")
+    @classmethod
+    def normalize_color_tag(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip()
+
+    @field_validator("parent_path", mode="before")
+    @classmethod
+    def normalize_parent_path(cls, value: str | None) -> str | None:
+        return normalize_directory_path(value)
+
+
 class CollectionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

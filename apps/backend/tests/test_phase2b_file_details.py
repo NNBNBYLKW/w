@@ -48,6 +48,9 @@ class Phase2BFileDetailsTestCase(unittest.TestCase):
                 "source_id": source_id,
                 "tags": [],
                 "color_tag": None,
+                "status": None,
+                "is_favorite": False,
+                "rating": None,
                 "metadata": None,
             },
             response.json()["item"],
@@ -93,6 +96,9 @@ class Phase2BFileDetailsTestCase(unittest.TestCase):
         self.assertIsNone(item["modified_at_fs"])
         self.assertEqual([], item["tags"])
         self.assertIsNone(item["color_tag"])
+        self.assertIsNone(item["status"])
+        self.assertFalse(item["is_favorite"])
+        self.assertIsNone(item["rating"])
         self.assertIsNone(item["metadata"])
 
         engine.dispose()
@@ -125,6 +131,18 @@ class Phase2BFileDetailsTestCase(unittest.TestCase):
 
         self.assertEqual(200, response.status_code)
         self.assertEqual("blue", response.json()["item"]["color_tag"])
+
+        engine.dispose()
+
+    def test_returns_stored_favorite_and_rating_in_detail_payload(self) -> None:
+        file_id, _, _ = self._seed_file(color_tag="blue", is_favorite=True, rating=4)
+
+        with TestClient(app) as client:
+            response = client.get(f"/files/{file_id}")
+
+        self.assertEqual(200, response.status_code)
+        self.assertTrue(response.json()["item"]["is_favorite"])
+        self.assertEqual(4, response.json()["item"]["rating"])
 
         engine.dispose()
 
@@ -163,6 +181,8 @@ class Phase2BFileDetailsTestCase(unittest.TestCase):
         modified_at_fs: datetime | None = _dt(10),
         tags: list[tuple[str, str]] | None = None,
         color_tag: str | None = None,
+        is_favorite: bool = False,
+        rating: int | None = None,
         metadata: dict[str, int | None] | None = None,
     ) -> tuple[int, int, list[int]]:
         with SessionLocal() as session:
@@ -225,8 +245,19 @@ class Phase2BFileDetailsTestCase(unittest.TestCase):
                         file_id=file.id,
                         color_tag=color_tag,
                         status=None,
-                        rating=None,
-                        is_favorite=False,
+                        rating=rating,
+                        is_favorite=is_favorite,
+                        updated_at=_dt(9, 50),
+                    )
+                )
+            elif is_favorite or rating is not None:
+                session.add(
+                    FileUserMeta(
+                        file_id=file.id,
+                        color_tag=None,
+                        status=None,
+                        rating=rating,
+                        is_favorite=is_favorite,
                         updated_at=_dt(9, 50),
                     )
                 )

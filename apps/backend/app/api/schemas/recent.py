@@ -33,3 +33,19 @@ class RecentListResponse(BaseModel):
     page: int
     page_size: int
     total: int
+
+
+class RecentActivityListItemResponse(BaseModel):
+    id: int
+    name: str
+    path: str
+    file_type: FileTypeValue
+    occurred_at: datetime
+    size_bytes: int | None
+
+
+class RecentActivityListResponse(BaseModel):
+    items: list[RecentActivityListItemResponse]
+    page: int
+    page_size: int
+    total: int

@@ -27,6 +27,27 @@ class FileTagRepository:
         session.execute(statement)
         session.flush()
 
+    def attach_tag_to_files(self, session: Session, file_ids: list[int], tag_id: int, created_at: datetime) -> None:
+        if not file_ids:
+            return
+
+        statement = (
+            sqlite_insert(FileTag)
+            .values(
+                [
+                    {
+                        "file_id": file_id,
+                        "tag_id": tag_id,
+                        "created_at": created_at,
+                    }
+                    for file_id in file_ids
+                ]
+            )
+            .on_conflict_do_nothing(index_elements=[FileTag.file_id, FileTag.tag_id])
+        )
+        session.execute(statement)
+        session.flush()
+
     def detach_tag(self, session: Session, file_id: int, tag_id: int) -> int:
         statement = delete(FileTag).where(FileTag.file_id == file_id, FileTag.tag_id == tag_id)
         result = session.execute(statement)

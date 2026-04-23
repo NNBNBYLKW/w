@@ -1,4 +1,10 @@
-import type { TagFilesListResponseVM, TagFilesQueryInput, TagListResponseVM, TagResponseVM } from "../../entities/tag/types";
+import type {
+  BatchTagAttachResponseVM,
+  TagFilesListResponseVM,
+  TagFilesQueryInput,
+  TagListResponseVM,
+  TagResponseVM,
+} from "../../entities/tag/types";
 
 
 export class TagsApiError extends Error {
@@ -58,6 +64,16 @@ export async function attachTagToFile(fileId: number, name: string): Promise<Tag
     body: JSON.stringify({ name }),
   });
   return parseResponse<TagListResponseVM>(response);
+}
+
+
+export async function attachTagToFilesBatch(fileIds: number[], name: string): Promise<BatchTagAttachResponseVM> {
+  const response = await fetch(`${getApiBaseUrl()}/files/batch/tags`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ file_ids: fileIds, name }),
+  });
+  return parseResponse<BatchTagAttachResponseVM>(response);
 }
 
 
