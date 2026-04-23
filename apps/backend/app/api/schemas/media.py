@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.api.schemas.file import ColorTagValue, FileListSortBy, SortOrder
+from app.api.schemas.file import ColorTagValue, FileListSortBy, FileRatingValue, SortOrder
 
 
 MediaViewScope = Literal["all", "image", "video"]
@@ -26,6 +26,8 @@ class MediaListItemResponse(BaseModel):
     file_type: Literal["image", "video"]
     modified_at: datetime
     size_bytes: int | None
+    is_favorite: bool
+    rating: FileRatingValue | None
 
 
 class MediaListResponse(BaseModel):

@@ -5,9 +5,12 @@ export function RecentImportsPage() {
   return (
     <section className="page-card">
       <header className="page-header">
-        <span className="page-header__eyebrow">Recently indexed files</span>
+        <span className="page-header__eyebrow">Recent retrieval family</span>
         <h3>Recent</h3>
-        <p>Review recently indexed files by when they were first discovered, with the current range switch, sorting, and pagination.</p>
+        <p>
+          Use recent imports, tags, and color tags as lightweight retrieval surfaces. Selection continues into shared
+          details and the existing open actions.
+        </p>
       </header>
       <RecentImportsFeature />
     </section>

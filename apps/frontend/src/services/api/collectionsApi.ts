@@ -4,6 +4,7 @@ import type {
   CollectionListResponseVM,
   CollectionVM,
   CreateCollectionInput,
+  UpdateCollectionInput,
 } from "../../entities/collection/types";
 
 
@@ -62,6 +63,16 @@ export async function deleteCollection(collectionId: number): Promise<void> {
     method: "DELETE",
   });
   await parseResponse<{ message: string }>(response);
+}
+
+
+export async function updateCollection(collectionId: number, input: UpdateCollectionInput): Promise<CollectionVM> {
+  const response = await fetch(`${getApiBaseUrl()}/collections/${collectionId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  return parseResponse<CollectionVM>(response);
 }
 
 

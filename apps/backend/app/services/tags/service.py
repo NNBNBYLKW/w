@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from app.api.schemas.file import FileListItemResponse, FileListResponse
+from app.api.schemas.file import BatchTagAttachRequest, BatchTagAttachResponse
 from app.api.schemas.tag import TagCreateRequest, TagFileListQueryParams, TagItemResponse, TagListResponse, TagResponse
 from app.core.errors.exceptions import BadRequestError, NotFoundError
 from app.db.models.tag import Tag
@@ -26,7 +27,7 @@ class TagsService:
         self.tag_repository = TagRepository()
 
     def list_tags(self, session: Session) -> TagListResponse:
-        tags = self.tag_repository.list_tags(session)
+        tags = self.tag_repository.list_tags_with_active_files(session)
         return TagListResponse(items=[self._to_tag_item(tag) for tag in tags])
 
     def create_tag(self, session: Session, payload: TagCreateRequest) -> tuple[TagResponse, bool]:
@@ -66,6 +67,35 @@ class TagsService:
         self.file_tag_repository.attach_tag(session, file_id, tag.id, _utcnow())
         session.commit()
         return self._build_file_tag_list(session, file_id)
+
+    def attach_tag_to_files(self, session: Session, payload: BatchTagAttachRequest) -> BatchTagAttachResponse:
+        deduped_file_ids = list(dict.fromkeys(payload.file_ids))
+        if not deduped_file_ids:
+            raise BadRequestError("FILE_IDS_INVALID", "At least one file id is required.")
+
+        files = self.file_repository.list_active_files_by_ids(session, deduped_file_ids)
+        if len(files) != len(deduped_file_ids):
+            raise BadRequestError("BATCH_FILE_SELECTION_INVALID", "One or more selected files are unavailable.")
+
+        cleaned_name, normalized_name = self._normalize_tag_name(payload.name)
+        tag = self.tag_repository.get_by_normalized_name(session, normalized_name)
+        if tag is None:
+            now = _utcnow()
+            tag = Tag(
+                name=cleaned_name,
+                normalized_name=normalized_name,
+                created_at=now,
+                updated_at=now,
+            )
+            self.tag_repository.add(session, tag)
+
+        self.file_tag_repository.attach_tag_to_files(session, deduped_file_ids, tag.id, _utcnow())
+        session.commit()
+        return BatchTagAttachResponse(
+            updated_file_ids=deduped_file_ids,
+            updated_count=len(deduped_file_ids),
+            tag=self._to_tag_item(tag),
+        )
 
     def list_files_for_tag(
         self,
@@ -112,7 +142,9 @@ class TagsService:
         if tag is None:
             raise NotFoundError("TAG_NOT_FOUND", "Tag not found.")
 
-        self.file_tag_repository.detach_tag(session, file_id, tag_id)
+        removed_count = self.file_tag_repository.detach_tag(session, file_id, tag_id)
+        if removed_count > 0:
+            self.tag_repository.delete_if_orphaned(session, tag_id)
         session.commit()
         return self._build_file_tag_list(session, file_id)
 

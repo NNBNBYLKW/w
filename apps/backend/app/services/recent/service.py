@@ -2,7 +2,13 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.api.schemas.recent import RecentListItemResponse, RecentListQueryParams, RecentListResponse
+from app.api.schemas.recent import (
+    RecentActivityListItemResponse,
+    RecentActivityListResponse,
+    RecentListItemResponse,
+    RecentListQueryParams,
+    RecentListResponse,
+)
 from app.core.errors.exceptions import BadRequestError
 from app.repositories.file.repository import FileRepository
 
@@ -22,11 +28,7 @@ class RecentImportsService:
         self.file_repository = FileRepository()
 
     def list_recent_imports(self, session: Session, params: RecentListQueryParams) -> RecentListResponse:
-        normalized_range = self._normalize_range(params.range)
-        aware_now = utc_now()
-        aware_cutoff = aware_now - self.range_windows[normalized_range]
-        query_now = self._to_naive_utc(aware_now)
-        query_cutoff = self._to_naive_utc(aware_cutoff)
+        query_cutoff, query_now = self._build_time_window(params.range)
 
         files, total = self.file_repository.list_recent_files(
             session,
@@ -54,6 +56,52 @@ class RecentImportsService:
             total=total,
         )
 
+    def list_recent_tagged(self, session: Session, params: RecentListQueryParams) -> RecentActivityListResponse:
+        query_cutoff, query_now = self._build_time_window(params.range)
+        rows, total = self.file_repository.list_recent_tagged_files(
+            session,
+            cutoff=query_cutoff,
+            now=query_now,
+            page=params.page,
+            page_size=params.page_size,
+            sort_order=params.sort_order,
+        )
+        items = [
+            RecentActivityListItemResponse(
+                id=file.id,
+                name=file.name,
+                path=file.path,
+                file_type=file.file_type,
+                occurred_at=occurred_at,
+                size_bytes=file.size_bytes,
+            )
+            for file, occurred_at in rows
+        ]
+        return RecentActivityListResponse(items=items, page=params.page, page_size=params.page_size, total=total)
+
+    def list_recent_color_tagged(self, session: Session, params: RecentListQueryParams) -> RecentActivityListResponse:
+        query_cutoff, query_now = self._build_time_window(params.range)
+        rows, total = self.file_repository.list_recent_color_tagged_files(
+            session,
+            cutoff=query_cutoff,
+            now=query_now,
+            page=params.page,
+            page_size=params.page_size,
+            sort_order=params.sort_order,
+        )
+        items = [
+            RecentActivityListItemResponse(
+                id=file.id,
+                name=file.name,
+                path=file.path,
+                file_type=file.file_type,
+                occurred_at=occurred_at,
+                size_bytes=file.size_bytes,
+            )
+            for file, occurred_at in rows
+        ]
+        return RecentActivityListResponse(items=items, page=params.page, page_size=params.page_size, total=total)
+
     def _normalize_range(self, value: str | None) -> str:
         if value is None:
             return "7d"
@@ -63,6 +111,12 @@ class RecentImportsService:
                 "range must be one of: 1d, 7d, 30d.",
             )
         return value
+
+    def _build_time_window(self, range_value: str | None) -> tuple[datetime, datetime]:
+        normalized_range = self._normalize_range(range_value)
+        aware_now = utc_now()
+        aware_cutoff = aware_now - self.range_windows[normalized_range]
+        return self._to_naive_utc(aware_cutoff), self._to_naive_utc(aware_now)
 
     def _to_naive_utc(self, value: datetime) -> datetime:
         if value.tzinfo is None:

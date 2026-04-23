@@ -3,6 +3,8 @@ import type { TagItemVM } from "../tag/types";
 
 export type FileType = "image" | "video" | "document" | "archive" | "other";
 export type ColorTagValue = "red" | "yellow" | "green" | "blue" | "purple";
+export type FileStatusValue = "playing" | "completed" | "shelved";
+export type FileRatingValue = 1 | 2 | 3 | 4 | 5;
 
 export type SearchSortBy = "modified_at" | "name" | "discovered_at";
 export type SearchSortOrder = "asc" | "desc";
@@ -76,6 +78,9 @@ export type FileDetailItemVM = {
   source_id: number;
   tags: TagItemVM[];
   color_tag: ColorTagValue | null;
+  status: FileStatusValue | null;
+  is_favorite: boolean;
+  rating: FileRatingValue | null;
   metadata:
     | {
         width: number | null;
@@ -94,5 +99,26 @@ export type FileColorTagResponseVM = {
   item: {
     id: number;
     color_tag: ColorTagValue | null;
+  };
+};
+
+export type BatchColorTagUpdateResponseVM = {
+  updated_file_ids: number[];
+  updated_count: number;
+  color_tag: ColorTagValue | null;
+};
+
+export type FileStatusResponseVM = {
+  item: {
+    id: number;
+    status: FileStatusValue | null;
+  };
+};
+
+export type FileUserMetaResponseVM = {
+  item: {
+    id: number;
+    is_favorite: boolean;
+    rating: FileRatingValue | null;
   };
 };

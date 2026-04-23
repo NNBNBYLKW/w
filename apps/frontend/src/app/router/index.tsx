@@ -4,6 +4,7 @@ import { AppShell } from "../shell/AppShell";
 import { BooksPage } from "../../pages/books/BooksPage";
 import { CollectionsPage } from "../../pages/collections/CollectionsPage";
 import { FilesPage } from "../../pages/files/FilesPage";
+import { GamesPage } from "../../pages/games/GamesPage";
 import { HomePage } from "../../pages/home/HomePage";
 import { MediaLibraryPage } from "../../pages/media-library/MediaLibraryPage";
 import { OnboardingPage } from "../../pages/onboarding/OnboardingPage";
@@ -24,6 +25,7 @@ export function AppRouter() {
         <Route path="/files" element={<FilesPage />} />
         <Route path="/books" element={<BooksPage />} />
         <Route path="/software" element={<SoftwarePage />} />
+        <Route path="/library/games" element={<GamesPage />} />
         <Route path="/library/media" element={<MediaLibraryPage />} />
         <Route path="/recent" element={<RecentImportsPage />} />
         <Route path="/tags" element={<TagsPage />} />

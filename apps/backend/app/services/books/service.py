@@ -16,8 +16,10 @@ class BooksLibraryService:
         return normalized_whitespace or name
 
     def list_books(self, session: Session, params: BooksListQueryParams) -> BooksListResponse:
-        files, total = self.file_repository.list_book_files(
+        rows, total = self.file_repository.list_book_files(
             session,
+            tag_id=params.tag_id,
+            color_tag=params.color_tag,
             page=params.page,
             page_size=params.page_size,
             sort_by=params.sort_by,
@@ -31,8 +33,10 @@ class BooksLibraryService:
                 path=file.path,
                 modified_at=file.modified_at_fs or file.discovered_at,
                 size_bytes=file.size_bytes,
+                is_favorite=is_favorite,
+                rating=rating,
             )
-            for file in files
+            for file, is_favorite, rating in rows
         ]
         return BooksListResponse(
             items=items,

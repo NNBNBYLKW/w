@@ -9,7 +9,7 @@ class MediaLibraryService:
         self.file_repository = FileRepository()
 
     def list_media(self, session: Session, params: MediaListQueryParams) -> MediaListResponse:
-        files, total = self.file_repository.list_media_files(
+        rows, total = self.file_repository.list_media_files(
             session,
             view_scope=params.view_scope,
             tag_id=params.tag_id,
@@ -27,8 +27,10 @@ class MediaLibraryService:
                 file_type=file.file_type,
                 modified_at=file.modified_at_fs or file.discovered_at,
                 size_bytes=file.size_bytes,
+                is_favorite=is_favorite,
+                rating=rating,
             )
-            for file in files
+            for file, is_favorite, rating in rows
         ]
         return MediaListResponse(
             items=items,

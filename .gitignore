@@ -3,5 +3,6 @@ dist/
 .venv/
 __pycache__/
 *.pyc
-docs/*
-!docs/.gitkeep
+docs/_wip/*
+!docs/_wip/.gitkeep
+!docs/_wip/README.md

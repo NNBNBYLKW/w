@@ -2,7 +2,13 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
-from app.api.schemas.collection import CollectionCreateRequest, CollectionFilesQueryParams, CollectionListResponse, CollectionResponse
+from app.api.schemas.collection import (
+    CollectionCreateRequest,
+    CollectionFilesQueryParams,
+    CollectionListResponse,
+    CollectionResponse,
+    CollectionUpdateRequest,
+)
 from app.api.schemas.common import MessageResponse
 from app.api.schemas.file import FileListItemResponse, FileListResponse
 from app.core.errors.exceptions import BadRequestError, NotFoundError
@@ -33,31 +39,66 @@ class CollectionsService:
 
     def create_collection(self, session: Session, payload: CollectionCreateRequest) -> CollectionResponse:
         name = payload.name.strip()
-        if not name:
-            raise BadRequestError("COLLECTION_NAME_INVALID", "Collection name cannot be empty.")
-
-        if payload.tag_id is not None and self.tag_repository.get_by_id(session, payload.tag_id) is None:
-            raise NotFoundError("TAG_NOT_FOUND", "Tag not found.")
-
-        if payload.source_id is not None and self.source_repository.get_by_id(session, payload.source_id) is None:
-            raise NotFoundError("SOURCE_NOT_FOUND", "Source not found.")
-
-        color_tag = self._normalize_color_tag(payload.color_tag)
-        if payload.parent_path is not None and payload.source_id is None:
-            raise BadRequestError("PARENT_PATH_REQUIRES_SOURCE", "Parent path requires a source.")
-
-        now = _utcnow()
-        collection = Collection(
+        validated = self._validate_collection_values(
+            session,
             name=name,
-            file_type=payload.file_type,
             tag_id=payload.tag_id,
-            color_tag=color_tag,
+            color_tag=payload.color_tag,
             source_id=payload.source_id,
             parent_path=payload.parent_path,
+        )
+        now = _utcnow()
+        collection = Collection(
+            name=validated["name"],
+            file_type=payload.file_type,
+            tag_id=validated["tag_id"],
+            color_tag=validated["color_tag"],
+            source_id=validated["source_id"],
+            parent_path=validated["parent_path"],
             created_at=now,
             updated_at=now,
         )
         self.collection_repository.add(session, collection)
+        session.commit()
+        session.refresh(collection)
+        return CollectionResponse.model_validate(collection)
+
+    def update_collection(self, session: Session, collection_id: int, payload: CollectionUpdateRequest) -> CollectionResponse:
+        collection = self.collection_repository.get_by_id(session, collection_id)
+        if collection is None:
+            raise NotFoundError("COLLECTION_NOT_FOUND", "Collection not found.")
+
+        updated_fields = payload.model_fields_set
+        if not updated_fields:
+            raise BadRequestError("COLLECTION_UPDATE_EMPTY", "At least one collection field must be provided.")
+
+        next_name = collection.name
+        if "name" in updated_fields:
+            next_name = (payload.name or "").strip()
+
+        next_file_type = payload.file_type if "file_type" in updated_fields else collection.file_type
+        next_tag_id = payload.tag_id if "tag_id" in updated_fields else collection.tag_id
+        next_color_tag = payload.color_tag if "color_tag" in updated_fields else collection.color_tag
+        next_source_id = payload.source_id if "source_id" in updated_fields else collection.source_id
+        next_parent_path = payload.parent_path if "parent_path" in updated_fields else collection.parent_path
+
+        validated = self._validate_collection_values(
+            session,
+            name=next_name,
+            tag_id=next_tag_id,
+            color_tag=next_color_tag,
+            source_id=next_source_id,
+            parent_path=next_parent_path,
+        )
+
+        collection.name = validated["name"]
+        collection.file_type = next_file_type
+        collection.tag_id = validated["tag_id"]
+        collection.color_tag = validated["color_tag"]
+        collection.source_id = validated["source_id"]
+        collection.parent_path = validated["parent_path"]
+        collection.updated_at = _utcnow()
+        self.collection_repository.save(session, collection)
         session.commit()
         session.refresh(collection)
         return CollectionResponse.model_validate(collection)
@@ -119,3 +160,34 @@ class CollectionsService:
         if not normalized or normalized not in ALLOWED_COLOR_TAGS:
             raise BadRequestError("COLOR_TAG_INVALID", "Color tag is invalid.")
         return normalized
+
+    def _validate_collection_values(
+        self,
+        session: Session,
+        *,
+        name: str,
+        tag_id: int | None,
+        color_tag: str | None,
+        source_id: int | None,
+        parent_path: str | None,
+    ) -> dict[str, str | int | None]:
+        if not name:
+            raise BadRequestError("COLLECTION_NAME_INVALID", "Collection name cannot be empty.")
+
+        if tag_id is not None and self.tag_repository.get_by_id(session, tag_id) is None:
+            raise NotFoundError("TAG_NOT_FOUND", "Tag not found.")
+
+        if source_id is not None and self.source_repository.get_by_id(session, source_id) is None:
+            raise NotFoundError("SOURCE_NOT_FOUND", "Source not found.")
+
+        normalized_color_tag = self._normalize_color_tag(color_tag)
+        if parent_path is not None and source_id is None:
+            raise BadRequestError("PARENT_PATH_REQUIRES_SOURCE", "Parent path requires a source.")
+
+        return {
+            "name": name,
+            "tag_id": tag_id,
+            "color_tag": normalized_color_tag,
+            "source_id": source_id,
+            "parent_path": parent_path,
+        }

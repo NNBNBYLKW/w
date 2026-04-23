@@ -1,7 +1,13 @@
 from fastapi import APIRouter, Depends, Path, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.schemas.collection import CollectionCreateRequest, CollectionFilesQueryParams, CollectionListResponse, CollectionResponse
+from app.api.schemas.collection import (
+    CollectionCreateRequest,
+    CollectionFilesQueryParams,
+    CollectionListResponse,
+    CollectionResponse,
+    CollectionUpdateRequest,
+)
 from app.api.schemas.common import MessageResponse
 from app.api.schemas.file import FileListResponse, FileListSortBy, SortOrder
 from app.db.session.session import get_db
@@ -20,6 +26,15 @@ def list_collections(db: Session = Depends(get_db)) -> CollectionListResponse:
 @router.post("", response_model=CollectionResponse, status_code=status.HTTP_201_CREATED)
 def create_collection(payload: CollectionCreateRequest, db: Session = Depends(get_db)) -> CollectionResponse:
     return collections_service.create_collection(db, payload)
+
+
+@router.patch("/{collection_id}", response_model=CollectionResponse)
+def update_collection(
+    payload: CollectionUpdateRequest,
+    collection_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+) -> CollectionResponse:
+    return collections_service.update_collection(db, collection_id, payload)
 
 
 @router.delete("/{collection_id}", response_model=MessageResponse)

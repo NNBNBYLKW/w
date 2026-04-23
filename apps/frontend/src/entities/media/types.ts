@@ -1,4 +1,4 @@
-import type { ColorTagValue, FileListSortBy, FileListSortOrder } from "../file/types";
+import type { ColorTagValue, FileListSortBy, FileListSortOrder, FileRatingValue } from "../file/types";
 
 
 export type MediaViewScope = "all" | "image" | "video";
@@ -20,6 +20,8 @@ export type MediaListItemVM = {
   file_type: "image" | "video";
   modified_at: string;
   size_bytes: number | null;
+  is_favorite: boolean;
+  rating: FileRatingValue | null;
 };
 
 export type MediaListResponseVM = {

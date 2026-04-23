@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -8,6 +8,8 @@ from app.api.schemas.tag import TagItemResponse
 
 FileTypeValue = Literal["image", "video", "document", "archive", "other"]
 ColorTagValue = Literal["red", "yellow", "green", "blue", "purple"]
+FileStatusValue = Literal["playing", "completed", "shelved"]
+FileRatingValue = Literal[1, 2, 3, 4, 5]
 FileListSortBy = Literal["modified_at", "name", "discovered_at"]
 SortOrder = Literal["asc", "desc"]
 
@@ -86,6 +88,9 @@ class FileDetailItemResponse(BaseModel):
     source_id: int
     tags: list[TagItemResponse]
     color_tag: ColorTagValue | None
+    status: FileStatusValue | None
+    is_favorite: bool
+    rating: FileRatingValue | None
     metadata: FileMetadataResponse | None
 
 
@@ -97,6 +102,28 @@ class ColorTagUpdateRequest(BaseModel):
     color_tag: str | None
 
 
+class BatchTagAttachRequest(BaseModel):
+    file_ids: list[int] = Field(min_length=1)
+    name: str
+
+
+class BatchTagAttachResponse(BaseModel):
+    updated_file_ids: list[int]
+    updated_count: int
+    tag: TagItemResponse
+
+
+class BatchColorTagUpdateRequest(BaseModel):
+    file_ids: list[int] = Field(min_length=1)
+    color_tag: str | None
+
+
+class BatchColorTagUpdateResponse(BaseModel):
+    updated_file_ids: list[int]
+    updated_count: int
+    color_tag: ColorTagValue | None
+
+
 class FileColorTagItemResponse(BaseModel):
     id: int
     color_tag: ColorTagValue | None
@@ -104,3 +131,31 @@ class FileColorTagItemResponse(BaseModel):
 
 class FileColorTagResponse(BaseModel):
     item: FileColorTagItemResponse
+
+
+class FileStatusUpdateRequest(BaseModel):
+    status: str | None
+
+
+class FileStatusItemResponse(BaseModel):
+    id: int
+    status: FileStatusValue | None
+
+
+class FileStatusResponse(BaseModel):
+    item: FileStatusItemResponse
+
+
+class FileUserMetaPatchRequest(BaseModel):
+    is_favorite: Any = None
+    rating: Any = None
+
+
+class FileUserMetaItemResponse(BaseModel):
+    id: int
+    is_favorite: bool
+    rating: FileRatingValue | None
+
+
+class FileUserMetaResponse(BaseModel):
+    item: FileUserMetaItemResponse

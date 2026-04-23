@@ -2,9 +2,9 @@ from datetime import datetime
 from itertools import islice
 from typing import Iterable
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.db.models.file import File
 from app.db.models.file_tag import FileTag
@@ -17,6 +17,18 @@ class FileRepository:
 
     def get_by_id(self, session: Session, file_id: int) -> File | None:
         return session.get(File, file_id)
+
+    def list_active_files_by_ids(self, session: Session, file_ids: list[int]) -> list[File]:
+        if not file_ids:
+            return []
+
+        statement = (
+            select(File)
+            .where(File.id.in_(file_ids))
+            .where(File.is_deleted.is_(False))
+            .order_by(File.id.asc())
+        )
+        return list(session.scalars(statement))
 
     def get_latest_last_seen_at_for_source(self, session: Session, source_id: int) -> datetime | None:
         statement = select(func.max(File.last_seen_at)).where(File.source_id == source_id)
@@ -218,7 +230,8 @@ class FileRepository:
         page_size: int,
         sort_by: str,
         sort_order: str,
-    ) -> tuple[list[File], int]:
+    ) -> tuple[list[tuple[File, bool, int | None]], int]:
+        color_meta = aliased(FileUserMeta)
         filters = [
             File.is_deleted.is_(False),
             File.file_type.in_(("image", "video")),
@@ -235,15 +248,15 @@ class FileRepository:
         if color_tag is not None:
             filters.append(
                 select(1)
-                .select_from(FileUserMeta)
+                .select_from(color_meta)
                 .where(
-                    FileUserMeta.file_id == File.id,
-                    FileUserMeta.color_tag == color_tag,
+                    color_meta.file_id == File.id,
+                    color_meta.color_tag == color_tag,
                 )
                 .exists()
             )
 
-        return self._select_files(
+        return self._select_files_with_user_meta(
             session,
             filters=filters,
             page=page,
@@ -256,17 +269,37 @@ class FileRepository:
         self,
         session: Session,
         *,
+        tag_id: int | None,
+        color_tag: str | None,
         page: int,
         page_size: int,
         sort_by: str,
         sort_order: str,
-    ) -> tuple[list[File], int]:
+    ) -> tuple[list[tuple[File, bool, int | None]], int]:
+        color_meta = aliased(FileUserMeta)
         filters = [
             File.is_deleted.is_(False),
             func.lower(File.extension).in_(("epub", "pdf")),
         ]
+        if tag_id is not None:
+            filters.append(
+                select(1)
+                .select_from(FileTag)
+                .where(FileTag.file_id == File.id, FileTag.tag_id == tag_id)
+                .exists()
+            )
+        if color_tag is not None:
+            filters.append(
+                select(1)
+                .select_from(color_meta)
+                .where(
+                    color_meta.file_id == File.id,
+                    color_meta.color_tag == color_tag,
+                )
+                .exists()
+            )
 
-        return self._select_files(
+        return self._select_files_with_user_meta(
             session,
             filters=filters,
             page=page,
@@ -279,18 +312,38 @@ class FileRepository:
         self,
         session: Session,
         *,
+        tag_id: int | None,
+        color_tag: str | None,
         page: int,
         page_size: int,
         sort_by: str,
         sort_order: str,
-    ) -> tuple[list[File], int]:
+    ) -> tuple[list[tuple[File, bool, int | None]], int]:
+        color_meta = aliased(FileUserMeta)
         normalized_extension = func.ltrim(func.lower(func.coalesce(File.extension, "")), ".")
         filters = [
             File.is_deleted.is_(False),
             normalized_extension.in_(("exe", "msi", "zip")),
         ]
+        if tag_id is not None:
+            filters.append(
+                select(1)
+                .select_from(FileTag)
+                .where(FileTag.file_id == File.id, FileTag.tag_id == tag_id)
+                .exists()
+            )
+        if color_tag is not None:
+            filters.append(
+                select(1)
+                .select_from(color_meta)
+                .where(
+                    color_meta.file_id == File.id,
+                    color_meta.color_tag == color_tag,
+                )
+                .exists()
+            )
 
-        return self._select_files(
+        return self._select_files_with_user_meta(
             session,
             filters=filters,
             page=page,
@@ -298,6 +351,126 @@ class FileRepository:
             sort_by=sort_by,
             sort_order=sort_order,
         )
+
+    def list_game_files(
+        self,
+        session: Session,
+        *,
+        tag_id: int | None,
+        color_tag: str | None,
+        status: str | None,
+        page: int,
+        page_size: int,
+        sort_by: str,
+        sort_order: str,
+    ) -> tuple[list[tuple[File, str | None, bool, int | None]], int]:
+        normalized_extension = func.ltrim(func.lower(func.coalesce(File.extension, "")), ".")
+        lowered_path = func.lower(func.coalesce(File.path, ""))
+        lowered_name = func.lower(func.coalesce(File.name, ""))
+        lowered_stem = func.lower(func.coalesce(File.stem, ""))
+        status_meta = aliased(FileUserMeta)
+        color_meta = aliased(FileUserMeta)
+
+        game_path_hints = (
+            "\\games\\",
+            "\\game\\",
+            "\\steam\\",
+            "\\steamapps\\",
+            "\\gog\\",
+            "\\epic games\\",
+            "\\itch\\",
+            "\\riot games\\",
+            "\\blizzard\\",
+            "\\battle.net\\",
+            "\\ubisoft\\",
+            "\\rockstar games\\",
+            "\\ea games\\",
+        )
+        excluded_name_hints = (
+            "setup",
+            "install",
+            "installer",
+            "unins",
+            "uninstall",
+            "update",
+            "updater",
+            "patch",
+            "redist",
+        )
+
+        game_path_filter = or_(*[lowered_path.like(f"%{hint}%") for hint in game_path_hints])
+        excluded_name_filter = or_(
+            *[
+                or_(lowered_name.like(f"%{hint}%"), lowered_stem.like(f"%{hint}%"))
+                for hint in excluded_name_hints
+            ]
+        )
+
+        filters = [
+            File.is_deleted.is_(False),
+            or_(
+                normalized_extension == "lnk",
+                and_(
+                    normalized_extension == "exe",
+                    game_path_filter,
+                    ~excluded_name_filter,
+                ),
+            ),
+        ]
+        if status is not None:
+            filters.append(
+                select(1)
+                .select_from(status_meta)
+                .where(
+                    status_meta.file_id == File.id,
+                    status_meta.status == status,
+                )
+                .exists()
+            )
+        if tag_id is not None:
+            filters.append(
+                select(1)
+                .select_from(FileTag)
+                .where(FileTag.file_id == File.id, FileTag.tag_id == tag_id)
+                .exists()
+            )
+        if color_tag is not None:
+            filters.append(
+                select(1)
+                .select_from(color_meta)
+                .where(color_meta.file_id == File.id, color_meta.color_tag == color_tag)
+                .exists()
+            )
+
+        modified_expr = func.coalesce(File.modified_at_fs, File.discovered_at)
+        if sort_by == "name":
+            primary_order = func.lower(File.name)
+        elif sort_by == "discovered_at":
+            primary_order = File.discovered_at
+        else:
+            primary_order = modified_expr
+
+        ordered_primary = primary_order.asc() if sort_order == "asc" else primary_order.desc()
+        offset = (page - 1) * page_size
+
+        statement = (
+            select(
+                File,
+                FileUserMeta.status,
+                func.coalesce(FileUserMeta.is_favorite, False),
+                FileUserMeta.rating,
+            )
+            .outerjoin(FileUserMeta, FileUserMeta.file_id == File.id)
+            .where(*filters)
+            .order_by(ordered_primary, File.path.asc(), File.id.asc())
+            .offset(offset)
+            .limit(page_size)
+        )
+        items = [(row[0], row[1], bool(row[2]), row[3]) for row in session.execute(statement).all()]
+
+        total_statement = select(func.count()).select_from(File).where(*filters)
+        total = int(session.scalar(total_statement) or 0)
+        return items, total
 
     def list_recent_files(
         self,
@@ -321,6 +494,72 @@ class FileRepository:
             page=page,
             page_size=page_size,
             sort_by="discovered_at",
+            sort_order=sort_order,
+        )
+
+    def list_recent_tagged_files(
+        self,
+        session: Session,
+        *,
+        cutoff: datetime,
+        now: datetime,
+        page: int,
+        page_size: int,
+        sort_order: str,
+    ) -> tuple[list[tuple[File, datetime]], int]:
+        latest_tagged_subquery = (
+            select(
+                FileTag.file_id.label("file_id"),
+                func.max(FileTag.created_at).label("occurred_at"),
+            )
+            .group_by(FileTag.file_id)
+            .subquery()
+        )
+        filters = [
+            File.is_deleted.is_(False),
+            latest_tagged_subquery.c.occurred_at >= cutoff,
+            latest_tagged_subquery.c.occurred_at <= now,
+        ]
+        return self._select_files_with_occurrence(
+            session,
+            occurrence_subquery=latest_tagged_subquery,
+            filters=filters,
+            occurrence_column=latest_tagged_subquery.c.occurred_at,
+            page=page,
+            page_size=page_size,
+            sort_order=sort_order,
+        )
+
+    def list_recent_color_tagged_files(
+        self,
+        session: Session,
+        *,
+        cutoff: datetime,
+        now: datetime,
+        page: int,
+        page_size: int,
+        sort_order: str,
+    ) -> tuple[list[tuple[File, datetime]], int]:
+        color_tagged_subquery = (
+            select(
+                FileUserMeta.file_id.label("file_id"),
+                FileUserMeta.updated_at.label("occurred_at"),
+            )
+            .where(FileUserMeta.color_tag.is_not(None))
+            .subquery()
+        )
+        filters = [
+            File.is_deleted.is_(False),
+            color_tagged_subquery.c.occurred_at >= cutoff,
+            color_tagged_subquery.c.occurred_at <= now,
+        ]
+        return self._select_files_with_occurrence(
+            session,
+            occurrence_subquery=color_tagged_subquery,
+            filters=filters,
+            occurrence_column=color_tagged_subquery.c.occurred_at,
+            page=page,
+            page_size=page_size,
             sort_order=sort_order,
         )
 
@@ -395,6 +634,72 @@ class FileRepository:
         items = list(session.scalars(statement))
 
         total_statement = select(func.count()).select_from(File).where(*filters)
+        total = int(session.scalar(total_statement) or 0)
+        return items, total
+
+    def _select_files_with_user_meta(
+        self,
+        session: Session,
+        *,
+        filters: list,
+        page: int,
+        page_size: int,
+        sort_by: str,
+        sort_order: str,
+    ) -> tuple[list[tuple[File, bool, int | None]], int]:
+        modified_expr = func.coalesce(File.modified_at_fs, File.discovered_at)
+        if sort_by == "name":
+            primary_order = func.lower(File.name)
+        elif sort_by == "discovered_at":
+            primary_order = File.discovered_at
+        else:
+            primary_order = modified_expr
+
+        ordered_primary = primary_order.asc() if sort_order == "asc" else primary_order.desc()
+        offset = (page - 1) * page_size
+
+        statement = (
+            select(File, func.coalesce(FileUserMeta.is_favorite, False), FileUserMeta.rating)
+            .outerjoin(FileUserMeta, FileUserMeta.file_id == File.id)
+            .where(*filters)
+            .order_by(ordered_primary, File.path.asc(), File.id.asc())
+            .offset(offset)
+            .limit(page_size)
+        )
+        items = [(row[0], bool(row[1]), row[2]) for row in session.execute(statement).all()]
+
+        total_statement = select(func.count()).select_from(File).where(*filters)
+        total = int(session.scalar(total_statement) or 0)
+        return items, total
+
+    def _select_files_with_occurrence(
+        self,
+        session: Session,
+        *,
+        occurrence_subquery,
+        filters: list,
+        occurrence_column,
+        page: int,
+        page_size: int,
+        sort_order: str,
+    ) -> tuple[list[tuple[File, datetime]], int]:
+        ordered_occurrence = occurrence_column.asc() if sort_order == "asc" else occurrence_column.desc()
+        offset = (page - 1) * page_size
+
+        statement = (
+            select(File, occurrence_column)
+            .join(occurrence_subquery, occurrence_subquery.c.file_id == File.id)
+            .where(*filters)
+            .order_by(ordered_occurrence, File.path.asc(), File.id.asc())
+            .offset(offset)
+            .limit(page_size)
+        )
+        items = [(row[0], row[1]) for row in session.execute(statement).all()]
+
+        total_statement = select(func.count()).select_from(File).join(
+            occurrence_subquery,
+            occurrence_subquery.c.file_id == File.id,
+        ).where(*filters)
         total = int(session.scalar(total_statement) or 0)
         return items, total
 

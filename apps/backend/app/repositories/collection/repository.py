@@ -17,5 +17,10 @@ class CollectionRepository:
         session.flush()
         return collection
 
+    def save(self, session: Session, collection: Collection) -> Collection:
+        session.add(collection)
+        session.flush()
+        return collection
+
     def delete(self, session: Session, collection: Collection) -> None:
         session.delete(collection)

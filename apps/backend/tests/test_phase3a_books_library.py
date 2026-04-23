@@ -5,7 +5,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from app.db.models.file import File
+from app.db.models.file_tag import FileTag
+from app.db.models.file_user_meta import FileUserMeta
 from app.db.models.source import Source
+from app.db.models.tag import Tag
 from app.db.session.engine import engine
 from app.db.session.session import SessionLocal
 from app.main import app
@@ -154,7 +157,46 @@ class Phase3ABooksLibraryTestCase(unittest.TestCase):
             [item["display_title"] for item in page_two.json()["items"]],
         )
 
-    def _seed_sources_and_files(self) -> None:
+    def test_supports_tag_filtering(self) -> None:
+        seeded = self._seed_sources_and_files()
+
+        with TestClient(app) as client:
+            response = client.get(
+                "/library/books",
+                params={"tag_id": seeded["story_tag_id"], "sort_by": "name", "sort_order": "asc"},
+            )
+
+        self.assertEqual(200, response.status_code)
+        payload = response.json()
+        self.assertEqual(2, payload["total"])
+        self.assertEqual(["Alpha Guide", "Gamma Notes.pdf"], [item["display_title"] for item in payload["items"]])
+
+    def test_supports_color_tag_filtering(self) -> None:
+        self._seed_sources_and_files()
+
+        with TestClient(app) as client:
+            response = client.get("/library/books", params={"color_tag": "blue", "sort_by": "name", "sort_order": "asc"})
+
+        self.assertEqual(200, response.status_code)
+        payload = response.json()
+        self.assertEqual(2, payload["total"])
+        self.assertEqual(["Gamma Notes.pdf", "Zeta Notes"], [item["display_title"] for item in payload["items"]])
+
+    def test_supports_combined_tag_and_color_filtering(self) -> None:
+        seeded = self._seed_sources_and_files()
+
+        with TestClient(app) as client:
+            response = client.get(
+                "/library/books",
+                params={"tag_id": seeded["story_tag_id"], "color_tag": "blue", "sort_by": "name", "sort_order": "asc"},
+            )
+
+        self.assertEqual(200, response.status_code)
+        payload = response.json()
+        self.assertEqual(1, payload["total"])
+        self.assertEqual(["Gamma Notes.pdf"], [item["display_title"] for item in payload["items"]])
+
+    def _seed_sources_and_files(self) -> dict[str, int]:
         with SessionLocal() as session:
             source = Source(
                 path=r"D:\Library",
@@ -169,173 +211,193 @@ class Phase3ABooksLibraryTestCase(unittest.TestCase):
             session.add(source)
             session.flush()
 
+            tag_story = Tag(name="Story", normalized_name="story", created_at=_dt(8), updated_at=_dt(8))
+            tag_reference = Tag(name="Reference", normalized_name="reference", created_at=_dt(8), updated_at=_dt(8))
+            session.add_all([tag_story, tag_reference])
+            session.flush()
+
+            alpha = File(
+                source_id=source.id,
+                path=r"D:\Library\Books\Alpha Guide.epub",
+                parent_path=r"D:\Library\Books",
+                name="Alpha Guide.epub",
+                stem="Alpha Guide",
+                extension="epub",
+                file_type="other",
+                mime_type=None,
+                size_bytes=1200,
+                created_at_fs=_dt(9, 20),
+                modified_at_fs=_dt(11),
+                discovered_at=_dt(9, 25),
+                last_seen_at=_dt(11),
+                is_deleted=False,
+                checksum_hint=None,
+                updated_at=_dt(11),
+            )
+            beta = File(
+                source_id=source.id,
+                path=r"D:\Library\Books\Beta Manual.pdf",
+                parent_path=r"D:\Library\Books",
+                name="Beta Manual.pdf",
+                stem="Beta Manual",
+                extension="PDF",
+                file_type="document",
+                mime_type=None,
+                size_bytes=2100,
+                created_at_fs=_dt(11, 30),
+                modified_at_fs=None,
+                discovered_at=_dt(12),
+                last_seen_at=_dt(12),
+                is_deleted=False,
+                checksum_hint=None,
+                updated_at=_dt(12),
+            )
+            gamma = File(
+                source_id=source.id,
+                path=r"D:\Library\Books\Gamma Notes.pdf",
+                parent_path=r"D:\Library\Books",
+                name="Gamma Notes.pdf",
+                stem=None,
+                extension="pdf",
+                file_type="document",
+                mime_type=None,
+                size_bytes=None,
+                created_at_fs=_dt(9, 22),
+                modified_at_fs=_dt(11),
+                discovered_at=_dt(9, 28),
+                last_seen_at=_dt(11),
+                is_deleted=False,
+                checksum_hint=None,
+                updated_at=_dt(11),
+            )
+            zeta = File(
+                source_id=source.id,
+                path=r"D:\Library\Books\Zeta Notes.epub",
+                parent_path=r"D:\Library\Books",
+                name="Zeta Notes.epub",
+                stem="Zeta Notes",
+                extension="epub",
+                file_type="other",
+                mime_type=None,
+                size_bytes=3400,
+                created_at_fs=_dt(12, 15),
+                modified_at_fs=_dt(13),
+                discovered_at=_dt(12, 20),
+                last_seen_at=_dt(13),
+                is_deleted=False,
+                checksum_hint=None,
+                updated_at=_dt(13),
+            )
+            deep_space = File(
+                source_id=source.id,
+                path=r"D:\Library\Books\Deep_Space__Vol._1.epub",
+                parent_path=r"D:\Library\Books",
+                name="Deep_Space__Vol._1.epub",
+                stem="Deep_Space__Vol._1",
+                extension="epub",
+                file_type="other",
+                mime_type=None,
+                size_bytes=4100,
+                created_at_fs=_dt(10, 5),
+                modified_at_fs=_dt(10, 40),
+                discovered_at=_dt(9, 40),
+                last_seen_at=_dt(10, 40),
+                is_deleted=False,
+                checksum_hint=None,
+                updated_at=_dt(10, 40),
+            )
+            space_opera = File(
+                source_id=source.id,
+                path=r"D:\Library\Books\  Space__Opera   Draft.pdf",
+                parent_path=r"D:\Library\Books",
+                name="  Space__Opera   Draft.pdf",
+                stem="   ",
+                extension="pdf",
+                file_type="document",
+                mime_type=None,
+                size_bytes=1900,
+                created_at_fs=_dt(10, 10),
+                modified_at_fs=_dt(10, 15),
+                discovered_at=_dt(9, 50),
+                last_seen_at=_dt(10, 15),
+                is_deleted=False,
+                checksum_hint=None,
+                updated_at=_dt(10, 15),
+            )
+            cover = File(
+                source_id=source.id,
+                path=r"D:\Library\Covers\Cover.png",
+                parent_path=r"D:\Library\Covers",
+                name="Cover.png",
+                stem="Cover",
+                extension="png",
+                file_type="image",
+                mime_type=None,
+                size_bytes=900,
+                created_at_fs=_dt(10),
+                modified_at_fs=_dt(10, 30),
+                discovered_at=_dt(10, 35),
+                last_seen_at=_dt(10, 30),
+                is_deleted=False,
+                checksum_hint=None,
+                updated_at=_dt(10, 30),
+            )
+            notes = File(
+                source_id=source.id,
+                path=r"D:\Library\Docs\Notes.docx",
+                parent_path=r"D:\Library\Docs",
+                name="Notes.docx",
+                stem="Notes",
+                extension="docx",
+                file_type="document",
+                mime_type=None,
+                size_bytes=300,
+                created_at_fs=_dt(10),
+                modified_at_fs=_dt(10, 30),
+                discovered_at=_dt(10, 35),
+                last_seen_at=_dt(10, 30),
+                is_deleted=False,
+                checksum_hint=None,
+                updated_at=_dt(10, 30),
+            )
+            deleted_book = File(
+                source_id=source.id,
+                path=r"D:\Library\Books\deleted-book.pdf",
+                parent_path=r"D:\Library\Books",
+                name="deleted-book.pdf",
+                stem="deleted-book",
+                extension="pdf",
+                file_type="document",
+                mime_type=None,
+                size_bytes=80,
+                created_at_fs=_dt(8, 45),
+                modified_at_fs=_dt(9),
+                discovered_at=_dt(9),
+                last_seen_at=_dt(9),
+                is_deleted=True,
+                checksum_hint=None,
+                updated_at=_dt(14),
+            )
+
+            session.add_all([alpha, beta, gamma, zeta, deep_space, space_opera, cover, notes, deleted_book])
+            session.flush()
+
             session.add_all(
                 [
-                    File(
-                        source_id=source.id,
-                        path=r"D:\Library\Books\Alpha Guide.epub",
-                        parent_path=r"D:\Library\Books",
-                        name="Alpha Guide.epub",
-                        stem="Alpha Guide",
-                        extension="epub",
-                        file_type="other",
-                        mime_type=None,
-                        size_bytes=1200,
-                        created_at_fs=_dt(9, 20),
-                        modified_at_fs=_dt(11),
-                        discovered_at=_dt(9, 25),
-                        last_seen_at=_dt(11),
-                        is_deleted=False,
-                        checksum_hint=None,
-                        updated_at=_dt(11),
-                    ),
-                    File(
-                        source_id=source.id,
-                        path=r"D:\Library\Books\Beta Manual.pdf",
-                        parent_path=r"D:\Library\Books",
-                        name="Beta Manual.pdf",
-                        stem="Beta Manual",
-                        extension="PDF",
-                        file_type="document",
-                        mime_type=None,
-                        size_bytes=2100,
-                        created_at_fs=_dt(11, 30),
-                        modified_at_fs=None,
-                        discovered_at=_dt(12),
-                        last_seen_at=_dt(12),
-                        is_deleted=False,
-                        checksum_hint=None,
-                        updated_at=_dt(12),
-                    ),
-                    File(
-                        source_id=source.id,
-                        path=r"D:\Library\Books\Gamma Notes.pdf",
-                        parent_path=r"D:\Library\Books",
-                        name="Gamma Notes.pdf",
-                        stem=None,
-                        extension="pdf",
-                        file_type="document",
-                        mime_type=None,
-                        size_bytes=None,
-                        created_at_fs=_dt(9, 22),
-                        modified_at_fs=_dt(11),
-                        discovered_at=_dt(9, 28),
-                        last_seen_at=_dt(11),
-                        is_deleted=False,
-                        checksum_hint=None,
-                        updated_at=_dt(11),
-                    ),
-                    File(
-                        source_id=source.id,
-                        path=r"D:\Library\Books\Zeta Notes.epub",
-                        parent_path=r"D:\Library\Books",
-                        name="Zeta Notes.epub",
-                        stem="Zeta Notes",
-                        extension="epub",
-                        file_type="other",
-                        mime_type=None,
-                        size_bytes=3400,
-                        created_at_fs=_dt(12, 15),
-                        modified_at_fs=_dt(13),
-                        discovered_at=_dt(12, 20),
-                        last_seen_at=_dt(13),
-                        is_deleted=False,
-                        checksum_hint=None,
-                        updated_at=_dt(13),
-                    ),
-                    File(
-                        source_id=source.id,
-                        path=r"D:\Library\Books\Deep_Space__Vol._1.epub",
-                        parent_path=r"D:\Library\Books",
-                        name="Deep_Space__Vol._1.epub",
-                        stem="Deep_Space__Vol._1",
-                        extension="epub",
-                        file_type="other",
-                        mime_type=None,
-                        size_bytes=4100,
-                        created_at_fs=_dt(10, 5),
-                        modified_at_fs=_dt(10, 40),
-                        discovered_at=_dt(9, 40),
-                        last_seen_at=_dt(10, 40),
-                        is_deleted=False,
-                        checksum_hint=None,
-                        updated_at=_dt(10, 40),
-                    ),
-                    File(
-                        source_id=source.id,
-                        path=r"D:\Library\Books\  Space__Opera   Draft.pdf",
-                        parent_path=r"D:\Library\Books",
-                        name="  Space__Opera   Draft.pdf",
-                        stem="   ",
-                        extension="pdf",
-                        file_type="document",
-                        mime_type=None,
-                        size_bytes=1900,
-                        created_at_fs=_dt(10, 10),
-                        modified_at_fs=_dt(10, 15),
-                        discovered_at=_dt(9, 50),
-                        last_seen_at=_dt(10, 15),
-                        is_deleted=False,
-                        checksum_hint=None,
-                        updated_at=_dt(10, 15),
-                    ),
-                    File(
-                        source_id=source.id,
-                        path=r"D:\Library\Covers\Cover.png",
-                        parent_path=r"D:\Library\Covers",
-                        name="Cover.png",
-                        stem="Cover",
-                        extension="png",
-                        file_type="image",
-                        mime_type=None,
-                        size_bytes=900,
-                        created_at_fs=_dt(10),
-                        modified_at_fs=_dt(10, 30),
-                        discovered_at=_dt(10, 35),
-                        last_seen_at=_dt(10, 30),
-                        is_deleted=False,
-                        checksum_hint=None,
-                        updated_at=_dt(10, 30),
-                    ),
-                    File(
-                        source_id=source.id,
-                        path=r"D:\Library\Docs\Notes.docx",
-                        parent_path=r"D:\Library\Docs",
-                        name="Notes.docx",
-                        stem="Notes",
-                        extension="docx",
-                        file_type="document",
-                        mime_type=None,
-                        size_bytes=300,
-                        created_at_fs=_dt(10),
-                        modified_at_fs=_dt(10, 30),
-                        discovered_at=_dt(10, 35),
-                        last_seen_at=_dt(10, 30),
-                        is_deleted=False,
-                        checksum_hint=None,
-                        updated_at=_dt(10, 30),
-                    ),
-                    File(
-                        source_id=source.id,
-                        path=r"D:\Library\Books\deleted-book.pdf",
-                        parent_path=r"D:\Library\Books",
-                        name="deleted-book.pdf",
-                        stem="deleted-book",
-                        extension="pdf",
-                        file_type="document",
-                        mime_type=None,
-                        size_bytes=80,
-                        created_at_fs=_dt(8, 45),
-                        modified_at_fs=_dt(9),
-                        discovered_at=_dt(9),
-                        last_seen_at=_dt(9),
-                        is_deleted=True,
-                        checksum_hint=None,
-                        updated_at=_dt(14),
-                    ),
+                    FileTag(file_id=alpha.id, tag_id=tag_story.id, created_at=_dt(8)),
+                    FileTag(file_id=gamma.id, tag_id=tag_story.id, created_at=_dt(8)),
+                    FileTag(file_id=zeta.id, tag_id=tag_reference.id, created_at=_dt(8)),
+                    FileUserMeta(file_id=gamma.id, color_tag="blue", status=None, updated_at=_dt(8)),
+                    FileUserMeta(file_id=zeta.id, color_tag="blue", status=None, updated_at=_dt(8)),
+                    FileUserMeta(file_id=beta.id, color_tag="green", status=None, updated_at=_dt(8)),
+                    FileUserMeta(file_id=notes.id, color_tag="blue", status=None, updated_at=_dt(8)),
                 ]
             )
             session.commit()
+            return {
+                "story_tag_id": tag_story.id,
+                "reference_tag_id": tag_reference.id,
+            }
 
     def _reset_database(self) -> None:
         with SessionLocal() as session:
