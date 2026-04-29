@@ -3,6 +3,9 @@ dist/
 .venv/
 __pycache__/
 *.pyc
+apps/backend/build/
+apps/desktop/build-resources/ffmpeg/
+apps/desktop/release/
 docs/_wip/*
 !docs/_wip/.gitkeep
 !docs/_wip/README.md

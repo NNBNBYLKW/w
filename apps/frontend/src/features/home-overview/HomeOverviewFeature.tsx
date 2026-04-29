@@ -2,21 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
+import { t } from "../../shared/text";
 import { listRecentImports } from "../../services/api/recentApi";
 import { getSources } from "../../services/api/sourcesApi";
 import { queryKeys } from "../../services/query/queryKeys";
 import { SystemStatusFeature } from "../system-status/SystemStatusFeature";
-
-
-const QUICK_LINKS = [
-  { to: "/search", label: "Indexed search results" },
-  { to: "/files", label: "Indexed-files browse" },
-  { to: "/library/media", label: "Indexed media listing" },
-  { to: "/recent", label: "Recently indexed files" },
-  { to: "/tags", label: "Tag-scoped retrieval" },
-  { to: "/collections", label: "Saved collections" },
-  { to: "/settings", label: "Source / system entry" },
-];
 
 
 function formatTimestamp(value: string): string {
@@ -26,21 +16,30 @@ function formatTimestamp(value: string): string {
 
 function formatScanStatusLabel(value: string | null): string {
   if (value === "running") {
-    return "Scan running";
+    return t("settings.sourceManagement.scanStatus.running");
   }
   if (value === "failed") {
-    return "Last scan failed";
+    return t("settings.sourceManagement.scanStatus.failed");
   }
   if (value === "succeeded") {
-    return "Last scan succeeded";
+    return t("settings.sourceManagement.scanStatus.succeeded");
   }
-  return "No scan yet";
+  return t("settings.sourceManagement.scanStatus.none");
 }
 
 
 export function HomeOverviewFeature() {
   const selectedItemId = useUIStore((state) => state.selectedItemId);
   const selectItem = useUIStore((state) => state.selectItem);
+  const quickLinks = [
+    { to: "/search", label: t("features.homeOverview.quickLinks.items.search") },
+    { to: "/files", label: t("features.homeOverview.quickLinks.items.files") },
+    { to: "/library/media", label: t("features.homeOverview.quickLinks.items.media") },
+    { to: "/recent", label: t("features.homeOverview.quickLinks.items.recent") },
+    { to: "/tags", label: t("features.homeOverview.quickLinks.items.tags") },
+    { to: "/collections", label: t("features.homeOverview.quickLinks.items.collections") },
+    { to: "/settings", label: t("features.homeOverview.quickLinks.items.settings") },
+  ];
 
   const recentQueryParams = {
     range: "7d" as const,
@@ -62,30 +61,30 @@ export function HomeOverviewFeature() {
   return (
     <section className="home-overview">
       <SystemStatusFeature
-        eyebrow="Overview entry"
-        title="System status"
-        description="Use this lightweight overview entry to review current runtime health and indexed-content coverage before opening a workbench flow."
+        eyebrow={t("features.homeOverview.systemOverviewEyebrow")}
+        title={t("settings.systemStatus.title")}
+        description={t("features.homeOverview.systemOverviewDescription")}
       />
 
       <div className="home-overview-grid">
         <section className="feature-shell">
           <div className="feature-header">
-            <span className="page-header__eyebrow">Recent imports preview</span>
-            <h3>Recently indexed files</h3>
-            <p>Preview the latest indexed files from the last 7 days before jumping into the full recent-imports page.</p>
+            <span className="page-header__eyebrow">{t("features.homeOverview.recentPreview.eyebrow")}</span>
+            <h3>{t("features.homeOverview.recentPreview.title")}</h3>
+            <p>{t("features.homeOverview.recentPreview.description")}</p>
           </div>
 
-          {recentQuery.isLoading ? <p>Loading recent imports preview...</p> : null}
+          {recentQuery.isLoading ? <p>{t("features.homeOverview.recentPreview.loading")}</p> : null}
 
           {recentQuery.error instanceof Error ? (
             <div className="status-block page-card">
-              <strong>Recent imports preview unavailable</strong>
+              <strong>{t("features.homeOverview.recentPreview.unavailableTitle")}</strong>
               <p>{recentQuery.error.message}</p>
             </div>
           ) : null}
 
           {recentQuery.data && recentQuery.data.items.length === 0 ? (
-            <div className="future-frame">No active indexed files were discovered in the last 7 days yet.</div>
+            <div className="future-frame">{t("features.homeOverview.recentPreview.empty")}</div>
           ) : null}
 
           {recentQuery.data && recentQuery.data.items.length > 0 ? (
@@ -113,22 +112,22 @@ export function HomeOverviewFeature() {
 
         <section className="feature-shell">
           <div className="feature-header">
-            <span className="page-header__eyebrow">Sources overview</span>
-            <h3>Indexed source coverage</h3>
-            <p>Review saved source rows and their latest scan state before opening source setup and scan control in Settings.</p>
+            <span className="page-header__eyebrow">{t("features.homeOverview.sourcesOverview.eyebrow")}</span>
+            <h3>{t("features.homeOverview.sourcesOverview.title")}</h3>
+            <p>{t("features.homeOverview.sourcesOverview.description")}</p>
           </div>
 
-          {sourcesQuery.isLoading ? <p>Loading sources overview...</p> : null}
+          {sourcesQuery.isLoading ? <p>{t("features.homeOverview.sourcesOverview.loading")}</p> : null}
 
           {sourcesQuery.error instanceof Error ? (
             <div className="status-block page-card">
-              <strong>Sources overview unavailable</strong>
+              <strong>{t("features.homeOverview.sourcesOverview.unavailableTitle")}</strong>
               <p>{sourcesQuery.error.message}</p>
             </div>
           ) : null}
 
           {sourcesQuery.data && sourcesQuery.data.length === 0 ? (
-            <div className="future-frame">No saved sources yet. Open Settings to start source setup and run a first scan.</div>
+            <div className="future-frame">{t("features.homeOverview.sourcesOverview.empty")}</div>
           ) : null}
 
           {sourcesQuery.data && sourcesQuery.data.length > 0 ? (
@@ -139,7 +138,11 @@ export function HomeOverviewFeature() {
                     <strong>{source.display_name ?? source.path}</strong>
                     <p className="source-row__path">{source.path}</p>
                     {source.last_scan_status === "failed" && source.last_scan_error_message ? (
-                      <p className="source-row__path">Last scan failed: {source.last_scan_error_message}</p>
+                      <p className="source-row__path">
+                        {t("features.homeOverview.sourcesOverview.scanFailed", {
+                          message: source.last_scan_error_message,
+                        })}
+                      </p>
                     ) : null}
                   </div>
                   <div className="source-row__actions">
@@ -153,13 +156,13 @@ export function HomeOverviewFeature() {
 
         <section className="feature-shell">
           <div className="feature-header">
-            <span className="page-header__eyebrow">Quick links</span>
-            <h3>Jump into a workbench flow</h3>
-            <p>Open the current search, browse, media, recent, tag, collections, or source-entry pages without leaving the shared shell.</p>
+            <span className="page-header__eyebrow">{t("features.homeOverview.quickLinks.eyebrow")}</span>
+            <h3>{t("features.homeOverview.quickLinks.title")}</h3>
+            <p>{t("features.homeOverview.quickLinks.description")}</p>
           </div>
 
           <div className="quick-links-grid">
-            {QUICK_LINKS.map((link) => (
+            {quickLinks.map((link) => (
               <Link key={link.to} className="quick-link-card" to={link.to}>
                 {link.label}
               </Link>

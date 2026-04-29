@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
+import { t, useLocale } from "../../shared/text";
 import { BatchActionBar } from "../batch-organize/BatchActionBar";
 import { useBatchOrganizeActions } from "../batch-organize/useBatchOrganizeActions";
 import { useBatchSelection } from "../batch-organize/useBatchSelection";
@@ -20,30 +21,27 @@ import { queryKeys } from "../../services/query/queryKeys";
 
 
 function formatBytes(value: number | null): string {
-  return value === null ? "Size unavailable" : `${value.toLocaleString()} bytes`;
+  return value === null ? t("common.states.sizeUnavailable") : `${value.toLocaleString()} bytes`;
 }
 
-
-const VIEW_SCOPE_OPTIONS: Array<{ label: string; value: MediaViewScope }> = [
-  { label: "All media", value: "all" },
-  { label: "Images", value: "image" },
-  { label: "Videos", value: "video" },
-];
-const COLOR_TAG_OPTIONS: Array<{ label: string; value: ColorTagValue | "all" }> = [
-  { label: "All colors", value: "all" },
-  { label: "Red", value: "red" },
-  { label: "Yellow", value: "yellow" },
-  { label: "Green", value: "green" },
-  { label: "Blue", value: "blue" },
-  { label: "Purple", value: "purple" },
-];
-
-const ENTRY_COPY: Record<string, string> = {
-  recent: "Opened from Recent so you can keep organizing this media subset after the latest scan window.",
-  tags: "Opened from Tags to continue working inside the media subset for the selected normal tag.",
-  collections: "Opened from Collections to keep browsing the media-compatible saved retrieval set.",
-  details: "Opened from shared details so you can re-find this media file inside the current subset surface.",
-};
+function getColorTagLabel(value: ColorTagValue | "all"): string {
+  if (value === "all") {
+    return t("common.colors.all");
+  }
+  if (value === "red") {
+    return t("common.colors.red");
+  }
+  if (value === "yellow") {
+    return t("common.colors.yellow");
+  }
+  if (value === "green") {
+    return t("common.colors.green");
+  }
+  if (value === "blue") {
+    return t("common.colors.blue");
+  }
+  return t("common.colors.purple");
+}
 
 function buildCollectionPrefillName({
   viewScope,
@@ -54,12 +52,12 @@ function buildCollectionPrefillName({
   selectedTagName: string | null;
   selectedColorTag: ColorTagValue | "all";
 }): string {
-  const parts = ["Media"];
+  const parts = [t("pages.media.title")];
 
   if (viewScope === "image") {
-    parts.push("Images");
+    parts.push(t("features.media.scopes.image"));
   } else if (viewScope === "video") {
-    parts.push("Videos");
+    parts.push(t("features.media.scopes.video"));
   }
 
   if (selectedTagName) {
@@ -67,8 +65,7 @@ function buildCollectionPrefillName({
   }
 
   if (selectedColorTag !== "all") {
-    const colorLabel = COLOR_TAG_OPTIONS.find((option) => option.value === selectedColorTag)?.label ?? selectedColorTag;
-    parts.push(colorLabel);
+    parts.push(getColorTagLabel(selectedColorTag));
   }
 
   return parts.join(" · ");
@@ -84,26 +81,34 @@ function MediaPoster({
   name: string;
 }) {
   const [thumbnailFailed, setThumbnailFailed] = useState(false);
-  const [thumbnailLoaded, setThumbnailLoaded] = useState(fileType !== "image");
+  const [thumbnailLoaded, setThumbnailLoaded] = useState(false);
 
-  if (fileType !== "image" || thumbnailFailed) {
-    return (
-      <div className={`media-card__poster ${fileType === "video" ? "media-card__poster--video" : ""}`}>
-        <div className="media-card__poster-copy">
-          <strong>{fileType === "image" ? "Image preview unavailable" : "Video"}</strong>
-          <span>{fileType === "image" ? "This indexed image has no preview yet." : "Visual browsing stays available."}</span>
+  if (thumbnailFailed) {
+      return (
+        <div className={`media-card__poster ${fileType === "video" ? "media-card__poster--video" : ""}`}>
+          <div className="media-card__poster-copy">
+            <strong>
+              {fileType === "image"
+                ? t("features.media.previewFallback.imageTitle")
+                : t("features.media.previewFallback.videoTitle")}
+            </strong>
+            <span>
+              {fileType === "image"
+                ? t("features.media.previewFallback.imageHint")
+                : t("features.media.previewFallback.videoHint")}
+            </span>
+          </div>
         </div>
-      </div>
-    );
+      );
   }
 
   return (
-    <div className="media-card__poster media-card__poster--image">
+    <div className={`media-card__poster media-card__poster--image${fileType === "video" ? " media-card__poster--video-thumb" : ""}`}>
       {!thumbnailLoaded ? <div className="media-card__poster-skeleton" aria-hidden="true" /> : null}
       <img
         className={`media-card__thumbnail${thumbnailLoaded ? " media-card__thumbnail--ready" : ""}`}
         src={getFileThumbnailUrl(fileId)}
-        alt={`Thumbnail for ${name}`}
+        alt={t("features.media.thumbnailAlt", { name })}
         loading="lazy"
         onError={() => setThumbnailFailed(true)}
         onLoad={() => setThumbnailLoaded(true)}
@@ -191,9 +196,9 @@ function MediaLibraryCard({
         <span className="status-pill">{fileType}</span>
         <span className="status-pill">{formatBytes(sizeBytes)}</span>
         <span className="status-pill">{new Date(modifiedAt).toLocaleString()}</span>
-        {isFavorite ? <span className="status-pill status-pill--favorite">★ Favorite</span> : null}
+        {isFavorite ? <span className="status-pill status-pill--favorite">{t("common.favorites.favorite")}</span> : null}
         {rating !== null ? <span className="status-pill status-pill--rating">★ {rating}</span> : null}
-        {isBatchMode && selected ? <span className="status-pill">Selected</span> : null}
+        {isBatchMode && selected ? <span className="status-pill">{t("common.states.selected")}</span> : null}
       </div>
     </button>
   );
@@ -201,9 +206,23 @@ function MediaLibraryCard({
 
 
 export function MediaLibraryFeature() {
+  const { locale } = useLocale();
   const selectedItemId = useUIStore((state) => state.selectedItemId);
   const selectItem = useUIStore((state) => state.selectItem);
   const navigate = useNavigate();
+  const viewScopeOptions: Array<{ label: string; value: MediaViewScope }> = [
+    { label: t("features.media.scopes.all"), value: "all" },
+    { label: t("features.media.scopes.image"), value: "image" },
+    { label: t("features.media.scopes.video"), value: "video" },
+  ];
+  const colorTagOptions: Array<{ label: string; value: ColorTagValue | "all" }> = [
+    { label: t("common.colors.all"), value: "all" },
+    { label: t("common.colors.red"), value: "red" },
+    { label: t("common.colors.yellow"), value: "yellow" },
+    { label: t("common.colors.green"), value: "green" },
+    { label: t("common.colors.blue"), value: "blue" },
+    { label: t("common.colors.purple"), value: "purple" },
+  ];
   const [searchParams, setSearchParams] = useSearchParams();
   const [viewScope, setViewScope] = useState<MediaViewScope>("all");
   const [selectedTagId, setSelectedTagId] = useState("all");
@@ -225,7 +244,7 @@ export function MediaLibraryFeature() {
     selectedIds,
     toggleSelection,
   } = useBatchSelection({
-    pageLabel: "Media Library",
+    pageLabel: t("shell.topbar.pages.media"),
     resetDeps: [viewScope, selectedTagId, selectedColorTag, sortBy, sortOrder, page],
   });
   const { applyColorTag, applyTag, isApplyingColorTag, isApplyingTag } = useBatchOrganizeActions({
@@ -256,7 +275,7 @@ export function MediaLibraryFeature() {
   const selectedTagName =
     selectedTagId === "all"
       ? null
-      : tagsQuery.data?.items.find((tag) => String(tag.id) === selectedTagId)?.name ?? "Selected tag";
+      : tagsQuery.data?.items.find((tag) => String(tag.id) === selectedTagId)?.name ?? t("common.labels.tag");
   const hasActiveFilters =
     viewScope !== "all" ||
     selectedTagId !== "all" ||
@@ -265,17 +284,32 @@ export function MediaLibraryFeature() {
     sortOrder !== "desc";
   const filterSummary = hasActiveFilters
     ? [
-        `Scope: ${VIEW_SCOPE_OPTIONS.find((option) => option.value === viewScope)?.label ?? "All media"}`,
-        selectedTagName ? `Tag: ${selectedTagName}` : null,
-        selectedColorTag !== "all"
-          ? `Color: ${COLOR_TAG_OPTIONS.find((option) => option.value === selectedColorTag)?.label ?? selectedColorTag}`
-          : null,
-        `Sorted by ${sortBy === "modified_at" ? "Modified" : sortBy === "name" ? "Name" : "Discovered"} (${sortOrder === "desc" ? "Descending" : "Ascending"})`,
+        `${t("common.labels.scope")}: ${viewScopeOptions.find((option) => option.value === viewScope)?.label ?? t("features.media.scopes.all")}`,
+        selectedTagName ? `${t("common.labels.tag")}: ${selectedTagName}` : null,
+        selectedColorTag !== "all" ? `${t("common.labels.color")}: ${getColorTagLabel(selectedColorTag)}` : null,
+        t("common.labels.sortedBy", {
+          sort: sortBy === "modified_at" ? t("common.sortBy.modified") : sortBy === "name" ? t("common.sortBy.name") : t("common.sortBy.discovered"),
+          order: sortOrder === "desc" ? t("common.sortOrder.descending") : t("common.sortOrder.ascending"),
+        }),
       ]
         .filter(Boolean)
         .join(" · ")
-    : "Showing all indexed images and videos.";
-  const entryCopy = entry ? ENTRY_COPY[entry] : null;
+    : t("features.media.summaryAll");
+  const entryCopy = useMemo(() => {
+    if (entry === "recent") {
+      return t("features.media.entry.recent");
+    }
+    if (entry === "tags") {
+      return t("features.media.entry.tags");
+    }
+    if (entry === "collections") {
+      return t("features.media.entry.collections");
+    }
+    if (entry === "details") {
+      return t("features.media.entry.details");
+    }
+    return null;
+  }, [entry, locale]);
   const saveCollectionHref = useMemo(() => {
     if (!hasActiveFilters) {
       return null;
@@ -301,7 +335,7 @@ export function MediaLibraryFeature() {
     }
     nextParams.set("entry", "media");
     return `/collections?${nextParams.toString()}`;
-  }, [hasActiveFilters, selectedColorTag, selectedTagId, selectedTagName, viewScope]);
+  }, [hasActiveFilters, locale, selectedColorTag, selectedTagId, selectedTagName, viewScope]);
 
   useEffect(() => {
     const nextViewScope = searchParams.get("view_scope");
@@ -348,148 +382,154 @@ export function MediaLibraryFeature() {
   return (
     <section className="feature-shell">
       <div className="feature-header">
-        <span className="page-header__eyebrow">Visual subset browsing</span>
-        <h3>Indexed images and videos</h3>
-        <p>Select a card to load shared details. Double-click a card to open the indexed file.</p>
+        <span className="page-header__eyebrow">{t("features.media.eyebrow")}</span>
+        <h3>{t("features.media.title")}</h3>
+        <p>{t("features.media.description")}</p>
       </div>
 
-      {entryCopy ? <div className="media-library-flow-note">{entryCopy}</div> : null}
+      <div className="subset-filter-block">
+        {entryCopy ? <div className="media-library-flow-note">{entryCopy}</div> : null}
 
-      <div className="media-library-toolbar">
-        <div className="field-stack media-library-toolbar__field media-library-toolbar__field--wide">
-          <span>Scope</span>
-          <div className="media-library-scope-switch" aria-label="Media library scope">
-            {VIEW_SCOPE_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                className={`secondary-button media-library-scope-button${viewScope === option.value ? " media-library-scope-button--selected" : ""}`}
-                type="button"
-                onClick={() => {
-                  setViewScope(option.value);
-                  setPage(1);
-                }}
-              >
-                {option.label}
-              </button>
-            ))}
+        <div className="media-library-toolbar">
+          <div className="field-stack media-library-toolbar__field media-library-toolbar__field--wide">
+            <span>{t("common.labels.scope")}</span>
+            <div className="media-library-scope-switch" aria-label={t("features.media.scopeAria")}>
+                  {viewScopeOptions.map((option) => (
+                <button
+                  key={option.value}
+                  className={`secondary-button media-library-scope-button${viewScope === option.value ? " media-library-scope-button--selected" : ""}`}
+                  type="button"
+                  onClick={() => {
+                    setViewScope(option.value);
+                    setPage(1);
+                  }}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-        <label className="field-stack media-library-toolbar__field">
-          <span>Tag</span>
-          <select
-            className="select-input"
-            value={selectedTagId}
-            onChange={(event) => {
-              setSelectedTagId(event.target.value);
-              setPage(1);
-            }}
-            disabled={tagsQuery.isLoading || tagsQuery.error instanceof Error}
-          >
-            <option value="all">{tagsQuery.error instanceof Error ? "Tags unavailable" : "All tags"}</option>
-            {(tagsQuery.data?.items ?? []).map((tag) => (
-              <option key={tag.id} value={tag.id}>
-                {tag.name}
+          <label className="field-stack media-library-toolbar__field">
+            <span>{t("common.labels.tag")}</span>
+            <select
+              className="select-input"
+              value={selectedTagId}
+              onChange={(event) => {
+                setSelectedTagId(event.target.value);
+                setPage(1);
+              }}
+              disabled={tagsQuery.isLoading || tagsQuery.error instanceof Error}
+            >
+              <option value="all">
+                {tagsQuery.error instanceof Error ? t("common.tagFilters.unavailable") : t("common.tagFilters.all")}
               </option>
-            ))}
-          </select>
-        </label>
-        <label className="field-stack media-library-toolbar__field">
-          <span>Color</span>
-          <select
-            className="select-input"
-            value={selectedColorTag}
-            onChange={(event) => {
-              setSelectedColorTag(event.target.value as ColorTagValue | "all");
-              setPage(1);
-            }}
-          >
-            {COLOR_TAG_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field-stack media-library-toolbar__field">
-          <span>Sort by</span>
-          <select
-            className="select-input"
-            value={sortBy}
-            onChange={(event) => {
-              setSortBy(event.target.value as FileListSortBy);
-              setPage(1);
-            }}
-          >
-            <option value="modified_at">Modified</option>
-            <option value="name">Name</option>
-            <option value="discovered_at">Discovered</option>
-          </select>
-        </label>
-        <label className="field-stack media-library-toolbar__field">
-          <span>Order</span>
-          <select
-            className="select-input"
-            value={sortOrder}
-            onChange={(event) => {
-              setSortOrder(event.target.value as FileListSortOrder);
-              setPage(1);
-            }}
-          >
-            <option value="desc">Descending</option>
-            <option value="asc">Ascending</option>
-          </select>
-        </label>
-      </div>
-      <div className="media-library-filter-summary">
-        <p>{filterSummary}</p>
-        <div className="media-library-filter-summary__actions">
-          {!isBatchMode ? (
-            <button className="ghost-button" type="button" onClick={enterBatchMode}>
-              Batch organize
-            </button>
-          ) : null}
-          {saveCollectionHref ? (
-            <button
-              className="ghost-button"
-              type="button"
-              onClick={() => {
-                navigate(saveCollectionHref);
+              {(tagsQuery.data?.items ?? []).map((tag) => (
+                <option key={tag.id} value={tag.id}>
+                  {tag.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field-stack media-library-toolbar__field">
+            <span>{t("common.labels.color")}</span>
+            <select
+              className="select-input"
+              value={selectedColorTag}
+              onChange={(event) => {
+                setSelectedColorTag(event.target.value as ColorTagValue | "all");
+                setPage(1);
               }}
             >
-              Save current media filters as collection
-            </button>
-          ) : null}
-          {hasActiveFilters ? (
-            <button className="ghost-button media-library-filter-summary__clear" type="button" onClick={resetFilters}>
-              Clear filters
-            </button>
-          ) : null}
+              {colorTagOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field-stack media-library-toolbar__field">
+            <span>{t("common.labels.sortBy")}</span>
+            <select
+              className="select-input"
+              value={sortBy}
+              onChange={(event) => {
+                setSortBy(event.target.value as FileListSortBy);
+                setPage(1);
+              }}
+            >
+              <option value="modified_at">{t("common.sortBy.modified")}</option>
+              <option value="name">{t("common.sortBy.name")}</option>
+              <option value="discovered_at">{t("common.sortBy.discovered")}</option>
+            </select>
+          </label>
+          <label className="field-stack media-library-toolbar__field">
+            <span>{t("common.labels.order")}</span>
+            <select
+              className="select-input"
+              value={sortOrder}
+              onChange={(event) => {
+                setSortOrder(event.target.value as FileListSortOrder);
+                setPage(1);
+              }}
+            >
+              <option value="desc">{t("common.sortOrder.descending")}</option>
+              <option value="asc">{t("common.sortOrder.ascending")}</option>
+            </select>
+          </label>
+        </div>
+        <div className="media-library-filter-summary">
+          <p>{filterSummary}</p>
+          <div className="media-library-filter-summary__actions">
+            {!isBatchMode ? (
+              <button className="ghost-button" type="button" onClick={enterBatchMode}>
+                {t("common.actions.batchOrganize")}
+              </button>
+            ) : null}
+            {saveCollectionHref ? (
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={() => {
+                  navigate(saveCollectionHref);
+                }}
+              >
+                {t("features.media.saveFiltersAsCollection")}
+              </button>
+            ) : null}
+            {hasActiveFilters ? (
+              <button className="ghost-button media-library-filter-summary__clear" type="button" onClick={resetFilters}>
+                {t("common.actions.clearFilters")}
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
 
       {isBatchMode ? (
-        <BatchActionBar
-          isApplyingColorTag={isApplyingColorTag}
-          isApplyingTag={isApplyingTag}
-          onApplyColorTag={(colorTag) => applyColorTag(selectedIds, colorTag)}
-          onApplyTag={(name) => applyTag(selectedIds, name)}
-          onClearSelection={clearSelection}
-          onExitBatchMode={exitBatchMode}
-          selectedCount={selectedCount}
-        />
+        <div className="subset-batch-block">
+          <BatchActionBar
+            isApplyingColorTag={isApplyingColorTag}
+            isApplyingTag={isApplyingTag}
+            onApplyColorTag={(colorTag) => applyColorTag(selectedIds, colorTag)}
+            onApplyTag={(name) => applyTag(selectedIds, name)}
+            onClearSelection={clearSelection}
+            onExitBatchMode={exitBatchMode}
+            selectedCount={selectedCount}
+          />
+        </div>
       ) : null}
 
       <div className="media-library-meta-row">
         <p>
           {viewScope === "all"
-            ? "Showing active indexed images and videos in a visual-first media library view."
-            : `Showing active indexed ${viewScope} files in the current media library scope.`}
+            ? t("features.media.metaAll")
+            : t("features.media.metaScoped", { scope: viewScope })}
         </p>
-        {mediaQuery.data ? <span>{mediaQuery.data.total} media items</span> : null}
+        {mediaQuery.data ? <span>{t("common.labels.mediaItems", { count: mediaQuery.data.total })}</span> : null}
       </div>
 
       {showLoadingSkeleton ? (
-        <div className="media-library-grid media-library-grid--loading" aria-label="Loading media library">
+        <div className="media-library-grid media-library-grid--loading" aria-label={t("features.media.loadingAria")}>
           {Array.from({ length: 8 }, (_, index) => (
             <MediaCardSkeleton key={index} />
           ))}
@@ -498,29 +538,24 @@ export function MediaLibraryFeature() {
 
       {mediaQuery.error instanceof Error ? (
         <div className="status-block page-card">
-          <strong>Media library failed</strong>
+          <strong>{t("features.media.failedTitle")}</strong>
           <p>{mediaQuery.error.message}</p>
         </div>
       ) : null}
 
       {tagsQuery.error instanceof Error ? (
         <div className="status-block page-card">
-          <strong>Tag filters unavailable</strong>
+          <strong>{t("features.search.tagsUnavailableTitle")}</strong>
           <p>{tagsQuery.error.message}</p>
         </div>
       ) : null}
 
       {showEmptyState ? (
-        <div className="future-frame">
-          No indexed images or videos are available yet. Add a source and run a scan to populate this subset surface.
-        </div>
+        <div className="future-frame">{t("features.media.empty")}</div>
       ) : null}
 
       {showNoResultsState ? (
-        <div className="future-frame">
-          No indexed media files match the current scope and filters on this page. Adjust the filters or clear them to
-          keep browsing.
-        </div>
+        <div className="future-frame">{t("features.media.noResults")}</div>
       ) : null}
 
       {mediaQuery.data && mediaQuery.data.items.length > 0 ? (
@@ -556,18 +591,16 @@ export function MediaLibraryFeature() {
               onClick={() => setPage((current) => Math.max(1, current - 1))}
               disabled={page <= 1}
             >
-              Previous
+              {t("common.actions.previous")}
             </button>
-            <span>
-              Page {page} of {totalPages}
-            </span>
+            <span>{t("common.labels.page", { page, total: totalPages })}</span>
             <button
               className="secondary-button"
               type="button"
               onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
               disabled={page >= totalPages}
             >
-              Next
+              {t("common.actions.next")}
             </button>
           </div>
         </>

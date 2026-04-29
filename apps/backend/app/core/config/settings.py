@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,6 +12,8 @@ class Settings(BaseSettings):
     api_port: int = 8000
     frontend_origin: str = "http://127.0.0.1:5173"
     frontend_origin_alt: str = "http://localhost:5173"
+    data_dir_override: Path | None = Field(default=None, validation_alias="WORKBENCH_DATA_DIR")
+    ffmpeg_path: Path | None = Field(default=None, validation_alias="WORKBENCH_FFMPEG_PATH")
 
     @property
     def base_dir(self) -> Path:
@@ -18,6 +21,8 @@ class Settings(BaseSettings):
 
     @property
     def data_dir(self) -> Path:
+        if self.data_dir_override is not None:
+            return self.data_dir_override
         return self.base_dir / "data"
 
     @property
@@ -34,7 +39,7 @@ class Settings(BaseSettings):
 
     @property
     def allowed_origins(self) -> list[str]:
-        return [self.frontend_origin, self.frontend_origin_alt]
+        return [self.frontend_origin, self.frontend_origin_alt, "null"]
 
     @property
     def allowed_origin_regex(self) -> str:

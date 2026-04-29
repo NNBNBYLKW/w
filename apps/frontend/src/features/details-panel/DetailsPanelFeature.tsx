@@ -3,9 +3,14 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
+import { t } from "../../shared/text";
 import type { ColorTagValue, FileDetailResponseVM, FileRatingValue, FileStatusValue } from "../../entities/file/types";
 import { updateFileColorTag } from "../../services/api/colorTagsApi";
-import { getFileThumbnailUrl } from "../../services/api/fileDetailsApi";
+import {
+  getFileThumbnailUrl,
+  getFileVideoPreview,
+  getFileVideoPreviewFrameUrl,
+} from "../../services/api/fileDetailsApi";
 import {
   hasDesktopOpenActionsBridge,
   normalizeIndexedFilePath,
@@ -20,17 +25,17 @@ import { updateFileUserMeta } from "../../services/api/userMetaApi";
 
 
 function formatTimestamp(value: string | null): string {
-  return value ? new Date(value).toLocaleString() : "Unavailable";
+  return value ? new Date(value).toLocaleString() : t("details.values.unavailable");
 }
 
 
 function formatBytes(value: number | null): string {
-  return value === null ? "Unavailable" : `${value.toLocaleString()} bytes`;
+  return value === null ? t("details.values.unavailable") : `${value.toLocaleString()} bytes`;
 }
 
 function formatMetadataValue(value: number | null, suffix?: string): string {
   if (value === null) {
-    return "Unavailable";
+    return t("details.values.unavailable");
   }
 
   return suffix ? `${value.toLocaleString()} ${suffix}` : value.toLocaleString();
@@ -38,7 +43,7 @@ function formatMetadataValue(value: number | null, suffix?: string): string {
 
 function formatDimensions(width: number | null, height: number | null): string {
   if (width === null && height === null) {
-    return "Unavailable";
+    return t("details.values.unavailable");
   }
 
   const widthLabel = width === null ? "?" : width.toLocaleString();
@@ -135,11 +140,11 @@ function inferGameEntry(name: string, path: string): boolean {
 }
 
 function formatFavoriteLabel(isFavorite: boolean): string {
-  return isFavorite ? "Marked favorite" : "Not marked";
+  return isFavorite ? t("details.values.markedFavorite") : t("details.values.notMarked");
 }
 
 function formatRatingLabel(value: FileRatingValue | null): string {
-  return value === null ? "None" : `${value} / 5`;
+  return value === null ? t("details.values.none") : `${value} / 5`;
 }
 
 
@@ -157,6 +162,9 @@ export function DetailsPanelFeature() {
   const [openActionError, setOpenActionError] = useState<string | null>(null);
   const [pendingOpenAction, setPendingOpenAction] = useState<"file" | "folder" | null>(null);
   const [previewLoadFailed, setPreviewLoadFailed] = useState(false);
+  const [singlePreviewLoaded, setSinglePreviewLoaded] = useState(false);
+  const [videoPreviewFrameIndex, setVideoPreviewFrameIndex] = useState(0);
+  const [videoPreviewPlaybackFailed, setVideoPreviewPlaybackFailed] = useState(false);
   const [retrievalHint, setRetrievalHint] = useState<
     | { kind: "tag"; message: string }
     | { kind: "color"; message: string }
@@ -169,7 +177,14 @@ export function DetailsPanelFeature() {
   const hasDesktopOpenActions = hasDesktopOpenActionsBridge();
   const isGamesRoute = location.pathname.startsWith("/library/games");
   const isBooksRoute = location.pathname.startsWith("/library/books");
-  const isSoftwareRoute = location.pathname.startsWith("/library/software");
+  const isSoftwareRoute = location.pathname.startsWith("/software");
+
+  useEffect(() => {
+    setPreviewLoadFailed(false);
+    setSinglePreviewLoaded(false);
+    setVideoPreviewFrameIndex(0);
+    setVideoPreviewPlaybackFailed(false);
+  }, [selectedItemId]);
 
   const invalidateRetrievalQueries = async () => {
     await Promise.all([
@@ -204,6 +219,38 @@ export function DetailsPanelFeature() {
   const isSoftwareContextForMutations =
     !isGameContextForMutations && (isSoftwareRoute || currentInferredSoftwareFormat !== null);
 
+  const videoPreviewQuery = useQuery({
+    queryKey: parsedFileId !== null ? ["file-video-preview", parsedFileId] : ["file-video-preview", "idle"],
+    queryFn: () => getFileVideoPreview(parsedFileId as number),
+    enabled:
+      parsedFileId !== null &&
+      !hasInvalidSelectedId &&
+      currentItem?.file_type === "video" &&
+      singlePreviewLoaded &&
+      !previewLoadFailed &&
+      !videoPreviewPlaybackFailed,
+    retry: false,
+  });
+
+  const videoPreviewFrameIndexes = videoPreviewQuery.data?.item.frame_indexes ?? [];
+  const isVideoPreviewActive =
+    currentItem?.file_type === "video" &&
+    !videoPreviewPlaybackFailed &&
+    videoPreviewFrameIndexes.length === 6;
+
+  useEffect(() => {
+    if (!isVideoPreviewActive) {
+      setVideoPreviewFrameIndex(0);
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setVideoPreviewFrameIndex((current) => (current + 1) % videoPreviewFrameIndexes.length);
+    }, 800);
+
+    return () => window.clearInterval(intervalId);
+  }, [isVideoPreviewActive, videoPreviewFrameIndexes.length]);
+
   const addTagMutation = useMutation({
     mutationFn: (name: string) => attachTagToFile(parsedFileId as number, name),
     onMutate: () => setTagMutationError(null),
@@ -223,7 +270,7 @@ export function DetailsPanelFeature() {
       });
     },
     onError: (error) => {
-      setTagMutationError(error instanceof Error ? error.message : "Failed to add tag.");
+      setTagMutationError(error instanceof Error ? error.message : t("details.errors.addTagFailed"));
     },
   });
 
@@ -245,7 +292,7 @@ export function DetailsPanelFeature() {
       });
     },
     onError: (error) => {
-      setTagMutationError(error instanceof Error ? error.message : "Failed to remove tag.");
+      setTagMutationError(error instanceof Error ? error.message : t("details.errors.removeTagFailed"));
     },
   });
 
@@ -288,7 +335,7 @@ export function DetailsPanelFeature() {
       });
     },
     onError: (error) => {
-      setColorTagMutationError(error instanceof Error ? error.message : "Failed to update color tag.");
+      setColorTagMutationError(error instanceof Error ? error.message : t("details.errors.updateColorTagFailed"));
     },
   });
 
@@ -319,7 +366,7 @@ export function DetailsPanelFeature() {
       });
     },
     onError: (error) => {
-      setStatusMutationError(error instanceof Error ? error.message : "Failed to update game status.");
+      setStatusMutationError(error instanceof Error ? error.message : t("details.errors.updateStatusFailed"));
     },
   });
 
@@ -358,7 +405,7 @@ export function DetailsPanelFeature() {
       ]);
     },
     onError: (error) => {
-      setUserMetaMutationError(error instanceof Error ? error.message : "Failed to update favorite or rating.");
+      setUserMetaMutationError(error instanceof Error ? error.message : t("details.errors.updateUserMetaFailed"));
     },
   });
 
@@ -371,13 +418,16 @@ export function DetailsPanelFeature() {
     setOpenActionError(null);
     setPendingOpenAction(null);
     setPreviewLoadFailed(false);
+    setSinglePreviewLoaded(false);
+    setVideoPreviewFrameIndex(0);
+    setVideoPreviewPlaybackFailed(false);
     setRetrievalHint(null);
   }, [selectedItemId]);
 
   const handleOpenAction = async (action: "file" | "folder", filePath: string | null | undefined) => {
     const normalizedPath = normalizeIndexedFilePath(filePath);
     if (!normalizedPath) {
-      setOpenActionError("This indexed file does not have a usable path for open actions.");
+      setOpenActionError(t("details.errors.openActionNoPath"));
       return;
     }
 
@@ -394,7 +444,7 @@ export function DetailsPanelFeature() {
         setOpenActionError(result.reason);
       }
     } catch (error) {
-      setOpenActionError(error instanceof Error ? error.message : "Failed to complete the open action.");
+      setOpenActionError(error instanceof Error ? error.message : t("details.errors.openActionFailed"));
     } finally {
       setPendingOpenAction(null);
     }
@@ -405,41 +455,41 @@ export function DetailsPanelFeature() {
   if (batchSelectionSummary) {
     content = (
       <>
-        <span className="placeholder-pill">Batch mode</span>
+        <span className="placeholder-pill">{t("details.placeholders.batch.eyebrow")}</span>
         <h3>{batchSelectionSummary.pageLabel}</h3>
-        <p>{batchSelectionSummary.selectedCount} files are selected on this page.</p>
-        <p>Use the page-level batch bar to apply tags or color tags, then exit batch mode to return to shared details.</p>
+        <p>{t("details.placeholders.batch.selectedCount", { count: batchSelectionSummary.selectedCount })}</p>
+        <p>{t("details.placeholders.batch.description")}</p>
       </>
     );
   } else if (selectedItemId === null) {
     content = (
       <>
-        <span className="placeholder-pill">Awaiting selection</span>
-        <h3>Details panel</h3>
-        <p>Select an item to load its shared details here.</p>
+        <span className="placeholder-pill">{t("details.placeholders.awaitingSelection.eyebrow")}</span>
+        <h3>{t("details.placeholders.awaitingSelection.title")}</h3>
+        <p>{t("details.placeholders.awaitingSelection.description")}</p>
       </>
     );
   } else if (hasInvalidSelectedId) {
     content = (
       <>
-        <span className="placeholder-pill">Selection error</span>
-        <h3>Details panel</h3>
-        <p>The selected item id is not a valid file identifier.</p>
+        <span className="placeholder-pill">{t("details.placeholders.selectionError.eyebrow")}</span>
+        <h3>{t("details.placeholders.selectionError.title")}</h3>
+        <p>{t("details.placeholders.selectionError.description")}</p>
       </>
     );
   } else if (detailQuery.isLoading) {
     content = (
       <>
-        <span className="placeholder-pill">Loading</span>
-        <h3>Details panel</h3>
-        <p>Loading shared details...</p>
+        <span className="placeholder-pill">{t("details.placeholders.loading.eyebrow")}</span>
+        <h3>{t("details.placeholders.loading.title")}</h3>
+        <p>{t("details.placeholders.loading.description")}</p>
       </>
     );
   } else if (detailQuery.error instanceof Error) {
     content = (
       <>
-        <span className="placeholder-pill">Error</span>
-        <h3>Details panel</h3>
+        <span className="placeholder-pill">{t("details.placeholders.error.eyebrow")}</span>
+        <h3>{t("details.placeholders.error.title")}</h3>
         <p>{detailQuery.error.message}</p>
       </>
     );
@@ -461,75 +511,78 @@ export function DetailsPanelFeature() {
     const isSoftwareContext = !isGameContext && (isSoftwareRoute || inferredSoftwareFormat !== null);
     const metadata = item.metadata;
     const firstTag = item.tags[0] ?? null;
+    const activeVideoPreviewFrameIndex = videoPreviewFrameIndexes[videoPreviewFrameIndex] ?? videoPreviewFrameIndexes[0];
+    const previewImageSrc =
+      isVideoPreviewActive && activeVideoPreviewFrameIndex !== undefined
+        ? getFileVideoPreviewFrameUrl(item.id, activeVideoPreviewFrameIndex)
+        : getFileThumbnailUrl(item.id);
     content = (
       <>
-        <span className="placeholder-pill">Indexed file details</span>
+        <span className="placeholder-pill">{t("details.placeholders.indexedFile")}</span>
         <h3 className="details-panel__title" title={item.name}>
           {item.name}
         </h3>
         <dl className="details-list">
           <div className="details-list__row">
-            <dt>ID</dt>
+            <dt>{t("details.fields.id")}</dt>
             <dd>{item.id}</dd>
           </div>
           <div className="details-list__row">
-            <dt>Path</dt>
+            <dt>{t("details.fields.path")}</dt>
             <dd className="details-list__value--truncate" title={item.path}>
               {item.path}
             </dd>
           </div>
           <div className="details-list__row">
-            <dt>Type</dt>
+            <dt>{t("details.fields.type")}</dt>
             <dd>{item.file_type}</dd>
           </div>
           <div className="details-list__row">
-            <dt>Size</dt>
+            <dt>{t("details.fields.size")}</dt>
             <dd>{formatBytes(item.size_bytes)}</dd>
           </div>
           <div className="details-list__row">
-            <dt>Source ID</dt>
+            <dt>{t("details.fields.sourceId")}</dt>
             <dd>{item.source_id}</dd>
           </div>
           <div className="details-list__row">
-            <dt>Created</dt>
+            <dt>{t("details.fields.created")}</dt>
             <dd>{formatTimestamp(item.created_at_fs)}</dd>
           </div>
           <div className="details-list__row">
-            <dt>Modified</dt>
+            <dt>{t("details.fields.modified")}</dt>
             <dd>{formatTimestamp(item.modified_at_fs)}</dd>
           </div>
           <div className="details-list__row">
-            <dt>Discovered</dt>
+            <dt>{t("details.fields.discovered")}</dt>
             <dd>{formatTimestamp(item.discovered_at)}</dd>
           </div>
           <div className="details-list__row">
-            <dt>Last seen</dt>
+            <dt>{t("details.fields.lastSeen")}</dt>
             <dd>{formatTimestamp(item.last_seen_at)}</dd>
           </div>
           <div className="details-list__row">
-            <dt>Deleted</dt>
-            <dd>{item.is_deleted ? "Yes" : "No"}</dd>
+            <dt>{t("details.fields.deleted")}</dt>
+            <dd>{item.is_deleted ? t("details.values.yes") : t("details.values.no")}</dd>
           </div>
         </dl>
         {isBookContext && inferredBookFormat ? (
           <section className="details-book-info-section">
             <div className="details-book-info-section__header">
-              <h4>Book Info</h4>
+              <h4>{t("details.sections.bookInfo")}</h4>
             </div>
-            <p className="details-book-info-section__note">
-              This file is being presented through the Books subset surface as a recognized ebook entry.
-            </p>
+            <p className="details-book-info-section__note">{t("details.notes.bookInfo")}</p>
             <dl className="details-list">
               <div className="details-list__row">
-                <dt>Display title</dt>
+                <dt>{t("details.fields.displayTitle")}</dt>
                 <dd>{buildBookDisplayTitle(item.name)}</dd>
               </div>
               <div className="details-list__row">
-                <dt>Format</dt>
+                <dt>{t("details.fields.format")}</dt>
                 <dd>{formatBookFormatLabel(inferredBookFormat)}</dd>
               </div>
               <div className="details-list__row">
-                <dt>Page count</dt>
+                <dt>{t("details.fields.pageCount")}</dt>
                 <dd>{formatMetadataValue(metadata?.page_count ?? null)}</dd>
               </div>
             </dl>
@@ -538,22 +591,20 @@ export function DetailsPanelFeature() {
         {isSoftwareContext && inferredSoftwareFormat ? (
           <section className="details-software-info-section">
             <div className="details-software-info-section__header">
-              <h4>Software Info</h4>
+              <h4>{t("details.sections.softwareInfo")}</h4>
             </div>
-            <p className="details-software-info-section__note">
-              This file is being presented through the Software subset surface as a recognized software-related entry.
-            </p>
+            <p className="details-software-info-section__note">{t("details.notes.softwareInfo")}</p>
             <dl className="details-list">
               <div className="details-list__row">
-                <dt>Display title</dt>
+                <dt>{t("details.fields.displayTitle")}</dt>
                 <dd>{buildSoftwareDisplayTitle(item.name)}</dd>
               </div>
               <div className="details-list__row">
-                <dt>Format</dt>
+                <dt>{t("details.fields.format")}</dt>
                 <dd>{formatSoftwareFormatLabel(inferredSoftwareFormat)}</dd>
               </div>
               <div className="details-list__row">
-                <dt>Entry type</dt>
+                <dt>{t("details.fields.entryType")}</dt>
                 <dd>{buildSoftwareEntryTypeLabel(inferredSoftwareFormat)}</dd>
               </div>
             </dl>
@@ -561,43 +612,49 @@ export function DetailsPanelFeature() {
         ) : null}
         <section className="metadata-section">
           <div className="metadata-section__header">
-            <h4>{isMediaFile ? "Media Info" : isBookContext ? "Document Metadata" : "Metadata"}</h4>
+            <h4>
+              {isMediaFile
+                ? t("details.sections.mediaInfo")
+                : isBookContext
+                  ? t("details.sections.documentMetadata")
+                  : t("details.sections.metadata")}
+            </h4>
           </div>
           {isMediaFile ? (
             <dl className="details-list">
               <div className="details-list__row">
-                <dt>Dimensions</dt>
+                <dt>{t("details.fields.dimensions")}</dt>
                 <dd>{formatDimensions(metadata?.width ?? null, metadata?.height ?? null)}</dd>
               </div>
               {isVideoFile ? (
                 <div className="details-list__row">
-                  <dt>Duration</dt>
+                  <dt>{t("details.fields.duration")}</dt>
                   <dd>{formatMetadataValue(metadata?.duration_ms ?? null, "ms")}</dd>
                 </div>
               ) : null}
             </dl>
           ) : item.metadata === null ? (
-            <p>No extracted metadata available yet.</p>
+            <p>{t("details.notes.noMetadata")}</p>
           ) : (
             <dl className="details-list">
               <div className="details-list__row">
-                <dt>Page count</dt>
+                <dt>{t("details.fields.pageCount")}</dt>
                 <dd>{formatMetadataValue(item.metadata.page_count)}</dd>
               </div>
               {isBookContext ? null : (
                 <div className="details-list__row">
-                  <dt>Width</dt>
+                  <dt>{t("details.fields.width")}</dt>
                   <dd>{formatMetadataValue(item.metadata.width, "px")}</dd>
                 </div>
               )}
               {isBookContext ? null : (
                 <div className="details-list__row">
-                  <dt>Height</dt>
+                  <dt>{t("details.fields.height")}</dt>
                   <dd>{formatMetadataValue(item.metadata.height, "px")}</dd>
                 </div>
               )}
               <div className="details-list__row">
-                <dt>Duration</dt>
+                <dt>{t("details.fields.duration")}</dt>
                 <dd>{formatMetadataValue(item.metadata.duration_ms, "ms")}</dd>
               </div>
             </dl>
@@ -606,23 +663,34 @@ export function DetailsPanelFeature() {
         {isImageFile || isVideoFile ? (
           <section className="details-preview-section">
             <div className="details-preview-section__header">
-              <h4>Preview</h4>
+              <h4>{t("details.sections.preview")}</h4>
             </div>
-            {isImageFile && !previewLoadFailed ? (
-              <div className="details-preview-frame">
+            {!previewLoadFailed ? (
+              <div className={`details-preview-frame${isVideoPreviewActive ? " details-preview-frame--looping" : ""}`}>
                 <img
                   className="details-preview-image"
-                  src={getFileThumbnailUrl(item.id)}
+                  src={previewImageSrc}
                   alt={`Preview for ${item.name}`}
-                  onError={() => setPreviewLoadFailed(true)}
+                  onError={() => {
+                    if (isVideoPreviewActive) {
+                      setVideoPreviewPlaybackFailed(true);
+                      return;
+                    }
+                    setPreviewLoadFailed(true);
+                  }}
+                  onLoad={() => {
+                    if (!isVideoPreviewActive) {
+                      setSinglePreviewLoaded(true);
+                    }
+                  }}
                 />
               </div>
             ) : (
               <div className="details-preview-frame details-preview-frame--empty">
                 <p className="details-preview-state">
                   {isImageFile
-                    ? "Preview is unavailable for this image right now."
-                    : "Preview is not available for this video yet."}
+                    ? t("details.notes.imagePreviewUnavailable")
+                    : t("details.notes.videoPreviewUnavailable")}
                 </p>
               </div>
             )}
@@ -630,16 +698,16 @@ export function DetailsPanelFeature() {
         ) : null}
         <section className="details-user-meta-section">
           <div className="details-user-meta-section__header">
-            <h4>Favorite & Rating</h4>
-            {isUserMetaMutationPending ? <span className="status-pill">Updating…</span> : null}
+            <h4>{t("details.sections.favoriteAndRating")}</h4>
+            {isUserMetaMutationPending ? <span className="status-pill">{t("details.actions.updating")}</span> : null}
           </div>
           <dl className="details-list">
             <div className="details-list__row">
-              <dt>Favorite</dt>
+              <dt>{t("details.fields.favorite")}</dt>
               <dd>{formatFavoriteLabel(item.is_favorite)}</dd>
             </div>
             <div className="details-list__row">
-              <dt>Rating</dt>
+              <dt>{t("details.fields.rating")}</dt>
               <dd>{formatRatingLabel(item.rating)}</dd>
             </div>
           </dl>
@@ -650,7 +718,7 @@ export function DetailsPanelFeature() {
               onClick={() => userMetaMutation.mutate({ is_favorite: !item.is_favorite })}
               disabled={isUserMetaMutationPending}
             >
-              {item.is_favorite ? "Remove favorite" : "Mark favorite"}
+              {item.is_favorite ? t("details.actions.removeFavorite") : t("details.actions.markFavorite")}
             </button>
           </div>
           <div className="details-user-meta-rating-actions">
@@ -671,7 +739,7 @@ export function DetailsPanelFeature() {
               onClick={() => userMetaMutation.mutate({ rating: null })}
               disabled={isUserMetaMutationPending}
             >
-              Clear rating
+              {t("details.actions.clearRating")}
             </button>
           </div>
           {userMetaMutationError ? <p className="color-tag-section__error">{userMetaMutationError}</p> : null}
@@ -679,12 +747,10 @@ export function DetailsPanelFeature() {
         {isGameContext ? (
           <section className="details-game-status-section">
             <div className="details-game-status-section__header">
-              <h4>Game Status</h4>
-              {isStatusMutationPending ? <span className="status-pill">Updating…</span> : null}
+              <h4>{t("details.sections.gameStatus")}</h4>
+              {isStatusMutationPending ? <span className="status-pill">{t("details.actions.updating")}</span> : null}
             </div>
-            <p>
-              Current status: <strong>{item.status ? formatStatusLabel(item.status) : "None"}</strong>
-            </p>
+            <p>{t("details.fields.currentStatus", { status: item.status ? formatStatusLabel(item.status) : t("details.values.none") })}</p>
             <div className="details-game-status-actions">
               {GAME_STATUS_OPTIONS.map((status) => (
                 <button
@@ -703,7 +769,7 @@ export function DetailsPanelFeature() {
                 onClick={() => statusMutation.mutate(null)}
                 disabled={isStatusMutationPending}
               >
-                Clear
+                {t("details.actions.clear")}
               </button>
             </div>
             {statusMutationError ? <p className="color-tag-section__error">{statusMutationError}</p> : null}
@@ -711,12 +777,10 @@ export function DetailsPanelFeature() {
         ) : null}
         <section className="color-tag-section">
           <div className="color-tag-section__header">
-            <h4>Color Tag</h4>
-            {isColorTagMutationPending ? <span className="status-pill">Updating…</span> : null}
+            <h4>{t("details.sections.colorTag")}</h4>
+            {isColorTagMutationPending ? <span className="status-pill">{t("details.actions.updating")}</span> : null}
           </div>
-          <p>
-            Current color tag: <strong>{item.color_tag ?? "None"}</strong>
-          </p>
+          <p>{t("details.fields.currentColorTag", { color: item.color_tag ?? t("details.values.none") })}</p>
           <div className="color-tag-actions">
             {COLOR_TAG_OPTIONS.map((colorTag) => (
               <button
@@ -735,15 +799,15 @@ export function DetailsPanelFeature() {
               onClick={() => colorTagMutation.mutate(null)}
               disabled={isColorTagMutationPending}
             >
-              Clear
+              {t("details.actions.clear")}
             </button>
           </div>
           {colorTagMutationError ? <p className="color-tag-section__error">{colorTagMutationError}</p> : null}
         </section>
         <section className="tag-section">
           <div className="tag-section__header">
-            <h4>Tags</h4>
-            {isTagMutationPending ? <span className="status-pill">Updating…</span> : null}
+            <h4>{t("details.sections.tags")}</h4>
+            {isTagMutationPending ? <span className="status-pill">{t("details.actions.updating")}</span> : null}
           </div>
           <form
             className="tag-form"
@@ -756,16 +820,16 @@ export function DetailsPanelFeature() {
               className="text-input"
               value={tagInput}
               onChange={(event) => setTagInput(event.target.value)}
-              placeholder="Add a normal tag"
+              placeholder={t("details.actions.addTagPlaceholder")}
               disabled={isTagMutationPending}
             />
             <button className="secondary-button" type="submit" disabled={isTagMutationPending}>
-              Add tag
+              {t("common.actions.addTag")}
             </button>
           </form>
           {tagMutationError ? <p className="tag-section__error">{tagMutationError}</p> : null}
           {item.tags.length === 0 ? (
-            <p>No normal tags are attached to this file yet.</p>
+            <p>{t("details.notes.noTags")}</p>
           ) : (
             <div className="tag-chip-list">
               {item.tags.map((tag) => (
@@ -777,7 +841,7 @@ export function DetailsPanelFeature() {
                     onClick={() => removeTagMutation.mutate(tag.id)}
                     disabled={isTagMutationPending}
                   >
-                    Remove
+                    {t("details.actions.remove")}
                   </button>
                 </div>
               ))}
@@ -927,7 +991,7 @@ export function DetailsPanelFeature() {
                       focus: String(item.id),
                       entry: "details",
                     });
-                    navigate(`/library/software?${params.toString()}`);
+                    navigate(`/software?${params.toString()}`);
                   }}
                 >
                   Open matching software
@@ -943,7 +1007,7 @@ export function DetailsPanelFeature() {
                       focus: String(item.id),
                       entry: "details",
                     });
-                    navigate(`/library/software?${params.toString()}`);
+                    navigate(`/software?${params.toString()}`);
                   }}
                 >
                   Filter in Software
@@ -1041,8 +1105,8 @@ export function DetailsPanelFeature() {
         ) : null}
         <section className="open-actions-section">
           <div className="open-actions-section__header">
-            <h4>Open Actions</h4>
-            {isOpenActionPending ? <span className="status-pill">Opening...</span> : null}
+            <h4>{t("details.sections.openActions")}</h4>
+            {isOpenActionPending ? <span className="status-pill">{t("details.actions.opening")}</span> : null}
           </div>
           <div className="open-actions-buttons">
             <button
@@ -1051,7 +1115,11 @@ export function DetailsPanelFeature() {
               onClick={() => void handleOpenAction("file", item.path)}
               disabled={isOpenActionPending || !hasDesktopOpenActions}
             >
-              {isGameContext ? "Open game entry" : isSoftwareContext ? "Open software file" : "Open file"}
+              {isGameContext
+                ? t("details.actions.openGameEntry")
+                : isSoftwareContext
+                  ? t("details.actions.openSoftwareFile")
+                  : t("details.actions.openFile")}
             </button>
             <button
               className="secondary-button"
@@ -1059,13 +1127,11 @@ export function DetailsPanelFeature() {
               onClick={() => void handleOpenAction("folder", item.path)}
               disabled={isOpenActionPending || !hasDesktopOpenActions}
             >
-              Open containing folder
+              {t("details.actions.openContainingFolder")}
             </button>
           </div>
           {!hasDesktopOpenActions ? (
-            <p className="open-actions-section__note">
-              Desktop open actions are unavailable outside the desktop shell.
-            </p>
+            <p className="open-actions-section__note">{t("details.actions.openActionUnavailable")}</p>
           ) : null}
           {openActionError ? <p className="open-actions-section__error">{openActionError}</p> : null}
         </section>
@@ -1074,9 +1140,9 @@ export function DetailsPanelFeature() {
   } else {
     content = (
       <>
-        <span className="placeholder-pill">Unavailable</span>
-        <h3>Details panel</h3>
-        <p>No shared details are currently available.</p>
+        <span className="placeholder-pill">{t("details.placeholders.unavailable.eyebrow")}</span>
+        <h3>{t("details.placeholders.unavailable.title")}</h3>
+        <p>{t("details.placeholders.unavailable.description")}</p>
       </>
     );
   }

@@ -1,16 +1,14 @@
 import { MediaLibraryFeature } from "../../features/media-library/MediaLibraryFeature";
+import { t } from "../../shared/text";
 
 
 export function MediaLibraryPage() {
   return (
     <section className="page-card">
       <header className="page-header">
-        <span className="page-header__eyebrow">Visual subset surface</span>
-        <h3>Media</h3>
-        <p>
-          Browse indexed images and videos in a visual subset surface. Selection continues into shared details and the
-          existing open actions.
-        </p>
+        <span className="page-header__eyebrow">{t("pages.media.eyebrow")}</span>
+        <h3>{t("pages.media.title")}</h3>
+        <p>{t("pages.media.description")}</p>
       </header>
       <MediaLibraryFeature />
     </section>

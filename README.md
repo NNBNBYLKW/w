@@ -49,6 +49,13 @@ Workbench 是一个建立在 **Windows 本地文件系统** 之上的 local-firs
 
 最近几轮前端工作的重点也属于这个阶段目标的一部分：主要是在统一三栏工作台、导航与 details 的控制样式、状态提示与滚动体验，而不是继续新增产品能力线。
 
+当前前端工程层面还已经补上两项服务于测试版验证准备的基础能力：
+
+- 高可见 UI 文案已抽离为独立文本资源
+- 当前已经具备轻量中英文切换能力，并在 `Settings` 中提供语言切换入口
+
+这些工作属于体验统一、协作维护和外部验证准备的一部分，不代表项目进入了新的功能扩张阶段。
+
 ## 项目不是什么
 
 为了避免误解，当前项目**不是**：
@@ -66,6 +73,8 @@ Workbench 是一个建立在 **Windows 本地文件系统** 之上的 local-firs
 
 - `Media`
   - 面向图片 / 视频的浏览与最小筛选
+  - 图片与视频缩略图使用统一 thumbnail 语义；一体化桌面包随包携带 `ffmpeg`，开发模式仍可回退到系统 `PATH`
+  - 视频在 shared details 中支持 6 帧静态循环预览；该预览只在 details 中出现，不扩展到列表动态预览
   - 与 shared details、tags、collections、recent 的回流闭环
 - `Games`
   - 游戏入口文件识别与库式浏览
@@ -115,6 +124,8 @@ Workbench 是一个建立在 **Windows 本地文件系统** 之上的 local-firs
 
 这些变化描述的是当前 UI 形态和体验一致性，不是新的产品能力。
 
+当前高可见文案和页面级 UI copy 也已经不再主要散落在组件里，而是通过前端轻量文本层组织，并可跟随当前 locale 切换。这属于当前前端工程和 beta 验证准备的一部分，不是单独的新产品能力。
+
 ## 当前不做什么
 
 测试版阶段当前明确**不做**这些方向：
@@ -128,6 +139,14 @@ Workbench 是一个建立在 **Windows 本地文件系统** 之上的 local-firs
 - 不做复杂统一对象中台或新一轮大架构重写
 
 如果某项需求会把项目重新带回“继续扩功能”的节奏，它就不是当前 README 应该表达成既定事实的内容。
+
+同样，当前前端文本层与语言切换也**不是**：
+
+- 完整国际化平台
+- 多语言中台
+- 后端多语言系统
+- 远程语言包系统
+- 浏览器语言自动识别系统
 
 ## 系统结构与仓库结构
 
@@ -196,6 +215,17 @@ docs/        当前正式文档入口
 
 这里的 `navigation` 图标属于前端 UI 资源，不等于 Electron 应用图标、安装包图标或其他桌面壳资源。
 
+### 当前前端文本层与 locale 结构
+
+当前前端文案资源和 locale 运行时主要位于：
+
+- `apps/frontend/src/locales/`
+  - 当前包含 `en/` 和 `zh-CN/` 两套 locale 资源
+- `apps/frontend/src/shared/text/`
+  - 当前轻量文本入口、locale 运行时和 `LocaleProvider`
+
+当前前端通过 `t(key, params?)` 读取高可见 UI 文案，并在 `Settings` 中提供轻量语言切换入口。当前持久化仅使用前端本地存储，不涉及后端 contract 变更。
+
 ## 启动方式
 
 ### 最快开始
@@ -253,6 +283,28 @@ npm run dev
 
 如果只在浏览器里跑 frontend，主要浏览与组织流程仍然可用，但 `open file` / `open containing folder` 这类桌面动作会降级。
 
+### Beta 桌面包
+
+当前 beta 已升级为一体化 Windows 桌面包：
+
+- Electron 安装包包含桌面壳、frontend 静态资源、PyInstaller 打包的 backend exe
+- packaged mode 会自动启动本地 backend，不需要用户手动运行 `python -m uvicorn`
+- packaged mode 会使用随包携带的 `ffmpeg.exe`，不需要用户自行配置 `PATH`
+- SQLite、thumbnail cache、video preview cache 会写入 Electron `userData` 下的 `backend-data/`
+
+生成 Windows beta 安装包：
+
+```powershell
+cd apps/desktop
+npm run package:win
+```
+
+产物输出到 `apps/desktop/release/integrated/`。当前版本号沿用 `0.1.0`，安装包名为 `Workbench Beta Integrated Setup 0.1.0.exe`。
+
+旧的技术 beta 包已归档到 `apps/desktop/release/archive/technical-beta-0.1.0-manual-backend-20260425/`。该旧包需要手动 backend，仅用于回退参考，不再作为推荐交付形态。
+
+注意：一体化包仍是 beta，不包含自动更新、后台服务安装、复杂安装向导或正式发布级签名/图标收口。
+
 ### 常见本地验证
 
 ```powershell
@@ -283,6 +335,12 @@ npm run build
   - 当前测试版必须包含什么、明确不做什么
 - [docs/测试版验证准备.md](<docs/测试版验证准备.md>)
   - 当前测试版验证目标、建议路径和反馈优先级
+- [docs/测试版发布准备.md](<docs/测试版发布准备.md>)
+  - beta 包能力边界、安装/启动前提、smoke test 和已知限制
+- [docs/前端文本层与语言切换.md](<docs/前端文本层与语言切换.md>)
+  - 当前前端文案组织方式
+  - `en / zh-CN` locale 结构、`t(key, params?)` 和 `Settings` 语言切换入口
+  - 后续补文案、补语言和继续接入页面时的维护说明
 
 API 文档入口在：
 
@@ -294,6 +352,8 @@ API 文档入口在：
 
 当前后端没有开放 Swagger / OpenAPI 页面，因此 `docs/api/README.md` 这组 Markdown 文档就是当前 API 合同入口。
 
+前端文本层与 locale 切换属于前端 UI 工程能力，不属于 API contract 变更，因此当前说明写在 README 和 `docs/` 顶层正式文档中，而不是写入 `docs/api/`。
+
 ## 推荐阅读顺序
 
 如果你是第一次进入仓库，建议按这个顺序看：
@@ -302,8 +362,9 @@ API 文档入口在：
 2. [docs/测试版当前状态总览.md](<docs/测试版当前状态总览.md>)
 3. [docs/测试版范围与边界.md](<docs/测试版范围与边界.md>)
 4. [docs/测试版验证准备.md](<docs/测试版验证准备.md>)
-5. [docs/api/README.md](docs/api/README.md)
-6. `docs/api/` 下的其他 API 文档
+5. [docs/测试版发布准备.md](<docs/测试版发布准备.md>)
+6. [docs/api/README.md](docs/api/README.md)
+7. `docs/api/` 下的其他 API 文档
 
 如果你需要快速在文档目录中定位正式文档和归档文档，再补看 [docs/README.md](docs/README.md)。
 

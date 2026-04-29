@@ -1,15 +1,7 @@
 import { useState } from "react";
 
+import { t } from "../../shared/text";
 import type { ColorTagValue } from "../../entities/file/types";
-
-
-const COLOR_TAG_OPTIONS: Array<{ label: string; value: ColorTagValue }> = [
-  { label: "Red", value: "red" },
-  { label: "Yellow", value: "yellow" },
-  { label: "Green", value: "green" },
-  { label: "Blue", value: "blue" },
-  { label: "Purple", value: "purple" },
-];
 
 type BatchActionBarProps = {
   isApplyingColorTag: boolean;
@@ -33,13 +25,20 @@ export function BatchActionBar({
   const [tagInput, setTagInput] = useState("");
   const hasSelection = selectedCount > 0;
   const isBusy = isApplyingTag || isApplyingColorTag;
+  const colorTagOptions: Array<{ label: string; value: ColorTagValue }> = [
+    { label: t("common.colors.red"), value: "red" },
+    { label: t("common.colors.yellow"), value: "yellow" },
+    { label: t("common.colors.green"), value: "green" },
+    { label: t("common.colors.blue"), value: "blue" },
+    { label: t("common.colors.purple"), value: "purple" },
+  ];
 
   return (
     <section className="batch-action-bar">
       <div className="batch-action-bar__summary">
-        <span className="page-header__eyebrow">Batch mode</span>
-        <strong>{selectedCount} selected on this page</strong>
-        <p>Apply tags or color tags to the current page selection, then return to normal browsing.</p>
+        <span className="page-header__eyebrow">{t("features.batch.eyebrow")}</span>
+        <strong>{t("features.batch.summary", { count: selectedCount })}</strong>
+        <p>{t("features.batch.description")}</p>
       </div>
       <div className="batch-action-bar__controls">
         <form
@@ -57,15 +56,15 @@ export function BatchActionBar({
             className="text-input"
             value={tagInput}
             onChange={(event) => setTagInput(event.target.value)}
-            placeholder="Add tag to selected files"
+            placeholder={t("features.batch.placeholder")}
             disabled={!hasSelection || isBusy}
           />
           <button className="secondary-button" type="submit" disabled={!hasSelection || !tagInput.trim() || isBusy}>
-            {isApplyingTag ? "Adding..." : "Add tag"}
+            {isApplyingTag ? t("common.actions.addingTag") : t("common.actions.addTag")}
           </button>
         </form>
         <div className="batch-action-bar__color-group">
-          {COLOR_TAG_OPTIONS.map((colorTag) => (
+          {colorTagOptions.map((colorTag) => (
             <button
               key={colorTag.value}
               className={`ghost-button color-tag-button color-tag-button--${colorTag.value}`}
@@ -82,16 +81,16 @@ export function BatchActionBar({
             onClick={() => onApplyColorTag(null)}
             disabled={!hasSelection || isBusy}
           >
-            Clear color tag
+            {t("features.batch.clearColorTag")}
           </button>
         </div>
       </div>
       <div className="batch-action-bar__actions">
         <button className="ghost-button" type="button" onClick={onClearSelection} disabled={!hasSelection || isBusy}>
-          Clear selection
+          {t("features.batch.clearSelection")}
         </button>
         <button className="ghost-button" type="button" onClick={onExitBatchMode} disabled={isBusy}>
-          Exit batch mode
+          {t("features.batch.exit")}
         </button>
       </div>
     </section>

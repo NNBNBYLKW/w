@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const electron_1 = require("electron");
-const backendBaseUrl = process.env.BACKEND_URL ?? "http://127.0.0.1:8000";
+const defaultBackendBaseUrl = "http://127.0.0.1:8000";
 const selectFolderChannel = "asset-workbench:select-folder";
 const minimizeWindowChannel = "asset-workbench:minimize-window";
 const toggleMaximizeWindowChannel = "asset-workbench:toggle-maximize-window";
@@ -83,7 +83,7 @@ async function openContainingFolder(filePath) {
     return { ok: true };
 }
 electron_1.contextBridge.exposeInMainWorld("assetWorkbench", {
-    getBackendBaseUrl: () => backendBaseUrl,
+    getBackendBaseUrl: () => process.env.BACKEND_URL ?? defaultBackendBaseUrl,
     selectFolder: async () => electron_1.ipcRenderer.invoke(selectFolderChannel),
     openFile,
     openContainingFolder,
