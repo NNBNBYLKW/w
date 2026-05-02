@@ -31,6 +31,10 @@ function formatModifiedAt(value: string): string {
   return new Date(value).toLocaleString();
 }
 
+function countByFormat(items: Array<{ software_format: SoftwareFormat }>, format: SoftwareFormat): number {
+  return items.filter((item) => item.software_format === format).length;
+}
+
 function buildSoftwareEntryLabel(value: SoftwareFormat): string {
   if (value === "exe") {
     return t("features.software.entryLabels.exe");
@@ -79,7 +83,7 @@ function formatColorTagLabel(value: ColorTagValue): string {
 
 const COLOR_TAG_OPTIONS: ColorTagValue[] = ["red", "yellow", "green", "blue", "purple"];
 
-function SoftwareLibraryCard({
+function SoftwareLibraryRow({
   displayTitle,
   isFavorite,
   isBatchMode,
@@ -103,6 +107,8 @@ function SoftwareLibraryCard({
   onSelect: () => void;
 }) {
   const hasDesktopOpenActions = hasDesktopOpenActionsBridge();
+  const entryLabel = buildSoftwareEntryLabel(softwareFormat);
+  const formatCopy = buildSoftwareFormatCopy(softwareFormat);
 
   const handleDoubleClick = async () => {
     if (!hasDesktopOpenActions) {
@@ -119,7 +125,7 @@ function SoftwareLibraryCard({
 
   return (
     <button
-      className={`software-card${selected ? " software-card--selected" : ""}`}
+      className={`software-table__row${selected ? " software-table__row--selected" : ""}`}
       type="button"
       onClick={onSelect}
       onDoubleClick={() => {
@@ -129,52 +135,47 @@ function SoftwareLibraryCard({
         void handleDoubleClick();
       }}
     >
-      <div className={`software-card__poster software-card__poster--${softwareFormat}`}>
-        <div className="software-card__poster-copy">
-          <span className="software-card__poster-eyebrow">{t("features.software.posterEyebrow")}</span>
-          <span className="software-card__poster-icon" aria-hidden="true">
+      <span className="software-table__name-cell">
+        <span className={`software-table__format-mark software-table__format-mark--${softwareFormat}`} aria-hidden="true">
+          <span>
             {softwareFormat === "exe" ? "EXE" : softwareFormat === "msi" ? "MSI" : "ZIP"}
           </span>
-          <strong>{buildSoftwareEntryLabel(softwareFormat)}</strong>
-          <span>{buildSoftwareFormatHint(softwareFormat)}</span>
-        </div>
-      </div>
-      <div className="software-card__body">
-        <strong title={displayTitle}>{displayTitle}</strong>
-        <span className={`software-card__entry-note software-card__entry-note--${softwareFormat}`}>
-          {buildSoftwareFormatCopy(softwareFormat)}
         </span>
-        <p title={path}>{path}</p>
-      </div>
-      <div className="software-card__meta">
+        <span className="software-table__name-copy">
+          <strong title={displayTitle}>{displayTitle}</strong>
+          <span title={path}>{path}</span>
+        </span>
+      </span>
+      <span className="software-table__type-cell">
         <span className="status-pill">{formatSoftwareFormat(softwareFormat)}</span>
-        <span className="status-pill">{formatBytes(sizeBytes)}</span>
-        <span className="status-pill">{formatModifiedAt(modifiedAt)}</span>
+      </span>
+      <span className="software-table__kind-cell" title={buildSoftwareFormatHint(softwareFormat)}>
+        <strong>{entryLabel}</strong>
+        <span>{formatCopy}</span>
+      </span>
+      <span className="software-table__modified-cell">{formatModifiedAt(modifiedAt)}</span>
+      <span className="software-table__size-cell">{formatBytes(sizeBytes)}</span>
+      <span className="software-table__signals-cell">
         {isFavorite ? <span className="status-pill status-pill--favorite">{t("common.favorites.favorite")}</span> : null}
         {rating !== null ? <span className="status-pill status-pill--rating">★ {rating}</span> : null}
         {isBatchMode && selected ? <span className="status-pill">{t("common.states.selected")}</span> : null}
-      </div>
-      <span className="software-card__hint">
-        {t("features.software.clickHint")}
+        {!isFavorite && rating === null && !(isBatchMode && selected) ? (
+          <span className="software-table__signals-empty">{t("common.states.none")}</span>
+        ) : null}
       </span>
     </button>
   );
 }
 
-function SoftwareCardSkeleton() {
+function SoftwareRowSkeleton() {
   return (
-    <div className="software-card software-card--skeleton" aria-hidden="true">
-      <div className="software-card__poster software-card__poster--skeleton" />
-      <div className="software-card__body software-card__body--skeleton">
-        <span className="software-card__skeleton-line software-card__skeleton-line--title" />
-        <span className="software-card__skeleton-line software-card__skeleton-line--path" />
-        <span className="software-card__skeleton-line software-card__skeleton-line--path-short" />
-      </div>
-      <div className="software-card__meta software-card__meta--skeleton">
-        <span className="software-card__skeleton-pill" />
-        <span className="software-card__skeleton-pill" />
-        <span className="software-card__skeleton-pill" />
-      </div>
+    <div className="software-table__row software-table__row--skeleton" aria-hidden="true">
+      <span className="software-card__skeleton-line software-card__skeleton-line--title" />
+      <span className="software-card__skeleton-pill" />
+      <span className="software-card__skeleton-line software-card__skeleton-line--path-short" />
+      <span className="software-card__skeleton-line" />
+      <span className="software-card__skeleton-line software-card__skeleton-line--path-short" />
+      <span className="software-card__skeleton-pill" />
     </div>
   );
 }
@@ -234,6 +235,18 @@ export function SoftwareFeature() {
   const showEmptyState = softwareQuery.data?.total === 0;
   const showNoResultsState = (softwareQuery.data?.total ?? 0) > 0 && (softwareQuery.data?.items.length ?? 0) === 0;
   const hasActiveSoftwareFilters = tagFilter !== null || colorTagFilter !== null;
+  const currentItems = softwareQuery.data?.items ?? [];
+  const summaryStats = useMemo(
+    () => ({
+      total: softwareQuery.data?.total ?? 0,
+      visible: currentItems.length,
+      exe: countByFormat(currentItems, "exe"),
+      msi: countByFormat(currentItems, "msi"),
+      zip: countByFormat(currentItems, "zip"),
+      filters: [tagFilter, colorTagFilter].filter(Boolean).length,
+    }),
+    [colorTagFilter, currentItems, softwareQuery.data?.total, tagFilter],
+  );
   const selectedTagLabel = useMemo(() => {
     if (tagFilter === null) {
       return null;
@@ -333,16 +346,73 @@ export function SoftwareFeature() {
   };
 
   return (
-    <section className="feature-shell">
-      <div className="feature-header">
+    <section className="feature-shell software-workbench">
+      <div className="feature-header software-workbench__header">
         <span className="page-header__eyebrow">{t("features.software.eyebrow")}</span>
         <h3>{t("features.software.title")}</h3>
         <p>{t("features.software.description")}</p>
       </div>
 
-      <div className="subset-filter-block">
-        <div className="files-toolbar">
-          <label className="field-stack files-toolbar__field">
+      <div className="software-summary-strip" aria-label={t("features.software.summary.ariaLabel")}>
+        <div className="software-summary-strip__item">
+          <span>{t("features.software.summary.total")}</span>
+          <strong>{summaryStats.total.toLocaleString()}</strong>
+        </div>
+        <div className="software-summary-strip__item">
+          <span>{t("features.software.summary.visible")}</span>
+          <strong>{summaryStats.visible.toLocaleString()}</strong>
+        </div>
+        <div className="software-summary-strip__item">
+          <span>{t("features.software.summary.exe")}</span>
+          <strong>{summaryStats.exe.toLocaleString()}</strong>
+        </div>
+        <div className="software-summary-strip__item">
+          <span>{t("features.software.summary.msi")}</span>
+          <strong>{summaryStats.msi.toLocaleString()}</strong>
+        </div>
+        <div className="software-summary-strip__item">
+          <span>{t("features.software.summary.zip")}</span>
+          <strong>{summaryStats.zip.toLocaleString()}</strong>
+        </div>
+        <div className="software-summary-strip__item">
+          <span>{t("features.software.summary.filters")}</span>
+          <strong>{summaryStats.filters.toLocaleString()}</strong>
+        </div>
+      </div>
+
+      <div className="software-action-bar">
+        <div className="software-action-bar__copy">
+          <span className="page-header__eyebrow">{t("features.software.quickActions.eyebrow")}</span>
+          <p>{t("features.software.quickActions.description")}</p>
+        </div>
+        <div className="software-action-bar__actions">
+          {!isBatchMode ? (
+            <button className="ghost-button" type="button" onClick={enterBatchMode}>
+              {t("common.actions.batchOrganize")}
+            </button>
+          ) : null}
+          <button className="ghost-button" type="button" onClick={() => navigate("/search")}>
+            {t("features.software.quickActions.search")}
+          </button>
+          <button className="ghost-button" type="button" onClick={() => navigate("/settings")}>
+            {t("features.software.quickActions.sources")}
+          </button>
+          {hasActiveSoftwareFilters ? (
+            <>
+              <button className="ghost-button" type="button" onClick={clearSoftwareFilters}>
+                {t("common.actions.clearFilters")}
+              </button>
+              <button className="ghost-button" type="button" onClick={saveCurrentSoftwareFiltersAsCollection}>
+                {t("features.software.saveFiltersAsCollection")}
+              </button>
+            </>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="subset-filter-block software-filter-block">
+        <div className="files-toolbar software-filter-toolbar">
+          <label className="field-stack files-toolbar__field software-filter-toolbar__field">
             <span>{t("common.labels.sortBy")}</span>
             <select
               className="select-input"
@@ -357,7 +427,7 @@ export function SoftwareFeature() {
               <option value="discovered_at">{t("common.sortBy.discovered")}</option>
             </select>
           </label>
-          <label className="field-stack files-toolbar__field">
+          <label className="field-stack files-toolbar__field software-filter-toolbar__field">
             <span>{t("common.labels.order")}</span>
             <select
               className="select-input"
@@ -371,7 +441,7 @@ export function SoftwareFeature() {
               <option value="asc">{t("common.sortOrder.ascending")}</option>
             </select>
           </label>
-          <label className="field-stack files-toolbar__field">
+          <label className="field-stack files-toolbar__field software-filter-toolbar__field">
             <span>{t("common.labels.tag")}</span>
             <select
               className="select-input"
@@ -391,7 +461,7 @@ export function SoftwareFeature() {
               ))}
             </select>
           </label>
-          <label className="field-stack files-toolbar__field">
+          <label className="field-stack files-toolbar__field software-filter-toolbar__field">
             <span>{t("common.labels.color")}</span>
             <select
               className="select-input"
@@ -428,23 +498,6 @@ export function SoftwareFeature() {
                         : t("common.sortBy.discovered"),
                 })}
           </p>
-          <div className="software-filter-summary__actions">
-            {!isBatchMode ? (
-              <button className="ghost-button" type="button" onClick={enterBatchMode}>
-                {t("common.actions.batchOrganize")}
-              </button>
-            ) : null}
-            {hasActiveSoftwareFilters ? (
-              <>
-                <button className="ghost-button" type="button" onClick={clearSoftwareFilters}>
-                  {t("common.actions.clearFilters")}
-                </button>
-                <button className="ghost-button" type="button" onClick={saveCurrentSoftwareFiltersAsCollection}>
-                  {t("features.software.saveFiltersAsCollection")}
-                </button>
-              </>
-            ) : null}
-          </div>
         </div>
       </div>
 
@@ -468,9 +521,9 @@ export function SoftwareFeature() {
       </div>
 
       {showLoadingSkeleton ? (
-        <div className="software-library-grid software-library-grid--loading" aria-label={t("features.software.loadingAria")}>
+        <div className="software-table software-table--loading" aria-label={t("features.software.loadingAria")}>
           {Array.from({ length: 8 }, (_, index) => (
-            <SoftwareCardSkeleton key={index} />
+            <SoftwareRowSkeleton key={index} />
           ))}
         </div>
       ) : null}
@@ -492,9 +545,17 @@ export function SoftwareFeature() {
 
       {softwareQuery.data && softwareQuery.data.items.length > 0 ? (
         <>
-          <div className="software-library-grid">
+          <div className="software-table" role="table" aria-label={t("features.software.table.ariaLabel")}>
+            <div className="software-table__header" role="row">
+              <span>{t("features.software.table.name")}</span>
+              <span>{t("features.software.table.type")}</span>
+              <span>{t("features.software.table.kind")}</span>
+              <span>{t("features.software.table.modified")}</span>
+              <span>{t("features.software.table.size")}</span>
+              <span>{t("features.software.table.signals")}</span>
+            </div>
             {softwareQuery.data.items.map((item) => (
-              <SoftwareLibraryCard
+              <SoftwareLibraryRow
                 key={item.id}
                 displayTitle={item.display_title}
                 isFavorite={item.is_favorite}

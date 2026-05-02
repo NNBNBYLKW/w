@@ -184,6 +184,30 @@ export const features = {
     noResults:
       "No recognized software-related files match the current page and filters. Move between pages or change sorting to keep browsing.",
     saveFiltersAsCollection: "Save current software filters as collection",
+    summary: {
+      ariaLabel: "Software library summary",
+      total: "Total",
+      visible: "Visible",
+      exe: "EXE",
+      msi: "MSI",
+      zip: "ZIP",
+      filters: "Filters",
+    },
+    quickActions: {
+      eyebrow: "Quick actions",
+      description: "Use existing workbench paths to organize, search, or manage indexed sources.",
+      search: "Advanced search",
+      sources: "Manage sources",
+    },
+    table: {
+      ariaLabel: "Software files table",
+      name: "Name",
+      type: "Type",
+      kind: "Entry kind",
+      modified: "Modified",
+      size: "Size",
+      signals: "Signals",
+    },
     entry: {
       recent: "Opened from Recent so you can continue organizing this software-related file inside the Software subset surface.",
       tags: "Opened from Tags so you can review the software subset attached to the current tag.",
