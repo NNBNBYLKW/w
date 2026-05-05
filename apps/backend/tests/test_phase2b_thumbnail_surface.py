@@ -13,6 +13,7 @@ from app.db.models.file import File
 from app.db.session.engine import engine
 from app.db.session.session import SessionLocal
 from app.main import app
+from app.workers.thumbnails.exe_icon_generator import ExeIconGenerationError, ExeIconGeneratorWorker
 from app.workers.thumbnails.generator import ThumbnailGeneratorWorker
 from app.workers.thumbnails.video_generator import VideoThumbnailGenerationError, VideoThumbnailGeneratorWorker
 
@@ -55,6 +56,16 @@ class Phase2BThumbnailSurfaceTestCase(unittest.TestCase):
                     resolved_path = worker._resolve_ffmpeg_path()
 
         self.assertEqual(str(ffmpeg_path), resolved_path)
+
+    def test_exe_icon_generator_gracefully_skips_non_windows_runtime(self) -> None:
+        with tempfile.TemporaryDirectory() as data_dir:
+            exe_path = Path(data_dir) / "tool.exe"
+            exe_path.write_bytes(b"fake-exe")
+            worker = ExeIconGeneratorWorker()
+
+            with patch.object(ExeIconGeneratorWorker, "_is_windows", return_value=False):
+                with self.assertRaises(ExeIconGenerationError):
+                    worker.generate_icon(exe_path, Path(data_dir) / "icon.png")
 
     def test_returns_thumbnail_for_image_file(self) -> None:
         with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as data_dir:
@@ -109,6 +120,27 @@ class Phase2BThumbnailSurfaceTestCase(unittest.TestCase):
             },
             response.json(),
         )
+
+    def test_non_exe_file_does_not_use_exe_icon_generator(self) -> None:
+        with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as data_dir:
+            root = Path(source_dir)
+            (root / "notes.pdf").write_text("doc", encoding="utf-8")
+            source_id = self._create_source(root)
+            self._run_scan(source_id)
+            file_row = self._get_file_by_name("notes.pdf")
+            self.assertIsNotNone(file_row)
+
+            with self._patched_data_dir(Path(data_dir)):
+                with patch.object(
+                    ExeIconGeneratorWorker,
+                    "generate_icon",
+                    side_effect=AssertionError("exe icon generator should not run for non-exe files"),
+                ):
+                    with TestClient(app) as client:
+                        response = client.get(f"/files/{file_row.id}/thumbnail")
+
+        self.assertEqual(404, response.status_code)
+        self.assertEqual("THUMBNAIL_NOT_AVAILABLE", response.json()["error"]["code"])
 
     def test_returns_thumbnail_not_available_when_image_cannot_be_opened(self) -> None:
         with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as data_dir:
@@ -228,6 +260,88 @@ class Phase2BThumbnailSurfaceTestCase(unittest.TestCase):
                         second_response = client.get(f"/files/{file_row.id}/thumbnail")
 
             self.assertEqual(200, second_response.status_code)
+
+    def test_returns_thumbnail_for_exe_file_using_icon_worker(self) -> None:
+        with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as data_dir:
+            root = Path(source_dir)
+            (root / "tool.exe").write_bytes(b"fake-exe")
+            source_id = self._create_source(root)
+            self._run_scan(source_id)
+            file_row = self._get_file_by_name("tool.exe")
+            self.assertIsNotNone(file_row)
+
+            def write_exe_icon(_, __, output_path: Path, *, size: int = 64) -> None:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                Image.new("RGBA", (size, size), color=(12, 34, 56, 255)).save(output_path, format="PNG")
+
+            with self._patched_data_dir(Path(data_dir)):
+                with patch.object(ExeIconGeneratorWorker, "generate_icon", new=write_exe_icon):
+                    with TestClient(app) as client:
+                        response = client.get(f"/files/{file_row.id}/thumbnail")
+
+            self.assertEqual(200, response.status_code)
+            self.assertEqual("image/png", response.headers["content-type"])
+            generated_files = list((Path(data_dir) / "thumbnails" / "exe_icons").glob("*.png"))
+            self.assertEqual(1, len(generated_files))
+            self.assertGreater(len(response.content), 0)
+
+    def test_reuses_cached_exe_icon_when_available(self) -> None:
+        with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as data_dir:
+            root = Path(source_dir)
+            (root / "tool.exe").write_bytes(b"fake-exe")
+            source_id = self._create_source(root)
+            self._run_scan(source_id)
+            file_row = self._get_file_by_name("tool.exe")
+            self.assertIsNotNone(file_row)
+
+            def write_exe_icon(_, __, output_path: Path, *, size: int = 64) -> None:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                Image.new("RGBA", (size, size), color=(12, 34, 56, 255)).save(output_path, format="PNG")
+
+            with self._patched_data_dir(Path(data_dir)):
+                with TestClient(app) as client:
+                    with patch.object(ExeIconGeneratorWorker, "generate_icon", new=write_exe_icon):
+                        first_response = client.get(f"/files/{file_row.id}/thumbnail")
+                    self.assertEqual(200, first_response.status_code)
+
+                    with patch.object(
+                        ExeIconGeneratorWorker,
+                        "generate_icon",
+                        side_effect=AssertionError("exe icon generator should not run when cache exists"),
+                    ):
+                        second_response = client.get(f"/files/{file_row.id}/thumbnail")
+
+            self.assertEqual(200, second_response.status_code)
+            self.assertEqual("image/png", second_response.headers["content-type"])
+
+    def test_returns_thumbnail_not_available_when_exe_icon_generation_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as data_dir:
+            root = Path(source_dir)
+            (root / "broken.exe").write_bytes(b"fake-exe")
+            source_id = self._create_source(root)
+            self._run_scan(source_id)
+            file_row = self._get_file_by_name("broken.exe")
+            self.assertIsNotNone(file_row)
+
+            with self._patched_data_dir(Path(data_dir)):
+                with patch.object(
+                    ExeIconGeneratorWorker,
+                    "generate_icon",
+                    side_effect=ExeIconGenerationError("icon extraction failed"),
+                ):
+                    with TestClient(app) as client:
+                        response = client.get(f"/files/{file_row.id}/thumbnail")
+
+        self.assertEqual(404, response.status_code)
+        self.assertEqual(
+            {
+                "error": {
+                    "code": "THUMBNAIL_NOT_AVAILABLE",
+                    "message": "Thumbnail is not available for this file.",
+                }
+            },
+            response.json(),
+        )
 
     def test_returns_thumbnail_not_available_when_video_generation_fails(self) -> None:
         with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as data_dir:
@@ -503,6 +617,46 @@ class Phase2BThumbnailSurfaceTestCase(unittest.TestCase):
 
                 self.assertEqual(200, second_response.status_code)
                 second_files = sorted(path.name for path in thumbnail_dir.glob("*.jpg"))
+
+            self.assertEqual(2, len(second_files))
+            self.assertEqual(1, len(set(second_files) - set(first_files)))
+
+    def test_rescan_changes_exe_icon_cache_key_when_indexed_file_facts_change(self) -> None:
+        with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as data_dir:
+            root = Path(source_dir)
+            exe_path = root / "tool.exe"
+            exe_path.write_bytes(b"fake-exe-v1")
+            source_id = self._create_source(root)
+            self._run_scan(source_id)
+            file_row = self._get_file_by_name("tool.exe")
+            self.assertIsNotNone(file_row)
+
+            icon_dir = Path(data_dir) / "thumbnails" / "exe_icons"
+
+            def write_exe_icon(_, __, output_path: Path, *, size: int = 64) -> None:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                Image.new("RGBA", (size, size), color=(12, 34, 56, 255)).save(output_path, format="PNG")
+
+            with self._patched_data_dir(Path(data_dir)):
+                with TestClient(app) as client:
+                    with patch.object(ExeIconGeneratorWorker, "generate_icon", new=write_exe_icon):
+                        first_response = client.get(f"/files/{file_row.id}/thumbnail")
+                    self.assertEqual(200, first_response.status_code)
+
+                first_files = sorted(path.name for path in icon_dir.glob("*.png"))
+                self.assertEqual(1, len(first_files))
+
+                exe_path.write_bytes(b"fake-exe-v2-with-new-size")
+                self._run_scan(source_id)
+                updated_file_row = self._get_file_by_name("tool.exe")
+                self.assertIsNotNone(updated_file_row)
+
+                with TestClient(app) as client:
+                    with patch.object(ExeIconGeneratorWorker, "generate_icon", new=write_exe_icon):
+                        second_response = client.get(f"/files/{updated_file_row.id}/thumbnail")
+                    self.assertEqual(200, second_response.status_code)
+
+                second_files = sorted(path.name for path in icon_dir.glob("*.png"))
 
             self.assertEqual(2, len(second_files))
             self.assertNotEqual(first_files[0], second_files[-1])

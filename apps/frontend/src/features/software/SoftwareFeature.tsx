@@ -10,6 +10,7 @@ import { useBatchSelection } from "../batch-organize/useBatchSelection";
 import type { ColorTagValue, FileListSortBy, FileListSortOrder } from "../../entities/file/types";
 import type { SoftwareFormat } from "../../entities/software/types";
 import { listSoftware } from "../../services/api/softwareApi";
+import { getFileThumbnailUrl } from "../../services/api/fileDetailsApi";
 import { listTags } from "../../services/api/tagsApi";
 import {
   hasDesktopOpenActionsBridge,
@@ -85,6 +86,7 @@ const COLOR_TAG_OPTIONS: ColorTagValue[] = ["red", "yellow", "green", "blue", "p
 
 function SoftwareLibraryRow({
   displayTitle,
+  fileId,
   isFavorite,
   isBatchMode,
   modifiedAt,
@@ -96,6 +98,7 @@ function SoftwareLibraryRow({
   onSelect,
 }: {
   displayTitle: string;
+  fileId: number;
   isFavorite: boolean;
   isBatchMode: boolean;
   modifiedAt: string;
@@ -106,9 +109,11 @@ function SoftwareLibraryRow({
   softwareFormat: SoftwareFormat;
   onSelect: () => void;
 }) {
+  const [iconLoadFailed, setIconLoadFailed] = useState(false);
   const hasDesktopOpenActions = hasDesktopOpenActionsBridge();
   const entryLabel = buildSoftwareEntryLabel(softwareFormat);
   const formatCopy = buildSoftwareFormatCopy(softwareFormat);
+  const shouldLoadExeIcon = softwareFormat === "exe" && !iconLoadFailed;
 
   const handleDoubleClick = async () => {
     if (!hasDesktopOpenActions) {
@@ -137,9 +142,16 @@ function SoftwareLibraryRow({
     >
       <span className="software-table__name-cell">
         <span className={`software-table__format-mark software-table__format-mark--${softwareFormat}`} aria-hidden="true">
-          <span>
-            {softwareFormat === "exe" ? "EXE" : softwareFormat === "msi" ? "MSI" : "ZIP"}
-          </span>
+          {shouldLoadExeIcon ? (
+            <img
+              className="software-table__format-icon"
+              src={getFileThumbnailUrl(fileId)}
+              alt=""
+              onError={() => setIconLoadFailed(true)}
+            />
+          ) : (
+            <span>{softwareFormat === "exe" ? "EXE" : softwareFormat === "msi" ? "MSI" : "ZIP"}</span>
+          )}
         </span>
         <span className="software-table__name-copy">
           <strong title={displayTitle}>{displayTitle}</strong>
@@ -558,6 +570,7 @@ export function SoftwareFeature() {
               <SoftwareLibraryRow
                 key={item.id}
                 displayTitle={item.display_title}
+                fileId={item.id}
                 isFavorite={item.is_favorite}
                 isBatchMode={isBatchMode}
                 modifiedAt={item.modified_at}

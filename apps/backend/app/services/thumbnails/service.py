@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
 from threading import Lock
@@ -7,6 +8,7 @@ from app.core.errors.exceptions import NotFoundError
 from app.db.models.file import File
 from app.repositories.file_metadata.repository import FileMetadataRepository
 from app.repositories.file.repository import FileRepository
+from app.workers.thumbnails.exe_icon_generator import ExeIconGeneratorWorker
 from app.workers.thumbnails.generator import ThumbnailGeneratorWorker
 from app.workers.thumbnails.video_generator import VideoThumbnailGeneratorWorker
 
@@ -14,6 +16,14 @@ from app.workers.thumbnails.video_generator import VideoThumbnailGeneratorWorker
 VIDEO_PREVIEW_FRAME_COUNT = 6
 VIDEO_PREVIEW_WIDTH = 320
 VIDEO_PREVIEW_VERSION = "v1"
+EXE_ICON_SIZE = 64
+EXE_ICON_VERSION = "v1"
+
+
+@dataclass(frozen=True)
+class ThumbnailResult:
+    path: Path
+    media_type: str
 
 
 class ThumbnailService:
@@ -22,18 +32,21 @@ class ThumbnailService:
         self.file_metadata_repository = FileMetadataRepository()
         self.generator = ThumbnailGeneratorWorker()
         self.video_generator = VideoThumbnailGeneratorWorker()
+        self.exe_icon_generator = ExeIconGeneratorWorker()
         self._video_preview_locks: dict[str, Lock] = {}
         self._video_preview_locks_guard = Lock()
 
-    def get_thumbnail_path(self, session, file_id: int) -> Path:
+    def get_thumbnail(self, session, file_id: int) -> ThumbnailResult:
         file = self.file_repository.get_by_id(session, file_id)
         if file is None:
             raise NotFoundError("FILE_NOT_FOUND", "File not found.")
 
         if file.file_type == "image":
-            return self._get_image_thumbnail_path(file)
+            return ThumbnailResult(path=self._get_image_thumbnail_path(file), media_type="image/jpeg")
         if file.file_type == "video":
-            return self._get_video_thumbnail_path(file)
+            return ThumbnailResult(path=self._get_video_thumbnail_path(file), media_type="image/jpeg")
+        if self._is_exe_file(file):
+            return ThumbnailResult(path=self._get_exe_icon_path(file), media_type="image/png")
 
         raise NotFoundError("THUMBNAIL_NOT_AVAILABLE", "Thumbnail is not available for this file.")
 
@@ -135,6 +148,20 @@ class ThumbnailService:
 
         return thumbnail_path
 
+    def _get_exe_icon_path(self, file: File) -> Path:
+        icon_path = self._build_exe_icon_path(file)
+        if icon_path.exists():
+            return icon_path
+
+        try:
+            self.exe_icon_generator.generate_icon(Path(file.path), icon_path, size=EXE_ICON_SIZE)
+        except Exception as error:
+            if self.exe_icon_generator.is_expected_generation_failure(error):
+                raise NotFoundError("THUMBNAIL_NOT_AVAILABLE", "Thumbnail is not available for this file.") from error
+            raise
+
+        return icon_path
+
     def _build_image_thumbnail_path(self, file: File) -> Path:
         modified_source = file.modified_at_fs or file.discovered_at
         modified_marker = modified_source.strftime("%Y%m%d%H%M%S%f")
@@ -167,6 +194,36 @@ class ThumbnailService:
             ).encode("utf-8")
         ).hexdigest()[:24]
         return self._get_video_preview_cache_dir() / cache_key
+
+    def _build_exe_icon_path(self, file: File) -> Path:
+        path = Path(file.path)
+        try:
+            stat_result = path.stat()
+            modified_marker = str(stat_result.st_mtime_ns)
+            size_marker = stat_result.st_size
+        except OSError:
+            modified_source = file.modified_at_fs or file.discovered_at
+            modified_marker = modified_source.strftime("%Y%m%d%H%M%S%f")
+            size_marker = file.size_bytes if file.size_bytes is not None else 0
+        cache_key = sha256(
+            "|".join(
+                [
+                    file.path,
+                    str(size_marker),
+                    modified_marker,
+                    EXE_ICON_VERSION,
+                    str(EXE_ICON_SIZE),
+                ]
+            ).encode("utf-8")
+        ).hexdigest()[:16]
+        filename = f"exe_{file.id}_{cache_key}.png"
+        return self._get_exe_icon_cache_dir() / filename
+
+    def _is_exe_file(self, file: File) -> bool:
+        extension = file.extension or Path(file.path).suffix
+        if extension and not extension.startswith("."):
+            extension = f".{extension}"
+        return extension.lower() == ".exe"
 
     def _has_complete_video_preview(self, preview_dir: Path) -> bool:
         return all(
@@ -202,3 +259,6 @@ class ThumbnailService:
 
     def _get_video_preview_cache_dir(self) -> Path:
         return self._get_thumbnail_cache_dir() / "video_preview"
+
+    def _get_exe_icon_cache_dir(self) -> Path:
+        return self._get_thumbnail_cache_dir() / "exe_icons"

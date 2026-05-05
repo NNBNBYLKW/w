@@ -16,14 +16,14 @@
 - 当前有独立的 source management contract
 - 当前有通用 search 与 files browse contract
 - `GET /files/{file_id}` 是 shared details 的统一详情合同
-- `GET /files/{file_id}/thumbnail` 当前只对 image files 可用
+- `GET /files/{file_id}/thumbnail` 当前支持 image / video thumbnails，以及 Windows `.exe` 图标缩略图
 
 ## Not currently supported
 
 - 没有后端 HTTP 的 open file / open containing folder 接口
 - 没有文件树或 breadcrumb browse API
 - 没有复杂 query DSL、聚合统计或多维 faceting
-- 没有非 image 文件的统一 thumbnail 合同
+- 没有对所有文件类型提供统一 thumbnail 合同；当前只覆盖 image / video / `.exe`
 
 ## GET /health
 
@@ -385,24 +385,27 @@ sort_order?: asc | desc
 
 - Method: `GET`
 - Path: `/files/{file_id}/thumbnail`
-- Purpose: 返回 image file 的缩略图
+- Purpose: 返回当前受支持文件的派生 thumbnail
 - Used by:
-  - `DetailsPanelFeature` 的 image preview
+  - `DetailsPanelFeature` 的 image / video preview 与 `.exe` software icon preview
+  - Software 列表中的 `.exe` 图标提示
 - Query params:
   - `file_id` path param，正整数
 - Request body: 无
 - Response shape:
   - 不是 JSON
-  - 返回 `image/jpeg`
+  - image / video 返回 `image/jpeg`
+  - `.exe` 图标返回 `image/png`
   - 带 `Cache-Control: no-store`
 - Common error / failure behavior:
   - `404 FILE_NOT_FOUND`
   - `404 THUMBNAIL_NOT_AVAILABLE`
   - `500 INTERNAL_ERROR` 仅用于未预期异常
 - Notes / constraints / caveats:
-  - 当前只对 `file_type == "image"` 的文件有 contract
+  - 当前只对 image、video、Windows `.exe` 图标有 contract
   - 若缓存不存在，服务会尝试即时生成
-  - video / document / archive / other 当前不在这个 endpoint 的支持范围内
+  - `.exe` 图标使用 Windows Shell API 按需提取；非 Windows 或提取失败时返回 `THUMBNAIL_NOT_AVAILABLE`
+  - document / archive / other 当前不在这个 endpoint 的支持范围内
 
 ## Open actions boundary
 
