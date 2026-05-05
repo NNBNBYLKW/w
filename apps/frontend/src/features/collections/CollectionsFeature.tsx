@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
+import { t } from "../../shared/text";
 import type { CollectionVM, CreateCollectionInput, UpdateCollectionInput } from "../../entities/collection/types";
 import type { ColorTagValue, FileListSortBy, FileListSortOrder, FileType } from "../../entities/file/types";
 import type { SourceVM } from "../../entities/source/types";
@@ -10,7 +11,6 @@ import type { TagItemVM } from "../../entities/tag/types";
 import {
   createCollection,
   deleteCollection,
-  CollectionsApiError,
   listCollectionFiles,
   listCollections,
   updateCollection,
@@ -19,26 +19,8 @@ import { getSources } from "../../services/api/sourcesApi";
 import { listTags } from "../../services/api/tagsApi";
 import { queryKeys } from "../../services/query/queryKeys";
 
-
-const COLOR_TAG_OPTIONS: Array<{ label: string; value: ColorTagValue }> = [
-  { label: "Red", value: "red" },
-  { label: "Yellow", value: "yellow" },
-  { label: "Green", value: "green" },
-  { label: "Blue", value: "blue" },
-  { label: "Purple", value: "purple" },
-];
-
-const FILE_TYPE_OPTIONS: Array<{ label: string; value: FileType }> = [
-  { label: "Image", value: "image" },
-  { label: "Video", value: "video" },
-  { label: "Document", value: "document" },
-  { label: "Archive", value: "archive" },
-  { label: "Other", value: "other" },
-];
-
-
 function formatBytes(value: number | null): string {
-  return value === null ? "Size unavailable" : `${value.toLocaleString()} bytes`;
+  return value === null ? t("common.states.sizeUnavailable") : `${value.toLocaleString()} bytes`;
 }
 
 function getTagLabel(tagId: number | null, tags: TagItemVM[] | undefined): string | null {
@@ -46,60 +28,94 @@ function getTagLabel(tagId: number | null, tags: TagItemVM[] | undefined): strin
     return null;
   }
   const match = tags?.find((tag) => tag.id === tagId);
-  return match?.name ?? `Tag #${tagId}`;
+  return match?.name ?? t("common.labels.tagId", { id: tagId });
 }
 
 function getSourceLabel(sourceId: number | null, sources: SourceVM[] | undefined): string | null {
   if (sourceId === null) {
     return null;
   }
+
   const match = sources?.find((source) => source.id === sourceId);
   if (!match) {
-    return `Source #${sourceId}`;
+    return `${t("common.labels.source")} #${sourceId}`;
   }
+
   return match.display_name?.trim() || match.path;
+}
+
+function getFileTypeLabel(fileType: FileType): string {
+  if (fileType === "image") {
+    return t("common.fileTypes.image");
+  }
+  if (fileType === "video") {
+    return t("common.fileTypes.video");
+  }
+  if (fileType === "document") {
+    return t("common.fileTypes.document");
+  }
+  if (fileType === "archive") {
+    return t("common.fileTypes.archive");
+  }
+  return t("common.fileTypes.other");
+}
+
+function getColorTagLabel(colorTag: ColorTagValue): string {
+  if (colorTag === "red") {
+    return t("common.colors.red");
+  }
+  if (colorTag === "yellow") {
+    return t("common.colors.yellow");
+  }
+  if (colorTag === "green") {
+    return t("common.colors.green");
+  }
+  if (colorTag === "blue") {
+    return t("common.colors.blue");
+  }
+  return t("common.colors.purple");
 }
 
 function buildCollectionSummary(collection: CollectionVM, tags: TagItemVM[] | undefined, sources: SourceVM[] | undefined): string {
   const parts: string[] = [];
 
   if (collection.file_type) {
-    parts.push(`Type: ${collection.file_type}`);
+    parts.push(t("features.collections.summary.type", { value: getFileTypeLabel(collection.file_type) }));
   }
 
   const tagLabel = getTagLabel(collection.tag_id, tags);
   if (tagLabel) {
-    parts.push(`Tag: ${tagLabel}`);
+    parts.push(t("features.collections.summary.tag", { value: tagLabel }));
   }
 
   if (collection.color_tag) {
-    parts.push(`Color: ${collection.color_tag}`);
+    parts.push(t("features.collections.summary.color", { value: getColorTagLabel(collection.color_tag) }));
   }
 
   const sourceLabel = getSourceLabel(collection.source_id, sources);
   if (sourceLabel) {
-    parts.push(`Source: ${sourceLabel}`);
+    parts.push(t("features.collections.summary.source", { value: sourceLabel }));
   }
 
   if (collection.parent_path) {
-    parts.push(`Path: ${collection.parent_path}`);
+    parts.push(t("features.collections.summary.path", { value: collection.parent_path }));
   }
 
-  return parts.length > 0 ? parts.join(" | ") : "All active indexed files";
+  return parts.length > 0 ? parts.join(" | ") : t("features.collections.summary.all");
 }
 
 function getEntryNote(entry: string | null): string | null {
   if (entry === "media") {
-    return "Use this form to save the current media filters as a reusable collection.";
+    return t("features.collections.saveFrom.media");
   }
   if (entry === "books") {
-    return "Use this form to save the current book filters as a reusable collection.";
+    return t("features.collections.saveFrom.books");
   }
   if (entry === "software") {
-    return "Use this form to save the current software filters as a reusable collection.";
+    return t("features.collections.saveFrom.software");
   }
   if (entry === "games") {
-    return "Use this form to save the current game retrieval filters as a reusable collection.";
+    return t("features.collections.saveFrom.games");
   }
   return null;
 }
@@ -123,7 +139,6 @@ function applyCollectionFormValues(
   setters.setParentPath(collection.parent_path ?? "");
 }
 
-
 export function CollectionsFeature() {
   const queryClient = useQueryClient();
   const selectedItemId = useUIStore((state) => state.selectedItemId);
@@ -131,6 +146,20 @@ export function CollectionsFeature() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const hasAppliedPrefillRef = useRef(false);
+  const colorTagOptions: Array<{ label: string; value: ColorTagValue }> = [
+    { label: t("common.colors.red"), value: "red" },
+    { label: t("common.colors.yellow"), value: "yellow" },
+    { label: t("common.colors.green"), value: "green" },
+    { label: t("common.colors.blue"), value: "blue" },
+    { label: t("common.colors.purple"), value: "purple" },
+  ];
+  const fileTypeOptions: Array<{ label: string; value: FileType }> = [
+    { label: t("common.fileTypes.image"), value: "image" },
+    { label: t("common.fileTypes.video"), value: "video" },
+    { label: t("common.fileTypes.document"), value: "document" },
+    { label: t("common.fileTypes.archive"), value: "archive" },
+    { label: t("common.fileTypes.other"), value: "other" },
+  ];
 
   const [selectedCollectionId, setSelectedCollectionId] = useState<number | null>(null);
   const [isEditingSelected, setIsEditingSelected] = useState(false);
@@ -347,7 +376,7 @@ export function CollectionsFeature() {
       params.set("color_tag", selectedCollection.color_tag);
     }
 
-    return `/library/software?${params.toString()}`;
+    return `/software?${params.toString()}`;
   }, [selectedCollection]);
   const gamesCompatibleCollection = useMemo(() => {
     if (!selectedCollection) {
@@ -463,39 +492,41 @@ export function CollectionsFeature() {
   return (
     <section className="feature-shell">
       <div className="feature-header">
-        <span className="page-header__eyebrow">Saved retrieval surface</span>
-        <h3>Reusable file retrieval</h3>
-        <p>Save a narrow set of retrieval conditions here and keep using shared details as the single-item inspection center.</p>
+        <span className="page-header__eyebrow">{t("features.collections.eyebrow")}</span>
+        <h3>{t("features.collections.title")}</h3>
+        <p>{t("features.collections.description")}</p>
       </div>
 
       <div className="collections-layout">
         <aside className="collections-sidebar">
           <form className="form-grid collections-form" onSubmit={handleSubmit}>
             <div className="collections-form__header">
-              <span className="page-header__eyebrow">{isEditingSelected ? "Edit collection" : "Create collection"}</span>
+              <span className="page-header__eyebrow">
+                {isEditingSelected ? t("features.collections.editCollection") : t("features.collections.createCollection")}
+              </span>
               <p>
                 {isEditingSelected
-                  ? "Update the selected saved retrieval without turning Collections into a rules platform."
-                  : "Store a minimal file retrieval condition set."}
+                  ? t("features.collections.editDescription")
+                  : t("features.collections.createDescription")}
               </p>
             </div>
             {entryNote ? <div className="context-flow-note">{entryNote}</div> : null}
 
             <label className="field-stack">
-              <span>Name</span>
+              <span>{t("features.collections.name")}</span>
               <input
                 className="text-input"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder="Blue Images"
+                placeholder={t("features.collections.namePlaceholder")}
               />
             </label>
 
             <label className="field-stack">
-              <span>File type</span>
+              <span>{t("common.labels.fileType")}</span>
               <select className="select-input" value={fileType} onChange={(event) => setFileType(event.target.value as FileType | "")}>
-                <option value="">Any type</option>
-                {FILE_TYPE_OPTIONS.map((option) => (
+                <option value="">{t("features.collections.anyType")}</option>
+                {fileTypeOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -504,14 +535,14 @@ export function CollectionsFeature() {
             </label>
 
             <label className="field-stack">
-              <span>Tag</span>
+              <span>{t("common.labels.tag")}</span>
               <select
                 className="select-input"
                 value={tagId}
                 onChange={(event) => setTagId(event.target.value)}
                 disabled={tagsQuery.isLoading || !canChooseTags}
               >
-                <option value="">Any tag</option>
+                <option value="">{t("features.collections.anyTag")}</option>
                 {tagsQuery.data?.items.map((tag) => (
                   <option key={tag.id} value={String(tag.id)}>
                     {tag.name}
@@ -520,17 +551,19 @@ export function CollectionsFeature() {
               </select>
             </label>
 
-            {tagsQuery.error instanceof Error ? <p className="collections-form__note">Tags unavailable. Collection creation can continue without a tag filter.</p> : null}
+            {tagsQuery.error instanceof Error ? (
+              <p className="collections-form__note">{t("features.collections.tagsUnavailableNote")}</p>
+            ) : null}
 
             <label className="field-stack">
-              <span>Color tag</span>
+              <span>{t("common.labels.color")}</span>
               <select
                 className="select-input"
                 value={colorTag}
                 onChange={(event) => setColorTag(event.target.value as ColorTagValue | "")}
               >
-                <option value="">Any color</option>
-                {COLOR_TAG_OPTIONS.map((option) => (
+                <option value="">{t("common.colors.any")}</option>
+                {colorTagOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -539,7 +572,7 @@ export function CollectionsFeature() {
             </label>
 
             <label className="field-stack">
-              <span>Source</span>
+              <span>{t("common.labels.source")}</span>
               <select
                 className="select-input"
                 value={sourceId}
@@ -552,7 +585,7 @@ export function CollectionsFeature() {
                 }}
                 disabled={sourcesQuery.isLoading || !canChooseSources}
               >
-                <option value="">Any source</option>
+                <option value="">{t("features.collections.anySource")}</option>
                 {sourcesQuery.data?.map((source) => (
                   <option key={source.id} value={String(source.id)}>
                     {source.display_name?.trim() || source.path}
@@ -561,15 +594,17 @@ export function CollectionsFeature() {
               </select>
             </label>
 
-            {sourcesQuery.error instanceof Error ? <p className="collections-form__note">Sources unavailable. Collection creation can continue without a source filter.</p> : null}
+            {sourcesQuery.error instanceof Error ? (
+              <p className="collections-form__note">{t("features.collections.sourcesUnavailableNote")}</p>
+            ) : null}
 
             <label className="field-stack">
-              <span>Parent path</span>
+              <span>{t("common.labels.parentPath")}</span>
               <input
                 className="text-input"
                 value={parentPath}
                 onChange={(event) => setParentPath(event.target.value)}
-                placeholder="D:\\Assets\\Refs"
+                placeholder={t("features.collections.parentPathPlaceholder")}
                 disabled={!sourceId}
               />
             </label>
@@ -578,7 +613,11 @@ export function CollectionsFeature() {
 
             <div className="collections-form__actions">
               <button className="primary-button" type="submit" disabled={isFormPending}>
-                {isFormPending ? "Saving..." : isEditingSelected ? "Update collection" : "Create collection"}
+                {isFormPending
+                  ? t("common.actions.saving")
+                  : isEditingSelected
+                    ? t("common.actions.updateCollection")
+                    : t("common.actions.createCollection")}
               </button>
               {isEditingSelected ? (
                 <button
@@ -594,7 +633,7 @@ export function CollectionsFeature() {
                     setParentPath("");
                   }}
                 >
-                  Switch to create
+                  {t("common.actions.switchToCreate")}
                 </button>
               ) : null}
             </div>
@@ -602,21 +641,25 @@ export function CollectionsFeature() {
 
           <div className="collections-list-shell">
             <div className="collections-list-shell__header">
-              <span className="page-header__eyebrow">Collections</span>
-              {collectionsQuery.data ? <p>{collectionsQuery.data.items.length} saved collections</p> : <p>Saved reusable entry points</p>}
+              <span className="page-header__eyebrow">{t("features.collections.listEyebrow")}</span>
+              {collectionsQuery.data ? (
+                <p>{t("common.labels.collections", { count: collectionsQuery.data.items.length })}</p>
+              ) : (
+                <p>{t("features.collections.listFallback")}</p>
+              )}
             </div>
 
-            {collectionsQuery.isLoading ? <p>Loading saved retrievals...</p> : null}
+            {collectionsQuery.isLoading ? <p>{t("features.collections.listLoading")}</p> : null}
 
             {collectionsQuery.error instanceof Error ? (
               <div className="status-block page-card">
-                <strong>Collections unavailable</strong>
+                <strong>{t("features.collections.listUnavailableTitle")}</strong>
                 <p>{collectionsQuery.error.message}</p>
               </div>
             ) : null}
 
             {collectionsQuery.data && collectionsQuery.data.items.length === 0 ? (
-              <div className="future-frame">No saved retrievals yet. Create one to reuse a narrow set of indexed-file conditions.</div>
+              <div className="future-frame">{t("features.collections.listEmpty")}</div>
             ) : null}
 
             {collectionsQuery.data && collectionsQuery.data.items.length > 0 ? (
@@ -659,7 +702,7 @@ export function CollectionsFeature() {
                           });
                         }}
                       >
-                        Edit
+                        {t("common.actions.edit")}
                       </button>
                       <button
                         className="secondary-button"
@@ -669,7 +712,7 @@ export function CollectionsFeature() {
                         }}
                         disabled={deleteCollectionMutation.isPending}
                       >
-                        Delete
+                        {t("common.actions.delete")}
                       </button>
                     </div>
                   </div>
@@ -680,14 +723,14 @@ export function CollectionsFeature() {
         </aside>
 
         <div className="collections-results">
-            <div className="collections-results__header">
+          <div className="collections-results__header">
             <div className="feature-header">
-              <span className="page-header__eyebrow">Collection results</span>
-              <h3>{selectedCollection?.name ?? "Choose a collection"}</h3>
+              <span className="page-header__eyebrow">{t("features.collections.resultsEyebrow")}</span>
+              <h3>{selectedCollection?.name ?? t("features.collections.chooseCollection")}</h3>
               <p>
                 {selectedCollection
                   ? buildCollectionSummary(selectedCollection, tagsQuery.data?.items, sourcesQuery.data)
-                  : "Select or create a collection to see real-time indexed file results."}
+                  : t("features.collections.chooseCollectionDescription")}
               </p>
             </div>
             <div className="files-meta-row__actions">
@@ -699,7 +742,7 @@ export function CollectionsFeature() {
                     navigate(mediaCompatibleCollection);
                   }}
                 >
-                  Open matching media
+                  {t("common.actions.openMatchingMedia")}
                 </button>
               ) : null}
               {booksCompatibleCollection ? (
@@ -710,7 +753,7 @@ export function CollectionsFeature() {
                     navigate(booksCompatibleCollection);
                   }}
                 >
-                  Open matching books
+                  {t("common.actions.openMatchingBooks")}
                 </button>
               ) : null}
               {gamesCompatibleCollection ? (
@@ -721,7 +764,7 @@ export function CollectionsFeature() {
                     navigate(gamesCompatibleCollection);
                   }}
                 >
-                  Open matching games
+                  {t("common.actions.openMatchingGames")}
                 </button>
               ) : null}
               {softwareCompatibleCollection ? (
@@ -732,7 +775,7 @@ export function CollectionsFeature() {
                     navigate(softwareCompatibleCollection);
                   }}
                 >
-                  Open matching software
+                  {t("common.actions.openMatchingSoftware")}
                 </button>
               ) : null}
             </div>
@@ -742,7 +785,7 @@ export function CollectionsFeature() {
             <>
               <div className="files-toolbar">
                 <label className="field-stack files-toolbar__field">
-                  <span>Sort by</span>
+                  <span>{t("common.labels.sortBy")}</span>
                   <select
                     className="select-input"
                     value={sortBy}
@@ -751,13 +794,13 @@ export function CollectionsFeature() {
                       setPage(1);
                     }}
                   >
-                    <option value="modified_at">Modified</option>
-                    <option value="name">Name</option>
-                    <option value="discovered_at">Discovered</option>
+                    <option value="modified_at">{t("common.sortBy.modified")}</option>
+                    <option value="name">{t("common.sortBy.name")}</option>
+                    <option value="discovered_at">{t("common.sortBy.discovered")}</option>
                   </select>
                 </label>
                 <label className="field-stack files-toolbar__field">
-                  <span>Order</span>
+                  <span>{t("common.labels.order")}</span>
                   <select
                     className="select-input"
                     value={sortOrder}
@@ -766,28 +809,28 @@ export function CollectionsFeature() {
                       setPage(1);
                     }}
                   >
-                    <option value="desc">Descending</option>
-                    <option value="asc">Ascending</option>
+                    <option value="desc">{t("common.sortOrder.descending")}</option>
+                    <option value="asc">{t("common.sortOrder.ascending")}</option>
                   </select>
                 </label>
               </div>
 
               <div className="files-meta-row">
-                <p>Showing real-time active indexed files for the selected collection.</p>
-                {collectionFilesQuery.data ? <span>{collectionFilesQuery.data.total} files</span> : null}
+                <p>{t("features.collections.resultsMeta")}</p>
+                {collectionFilesQuery.data ? <span>{t("common.labels.files", { count: collectionFilesQuery.data.total })}</span> : null}
               </div>
 
-              {collectionFilesQuery.isLoading ? <p>Loading matching files...</p> : null}
+              {collectionFilesQuery.isLoading ? <p>{t("features.collections.resultsLoading")}</p> : null}
 
               {collectionFilesQuery.error instanceof Error ? (
                 <div className="status-block page-card">
-                  <strong>Collection results unavailable</strong>
+                  <strong>{t("features.collections.resultsUnavailableTitle")}</strong>
                   <p>{collectionFilesQuery.error.message}</p>
                 </div>
               ) : null}
 
               {collectionFilesQuery.data && collectionFilesQuery.data.items.length === 0 ? (
-                <div className="future-frame">No active indexed files currently match this saved retrieval.</div>
+                <div className="future-frame">{t("features.collections.resultsEmpty")}</div>
               ) : null}
 
               {collectionFilesQuery.data && collectionFilesQuery.data.items.length > 0 ? (
@@ -799,11 +842,11 @@ export function CollectionsFeature() {
                         className={`files-list-row${selectedItemId === String(item.id) ? " files-list-row--selected" : ""}`}
                         type="button"
                         onClick={() => selectItem(String(item.id))}
-                        >
-                          <div className="files-list-row__meta">
-                            <strong title={item.name}>{item.name}</strong>
-                            <p title={item.path}>{item.path}</p>
-                          </div>
+                      >
+                        <div className="files-list-row__meta">
+                          <strong title={item.name}>{item.name}</strong>
+                          <p title={item.path}>{item.path}</p>
+                        </div>
                         <div className="files-list-row__badges">
                           <span className="status-pill">{item.file_type}</span>
                           <span className="status-pill">{new Date(item.modified_at).toLocaleString()}</span>
@@ -820,25 +863,23 @@ export function CollectionsFeature() {
                       onClick={() => setPage((current) => Math.max(1, current - 1))}
                       disabled={page <= 1}
                     >
-                      Previous
+                      {t("common.actions.previous")}
                     </button>
-                    <span>
-                      Page {page} of {totalPages}
-                    </span>
+                    <span>{t("common.labels.page", { page, total: totalPages })}</span>
                     <button
                       className="secondary-button"
                       type="button"
                       onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
                       disabled={page >= totalPages}
                     >
-                      Next
+                      {t("common.actions.next")}
                     </button>
                   </div>
                 </>
               ) : null}
             </>
           ) : (
-            <div className="future-frame">Select or create a collection to see reusable file retrieval results here.</div>
+            <div className="future-frame">{t("features.collections.emptyFallback")}</div>
           )}
         </div>
       </div>

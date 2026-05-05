@@ -2,32 +2,32 @@ import { FormEvent, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { useUIStore } from "../../app/providers/uiStore";
+import { t } from "../../shared/text";
 import type { ColorTagValue, FileType, SearchSortBy, SearchSortOrder } from "../../entities/file/types";
 import { searchFiles } from "../../services/api/searchApi";
 import { listTags } from "../../services/api/tagsApi";
 import { queryKeys } from "../../services/query/queryKeys";
 
-const FILE_TYPE_OPTIONS: Array<{ label: string; value: FileType | "all" }> = [
-  { label: "All types", value: "all" },
-  { label: "Image", value: "image" },
-  { label: "Video", value: "video" },
-  { label: "Document", value: "document" },
-  { label: "Archive", value: "archive" },
-  { label: "Other", value: "other" },
-];
-const COLOR_TAG_OPTIONS: Array<{ label: string; value: ColorTagValue | "all" }> = [
-  { label: "All colors", value: "all" },
-  { label: "Red", value: "red" },
-  { label: "Yellow", value: "yellow" },
-  { label: "Green", value: "green" },
-  { label: "Blue", value: "blue" },
-  { label: "Purple", value: "purple" },
-];
-
 
 export function SearchFeature() {
   const selectedItemId = useUIStore((state) => state.selectedItemId);
   const selectItem = useUIStore((state) => state.selectItem);
+  const fileTypeOptions: Array<{ label: string; value: FileType | "all" }> = [
+    { label: t("common.fileTypes.all"), value: "all" },
+    { label: t("common.fileTypes.image"), value: "image" },
+    { label: t("common.fileTypes.video"), value: "video" },
+    { label: t("common.fileTypes.document"), value: "document" },
+    { label: t("common.fileTypes.archive"), value: "archive" },
+    { label: t("common.fileTypes.other"), value: "other" },
+  ];
+  const colorTagOptions: Array<{ label: string; value: ColorTagValue | "all" }> = [
+    { label: t("common.colors.all"), value: "all" },
+    { label: t("common.colors.red"), value: "red" },
+    { label: t("common.colors.yellow"), value: "yellow" },
+    { label: t("common.colors.green"), value: "green" },
+    { label: t("common.colors.blue"), value: "blue" },
+    { label: t("common.colors.purple"), value: "purple" },
+  ];
   const [inputQuery, setInputQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
   const [fileType, setFileType] = useState<FileType | "all">("all");
@@ -68,8 +68,8 @@ export function SearchFeature() {
   return (
     <section className="feature-shell">
       <div className="feature-header">
-        <span className="page-header__eyebrow">Indexed query area</span>
-        <h3>Search</h3>
+        <span className="page-header__eyebrow">{t("features.search.eyebrow")}</span>
+        <h3>{t("features.search.title")}</h3>
       </div>
       <form className="search-controls" onSubmit={handleSubmit}>
         <div className="search-input-row">
@@ -77,15 +77,15 @@ export function SearchFeature() {
             className="text-input"
             value={inputQuery}
             onChange={(event) => setInputQuery(event.target.value)}
-            placeholder="Search indexed files by name or path"
+            placeholder={t("features.search.placeholder")}
           />
           <button className="secondary-button" type="submit">
-            Search
+            {t("common.actions.search")}
           </button>
         </div>
         <div className="search-toolbar">
           <label className="field-stack search-toolbar__field">
-            <span>Type</span>
+            <span>{t("common.labels.type")}</span>
             <select
               className="select-input"
               value={fileType}
@@ -94,7 +94,7 @@ export function SearchFeature() {
                 setPage(1);
               }}
             >
-              {FILE_TYPE_OPTIONS.map((option) => (
+              {fileTypeOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -102,7 +102,7 @@ export function SearchFeature() {
             </select>
           </label>
           <label className="field-stack search-toolbar__field">
-            <span>Tag</span>
+            <span>{t("common.labels.tag")}</span>
             <select
               className="select-input"
               value={selectedTagId}
@@ -112,7 +112,9 @@ export function SearchFeature() {
               }}
               disabled={tagsQuery.isLoading || tagsQuery.error instanceof Error}
             >
-              <option value="all">{tagsQuery.error instanceof Error ? "Tags unavailable" : "All tags"}</option>
+              <option value="all">
+                {tagsQuery.error instanceof Error ? t("common.tagFilters.unavailable") : t("common.tagFilters.all")}
+              </option>
               {(tagsQuery.data?.items ?? []).map((tag) => (
                 <option key={tag.id} value={tag.id}>
                   {tag.name}
@@ -121,7 +123,7 @@ export function SearchFeature() {
             </select>
           </label>
           <label className="field-stack search-toolbar__field">
-            <span>Color</span>
+            <span>{t("common.labels.color")}</span>
             <select
               className="select-input"
               value={selectedColorTag}
@@ -130,7 +132,7 @@ export function SearchFeature() {
                 setPage(1);
               }}
             >
-              {COLOR_TAG_OPTIONS.map((option) => (
+              {colorTagOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -138,7 +140,7 @@ export function SearchFeature() {
             </select>
           </label>
           <label className="field-stack search-toolbar__field">
-            <span>Sort by</span>
+            <span>{t("common.labels.sortBy")}</span>
             <select
               className="select-input"
               value={sortBy}
@@ -147,13 +149,13 @@ export function SearchFeature() {
                 setPage(1);
               }}
             >
-              <option value="modified_at">Modified</option>
-              <option value="name">Name</option>
-              <option value="discovered_at">Discovered</option>
+              <option value="modified_at">{t("common.sortBy.modified")}</option>
+              <option value="name">{t("common.sortBy.name")}</option>
+              <option value="discovered_at">{t("common.sortBy.discovered")}</option>
             </select>
           </label>
           <label className="field-stack search-toolbar__field">
-            <span>Order</span>
+            <span>{t("common.labels.order")}</span>
             <select
               className="select-input"
               value={sortOrder}
@@ -162,8 +164,8 @@ export function SearchFeature() {
                 setPage(1);
               }}
             >
-              <option value="desc">Descending</option>
-              <option value="asc">Ascending</option>
+              <option value="desc">{t("common.sortOrder.descending")}</option>
+              <option value="asc">{t("common.sortOrder.ascending")}</option>
             </select>
           </label>
         </div>
@@ -171,29 +173,29 @@ export function SearchFeature() {
 
       <div className="search-meta-row">
         <p>
-          {appliedQuery ? `Showing matches for "${appliedQuery}".` : "Showing active indexed files for the empty-query state."}
+          {appliedQuery ? t("features.search.matches", { query: appliedQuery }) : t("features.search.emptyQuery")}
         </p>
-        {searchQuery.data ? <span>{searchQuery.data.total} results</span> : null}
+        {searchQuery.data ? <span>{t("common.labels.results", { count: searchQuery.data.total })}</span> : null}
       </div>
 
-      {searchQuery.isLoading ? <p>Loading indexed search results...</p> : null}
+      {searchQuery.isLoading ? <p>{t("features.search.loading")}</p> : null}
 
       {searchQuery.error instanceof Error ? (
         <div className="status-block page-card">
-          <strong>Search failed</strong>
+          <strong>{t("features.search.failedTitle")}</strong>
           <p>{searchQuery.error.message}</p>
         </div>
       ) : null}
 
       {tagsQuery.error instanceof Error ? (
         <div className="status-block page-card">
-          <strong>Tag filters unavailable</strong>
+          <strong>{t("features.search.tagsUnavailableTitle")}</strong>
           <p>{tagsQuery.error.message}</p>
         </div>
       ) : null}
 
       {searchQuery.data && searchQuery.data.items.length === 0 ? (
-        <div className="future-frame">No indexed files matched this query yet.</div>
+        <div className="future-frame">{t("features.search.empty")}</div>
       ) : null}
 
       {searchQuery.data && searchQuery.data.items.length > 0 ? (
@@ -224,18 +226,16 @@ export function SearchFeature() {
               onClick={() => setPage((current) => Math.max(1, current - 1))}
               disabled={page <= 1}
             >
-              Previous
+              {t("common.actions.previous")}
             </button>
-            <span>
-              Page {page} of {totalPages}
-            </span>
+            <span>{t("common.labels.page", { page, total: totalPages })}</span>
             <button
               className="secondary-button"
               type="button"
               onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
               disabled={page >= totalPages}
             >
-              Next
+              {t("common.actions.next")}
             </button>
           </div>
         </>

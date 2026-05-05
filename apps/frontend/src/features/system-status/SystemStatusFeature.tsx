@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { t } from "../../shared/text";
 import { getSystemStatus } from "../../services/api/systemApi";
 import { queryKeys } from "../../services/query/queryKeys";
 
@@ -12,9 +13,9 @@ type SystemStatusFeatureProps = {
 
 
 export function SystemStatusFeature({
-  eyebrow = "System status",
-  title = "Runtime and index status",
-  description = "Review the current app, database, source, task, and file totals.",
+  eyebrow = t("settings.systemStatus.defaultEyebrow"),
+  title = t("settings.systemStatus.defaultTitle"),
+  description = t("settings.systemStatus.defaultDescription"),
 }: SystemStatusFeatureProps) {
   const systemStatusQuery = useQuery({
     queryKey: queryKeys.systemStatus,
@@ -29,11 +30,11 @@ export function SystemStatusFeature({
         <p>{description}</p>
       </div>
 
-      {systemStatusQuery.isLoading ? <p>Loading system status...</p> : null}
+      {systemStatusQuery.isLoading ? <p>{t("settings.systemStatus.loading")}</p> : null}
 
       {systemStatusQuery.error instanceof Error ? (
         <div className="status-block page-card">
-          <strong>System status unavailable</strong>
+          <strong>{t("settings.systemStatus.unavailableTitle")}</strong>
           <p>{systemStatusQuery.error.message}</p>
         </div>
       ) : null}
@@ -41,23 +42,23 @@ export function SystemStatusFeature({
       {systemStatusQuery.data ? (
         <dl className="system-status-grid">
           <div className="system-status-card">
-            <dt>App</dt>
+            <dt>{t("settings.systemStatus.cards.app")}</dt>
             <dd>{systemStatusQuery.data.app}</dd>
           </div>
           <div className="system-status-card">
-            <dt>Database</dt>
+            <dt>{t("settings.systemStatus.cards.database")}</dt>
             <dd>{systemStatusQuery.data.database}</dd>
           </div>
           <div className="system-status-card">
-            <dt>Sources</dt>
+            <dt>{t("settings.systemStatus.cards.sources")}</dt>
             <dd>{systemStatusQuery.data.sources_count}</dd>
           </div>
           <div className="system-status-card">
-            <dt>Indexed files</dt>
+            <dt>{t("settings.systemStatus.cards.indexedFiles")}</dt>
             <dd>{systemStatusQuery.data.files_count}</dd>
           </div>
           <div className="system-status-card">
-            <dt>Tasks</dt>
+            <dt>{t("settings.systemStatus.cards.tasks")}</dt>
             <dd>{systemStatusQuery.data.tasks_count}</dd>
           </div>
         </dl>

@@ -6,6 +6,7 @@ import CollectionsIcon from "../../../assets/icons/navigation/collections.svg?re
 import ConnectionIcon from "../../../assets/icons/navigation/connection.svg?react";
 import FilesIcon from "../../../assets/icons/navigation/files.svg?react";
 import GamesIcon from "../../../assets/icons/navigation/games.svg?react";
+import HomeIcon from "../../../assets/icons/navigation/home.svg?react";
 import Maxmize1Icon from "../../../assets/icons/navigation/maxmize1.svg?react";
 import Maxmize2Icon from "../../../assets/icons/navigation/maxmize2.svg?react";
 import MediaIcon from "../../../assets/icons/navigation/media.svg?react";
@@ -22,6 +23,7 @@ import TagsIcon from "../../../assets/icons/navigation/tags.svg?react";
 import type { NavigationIconName } from "./icon-types";
 
 const navigationIconMap: Record<NavigationIconName, (props: SVGProps<SVGSVGElement>) => JSX.Element> = {
+  home: HomeIcon,
   onboarding: OnboardingIcon,
   search: SearchIcon,
   files: FilesIcon,

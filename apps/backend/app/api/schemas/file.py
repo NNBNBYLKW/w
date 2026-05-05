@@ -98,6 +98,16 @@ class FileDetailResponse(BaseModel):
     item: FileDetailItemResponse
 
 
+class FileVideoPreviewItemResponse(BaseModel):
+    id: int
+    frame_count: int
+    frame_indexes: list[int]
+
+
+class FileVideoPreviewResponse(BaseModel):
+    item: FileVideoPreviewItemResponse
+
+
 class ColorTagUpdateRequest(BaseModel):
     color_tag: str | None
 

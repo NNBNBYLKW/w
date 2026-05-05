@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
+import { t, useLocale } from "../../shared/text";
 import { BatchActionBar } from "../batch-organize/BatchActionBar";
 import { useBatchOrganizeActions } from "../batch-organize/useBatchOrganizeActions";
 import { useBatchSelection } from "../batch-organize/useBatchSelection";
@@ -19,7 +20,7 @@ import { queryKeys } from "../../services/query/queryKeys";
 
 
 function formatBytes(value: number | null): string {
-  return value === null ? "Size unavailable" : `${value.toLocaleString()} bytes`;
+  return value === null ? t("common.states.sizeUnavailable") : `${value.toLocaleString()} bytes`;
 }
 
 function formatBookFormat(value: BookFormat): string {
@@ -30,25 +31,41 @@ function formatModifiedAt(value: string): string {
   return new Date(value).toLocaleString();
 }
 
+function countByFormat(items: Array<{ book_format: BookFormat }>, format: BookFormat): number {
+  return items.filter((item) => item.book_format === format).length;
+}
+
 function buildBookEntryLabel(value: BookFormat): string {
-  return value === "epub" ? "Ebook entry" : "Document edition";
+  return value === "epub" ? t("features.books.ebookEntry") : t("features.books.documentEdition");
 }
 
 function buildBookFormatCopy(value: BookFormat): string {
-  return value === "epub" ? "EPUB ebook" : "PDF edition";
+  return value === "epub" ? t("features.books.epubCopy") : t("features.books.pdfCopy");
 }
 
 function buildBookFormatHint(value: BookFormat): string {
-  return value === "epub" ? "Flow-friendly ebook file" : "Paged document-style ebook";
+  return value === "epub" ? t("features.books.epubHint") : t("features.books.pdfHint");
 }
 
 function formatColorTagLabel(value: ColorTagValue): string {
-  return value.charAt(0).toUpperCase() + value.slice(1);
+  if (value === "red") {
+    return t("common.colors.red");
+  }
+  if (value === "yellow") {
+    return t("common.colors.yellow");
+  }
+  if (value === "green") {
+    return t("common.colors.green");
+  }
+  if (value === "blue") {
+    return t("common.colors.blue");
+  }
+  return t("common.colors.purple");
 }
 
 const COLOR_TAG_OPTIONS: ColorTagValue[] = ["red", "yellow", "green", "blue", "purple"];
 
-function BooksLibraryCard({
+function BooksLibraryRow({
   bookFormat,
   displayTitle,
   isFavorite,
@@ -88,7 +105,7 @@ function BooksLibraryCard({
 
   return (
     <button
-      className={`books-card${selected ? " books-card--selected" : ""}`}
+      className={`compact-library-table__row${selected ? " compact-library-table__row--selected" : ""}`}
       type="button"
       onClick={onSelect}
       onDoubleClick={() => {
@@ -98,54 +115,52 @@ function BooksLibraryCard({
         void handleDoubleClick();
       }}
     >
-      <div className={`books-card__poster books-card__poster--${bookFormat}`}>
-        <span className="books-card__spine" aria-hidden="true" />
-        <div className="books-card__poster-copy">
-          <span className="books-card__poster-icon" aria-hidden="true">
-            {bookFormat === "epub" ? "EP" : "PDF"}
-          </span>
-          <strong>{buildBookEntryLabel(bookFormat)}</strong>
-          <span>{buildBookFormatHint(bookFormat)}</span>
-        </div>
-      </div>
-      <div className="books-card__body">
-        <strong title={displayTitle}>{displayTitle}</strong>
-        <span className={`books-card__entry-note books-card__entry-note--${bookFormat}`}>{buildBookFormatCopy(bookFormat)}</span>
-        <p title={path}>{path}</p>
-      </div>
-      <div className="books-card__meta">
+      <span className="compact-library-table__name-cell">
+        <span className={`compact-library-table__format-mark compact-library-table__format-mark--book-${bookFormat}`} aria-hidden="true">
+          <span>{bookFormat === "epub" ? "EPUB" : "PDF"}</span>
+        </span>
+        <span className="compact-library-table__name-copy">
+          <strong title={displayTitle}>{displayTitle}</strong>
+          <span title={path}>{path}</span>
+        </span>
+      </span>
+      <span className="compact-library-table__type-cell">
         <span className="status-pill">{formatBookFormat(bookFormat)}</span>
-        <span className="status-pill">{formatBytes(sizeBytes)}</span>
-        <span className="status-pill">{formatModifiedAt(modifiedAt)}</span>
-        {isFavorite ? <span className="status-pill status-pill--favorite">★ Favorite</span> : null}
+      </span>
+      <span className="compact-library-table__kind-cell" title={buildBookFormatHint(bookFormat)}>
+        <strong>{buildBookEntryLabel(bookFormat)}</strong>
+        <span>{buildBookFormatCopy(bookFormat)}</span>
+      </span>
+      <span className="compact-library-table__modified-cell">{formatModifiedAt(modifiedAt)}</span>
+      <span className="compact-library-table__size-cell">{formatBytes(sizeBytes)}</span>
+      <span className="compact-library-table__signals-cell">
+        {isFavorite ? <span className="status-pill status-pill--favorite">{t("common.favorites.favorite")}</span> : null}
         {rating !== null ? <span className="status-pill status-pill--rating">★ {rating}</span> : null}
-        {isBatchMode && selected ? <span className="status-pill">Selected</span> : null}
-      </div>
-      <span className="books-card__hint">Single-click for shared details. Double-click to open the indexed file.</span>
+        {isBatchMode && selected ? <span className="status-pill">{t("common.states.selected")}</span> : null}
+        {!isFavorite && rating === null && !(isBatchMode && selected) ? (
+          <span className="compact-library-table__signals-empty">{t("common.states.none")}</span>
+        ) : null}
+      </span>
     </button>
   );
 }
 
-function BooksCardSkeleton() {
+function BooksRowSkeleton() {
   return (
-    <div className="books-card books-card--skeleton" aria-hidden="true">
-      <div className="books-card__poster books-card__poster--skeleton" />
-      <div className="books-card__body books-card__body--skeleton">
-        <span className="books-card__skeleton-line books-card__skeleton-line--title" />
-        <span className="books-card__skeleton-line books-card__skeleton-line--path" />
-        <span className="books-card__skeleton-line books-card__skeleton-line--path-short" />
-      </div>
-      <div className="books-card__meta books-card__meta--skeleton">
-        <span className="books-card__skeleton-pill" />
-        <span className="books-card__skeleton-pill" />
-        <span className="books-card__skeleton-pill" />
-      </div>
+    <div className="compact-library-table__row compact-library-table__row--skeleton" aria-hidden="true">
+      <span className="compact-library-skeleton-line compact-library-skeleton-line--title" />
+      <span className="compact-library-skeleton-pill" />
+      <span className="compact-library-skeleton-line compact-library-skeleton-line--short" />
+      <span className="compact-library-skeleton-line" />
+      <span className="compact-library-skeleton-line compact-library-skeleton-line--short" />
+      <span className="compact-library-skeleton-pill" />
     </div>
   );
 }
 
 
 export function BooksFeature() {
+  const { locale } = useLocale();
   const selectedItemId = useUIStore((state) => state.selectedItemId);
   const selectItem = useUIStore((state) => state.selectItem);
   const navigate = useNavigate();
@@ -185,7 +200,7 @@ export function BooksFeature() {
     selectedIds,
     toggleSelection,
   } = useBatchSelection({
-    pageLabel: "Books",
+    pageLabel: t("pages.books.title"),
     resetDeps: [tagFilter, colorTagFilter, sortBy, sortOrder, page],
   });
   const { applyColorTag, applyTag, isApplyingColorTag, isApplyingTag } = useBatchOrganizeActions({
@@ -197,40 +212,57 @@ export function BooksFeature() {
   const hasNoRecognizedBooks = booksQuery.data !== undefined && booksQuery.data.total === 0;
   const hasNoCurrentPageResults = booksQuery.data !== undefined && booksQuery.data.total > 0 && booksQuery.data.items.length === 0;
   const hasActiveBookFilters = tagFilter !== null || colorTagFilter !== null;
+  const currentItems = booksQuery.data?.items ?? [];
+  const summaryStats = useMemo(
+    () => ({
+      total: booksQuery.data?.total ?? 0,
+      visible: currentItems.length,
+      epub: countByFormat(currentItems, "epub"),
+      pdf: countByFormat(currentItems, "pdf"),
+      filters: [tagFilter, colorTagFilter].filter(Boolean).length,
+    }),
+    [booksQuery.data?.total, colorTagFilter, currentItems, tagFilter],
+  );
   const selectedTagLabel = useMemo(() => {
     if (tagFilter === null) {
       return null;
     }
     const matchedTag = tagsQuery.data?.items.find((tag) => tag.id === tagFilter);
-    return matchedTag?.name ?? `Tag #${tagFilter}`;
-  }, [tagFilter, tagsQuery.data]);
+    return matchedTag?.name ?? t("common.labels.tagId", { id: tagFilter });
+  }, [locale, tagFilter, tagsQuery.data]);
   const filterSummary = useMemo(() => {
-    const sortLabel = sortBy === "modified_at" ? "Modified" : sortBy === "name" ? "Name" : "Discovered";
+    const sortLabel =
+      sortBy === "modified_at" ? t("common.sortBy.modified") : sortBy === "name" ? t("common.sortBy.name") : t("common.sortBy.discovered");
     const parts: string[] = [];
     if (selectedTagLabel) {
-      parts.push(`Tag: ${selectedTagLabel}`);
+      parts.push(`${t("common.labels.tag")}: ${selectedTagLabel}`);
     }
     if (colorTagFilter) {
-      parts.push(`Color: ${formatColorTagLabel(colorTagFilter)}`);
+      parts.push(`${t("common.labels.color")}: ${formatColorTagLabel(colorTagFilter)}`);
     }
-    parts.push(`Sorted by ${sortLabel} (${sortOrder === "desc" ? "Descending" : "Ascending"})`);
-    return parts.length > 0 ? `Showing: ${parts.join(" · ")}` : "Showing all recognized ebook entries.";
-  }, [colorTagFilter, selectedTagLabel, sortBy, sortOrder]);
+    parts.push(
+      t("common.labels.sortedBy", {
+        sort: sortLabel,
+        order: sortOrder === "desc" ? t("common.sortOrder.descending") : t("common.sortOrder.ascending"),
+      }),
+    );
+    return parts.length > 0 ? t("features.books.filterSummary", { summary: parts.join(" · ") }) : t("features.books.showingAllEntries");
+  }, [colorTagFilter, locale, selectedTagLabel, sortBy, sortOrder]);
   const entryCopy = useMemo(() => {
     if (entry === "recent") {
-      return "Opened from Recent so you can continue organizing this ebook inside the Books subset surface.";
+      return t("features.books.entry.recent");
     }
     if (entry === "tags") {
-      return "Opened from Tags so you can review the ebook subset attached to the current tag.";
+      return t("features.books.entry.tags");
     }
     if (entry === "collections") {
-      return "Opened from Collections so you can browse the ebook subset represented by the selected retrieval.";
+      return t("features.books.entry.collections");
     }
     if (entry === "details") {
-      return "Opened from shared details so you can re-find this ebook inside the Books subset surface.";
+      return t("features.books.entry.details");
     }
     return null;
-  }, [entry]);
+  }, [entry, locale]);
 
   useEffect(() => {
     const nextTagId = searchParams.get("tag_id");
@@ -281,162 +313,222 @@ export function BooksFeature() {
       params.set("prefill_color_tag", colorTagFilter);
       defaultNameParts.push(formatColorTagLabel(colorTagFilter));
     }
-    params.set("prefill_name", defaultNameParts.length > 0 ? `${defaultNameParts.join(" ")} Books` : "Books Collection");
+    params.set(
+      "prefill_name",
+      defaultNameParts.length > 0
+        ? `${defaultNameParts.join(" ")} ${t("features.books.collectionPrefill.base")}`
+        : t("features.books.collectionPrefill.default"),
+    );
     navigate(`/collections?${params.toString()}`);
   };
 
   return (
-    <section className="feature-shell">
-      <div className="feature-header">
-        <span className="page-header__eyebrow">Library subset browsing</span>
-        <h3>Recognized ebook files</h3>
-        <p>Select a card to load shared details. Double-click a card to open the indexed file.</p>
+    <section className="feature-shell compact-library">
+      <div className="feature-header compact-library__header">
+        <span className="page-header__eyebrow">{t("features.books.eyebrow")}</span>
+        <h3>{t("features.books.title")}</h3>
+        <p>{t("features.books.description")}</p>
       </div>
 
-      <div className="files-toolbar">
-        <label className="field-stack files-toolbar__field">
-          <span>Sort by</span>
-          <select
-            className="select-input"
-            value={sortBy}
-            onChange={(event) => {
-              setSortBy(event.target.value as FileListSortBy);
-              setPage(1);
-            }}
-          >
-            <option value="modified_at">Modified</option>
-            <option value="name">Name</option>
-            <option value="discovered_at">Discovered</option>
-          </select>
-        </label>
-        <label className="field-stack files-toolbar__field">
-          <span>Order</span>
-          <select
-            className="select-input"
-            value={sortOrder}
-          onChange={(event) => {
-            setSortOrder(event.target.value as FileListSortOrder);
-            setPage(1);
-          }}
-          >
-            <option value="desc">Descending</option>
-            <option value="asc">Ascending</option>
-          </select>
-        </label>
-        <label className="field-stack files-toolbar__field">
-          <span>Tag</span>
-          <select
-            className="select-input"
-            value={tagFilter === null ? "all" : String(tagFilter)}
-            onChange={(event) => {
-              const nextValue = event.target.value;
-              setTagFilter(nextValue === "all" ? null : Number(nextValue));
-              setPage(1);
-            }}
-            disabled={tagsQuery.isLoading || tagsQuery.isError}
-          >
-            <option value="all">All tags</option>
-            {tagsQuery.data?.items.map((tag) => (
-              <option key={tag.id} value={tag.id}>
-                {tag.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field-stack files-toolbar__field">
-          <span>Color</span>
-          <select
-            className="select-input"
-            value={colorTagFilter ?? "all"}
-            onChange={(event) => {
-              const nextValue = event.target.value;
-              setColorTagFilter(nextValue === "all" ? null : (nextValue as ColorTagValue));
-              setPage(1);
-            }}
-          >
-            <option value="all">All colors</option>
-            {COLOR_TAG_OPTIONS.map((colorTag) => (
-              <option key={colorTag} value={colorTag}>
-                {formatColorTagLabel(colorTag)}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="compact-summary-strip compact-summary-strip--five" aria-label={t("features.books.summary.ariaLabel")}>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.books.summary.total")}</span>
+          <strong>{summaryStats.total.toLocaleString()}</strong>
+        </div>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.books.summary.visible")}</span>
+          <strong>{summaryStats.visible.toLocaleString()}</strong>
+        </div>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.books.summary.epub")}</span>
+          <strong>{summaryStats.epub.toLocaleString()}</strong>
+        </div>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.books.summary.pdf")}</span>
+          <strong>{summaryStats.pdf.toLocaleString()}</strong>
+        </div>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.books.summary.filters")}</span>
+          <strong>{summaryStats.filters.toLocaleString()}</strong>
+        </div>
       </div>
 
-      {entryCopy ? <div className="context-flow-note">{entryCopy}</div> : null}
-
-      <div className="books-filter-summary">
-        <p>{hasActiveBookFilters ? filterSummary : `Showing all recognized ebook entries. Sorted by ${sortBy === "modified_at" ? "Modified" : sortBy === "name" ? "Name" : "Discovered"} (${sortOrder === "desc" ? "Descending" : "Ascending"}).`}</p>
-        <div className="books-filter-summary__actions">
+      <div className="compact-action-bar">
+        <div className="compact-action-bar__copy">
+          <span className="page-header__eyebrow">{t("features.books.quickActions.eyebrow")}</span>
+          <p>{t("features.books.quickActions.description")}</p>
+        </div>
+        <div className="compact-action-bar__actions">
           {!isBatchMode ? (
             <button className="ghost-button" type="button" onClick={enterBatchMode}>
-              Batch organize
+              {t("common.actions.batchOrganize")}
             </button>
           ) : null}
+          <button className="ghost-button" type="button" onClick={() => navigate("/search")}>
+            {t("features.books.quickActions.search")}
+          </button>
+          <button className="ghost-button" type="button" onClick={() => navigate("/settings")}>
+            {t("features.books.quickActions.sources")}
+          </button>
           {hasActiveBookFilters ? (
             <>
               <button className="ghost-button" type="button" onClick={clearBookFilters}>
-                Clear filters
+                {t("common.actions.clearFilters")}
               </button>
               <button className="ghost-button" type="button" onClick={saveCurrentBookFiltersAsCollection}>
-                Save current book filters as collection
+                {t("features.books.saveFiltersAsCollection")}
               </button>
             </>
           ) : null}
         </div>
       </div>
 
+      <div className="subset-filter-block compact-filter-block">
+        <div className="files-toolbar compact-filter-toolbar">
+          <label className="field-stack files-toolbar__field compact-filter-toolbar__field">
+            <span>{t("common.labels.sortBy")}</span>
+            <select
+              className="select-input"
+              value={sortBy}
+              onChange={(event) => {
+                setSortBy(event.target.value as FileListSortBy);
+                setPage(1);
+              }}
+            >
+              <option value="modified_at">{t("common.sortBy.modified")}</option>
+              <option value="name">{t("common.sortBy.name")}</option>
+              <option value="discovered_at">{t("common.sortBy.discovered")}</option>
+            </select>
+          </label>
+          <label className="field-stack files-toolbar__field compact-filter-toolbar__field">
+            <span>{t("common.labels.order")}</span>
+            <select
+              className="select-input"
+              value={sortOrder}
+              onChange={(event) => {
+                setSortOrder(event.target.value as FileListSortOrder);
+                setPage(1);
+              }}
+            >
+              <option value="desc">{t("common.sortOrder.descending")}</option>
+              <option value="asc">{t("common.sortOrder.ascending")}</option>
+            </select>
+          </label>
+          <label className="field-stack files-toolbar__field compact-filter-toolbar__field">
+            <span>{t("common.labels.tag")}</span>
+            <select
+              className="select-input"
+              value={tagFilter === null ? "all" : String(tagFilter)}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                setTagFilter(nextValue === "all" ? null : Number(nextValue));
+                setPage(1);
+              }}
+              disabled={tagsQuery.isLoading || tagsQuery.isError}
+            >
+              <option value="all">{t("common.tagFilters.all")}</option>
+              {tagsQuery.data?.items.map((tag) => (
+                <option key={tag.id} value={tag.id}>
+                  {tag.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field-stack files-toolbar__field compact-filter-toolbar__field">
+            <span>{t("common.labels.color")}</span>
+            <select
+              className="select-input"
+              value={colorTagFilter ?? "all"}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                setColorTagFilter(nextValue === "all" ? null : (nextValue as ColorTagValue));
+                setPage(1);
+              }}
+            >
+              <option value="all">{t("common.colors.all")}</option>
+              {COLOR_TAG_OPTIONS.map((colorTag) => (
+                <option key={colorTag} value={colorTag}>
+                  {formatColorTagLabel(colorTag)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {entryCopy ? <div className="context-flow-note">{entryCopy}</div> : null}
+
+        <div className="books-filter-summary compact-filter-summary">
+          <p>
+            {hasActiveBookFilters
+              ? filterSummary
+              : t("features.books.pageAllSummary", {
+                  order: sortOrder === "desc" ? t("common.sortOrder.descending") : t("common.sortOrder.ascending"),
+                  sort:
+                    sortBy === "modified_at"
+                      ? t("common.sortBy.modified")
+                      : sortBy === "name"
+                        ? t("common.sortBy.name")
+                        : t("common.sortBy.discovered"),
+                })}
+          </p>
+        </div>
+      </div>
+
       {isBatchMode ? (
-        <BatchActionBar
-          isApplyingColorTag={isApplyingColorTag}
-          isApplyingTag={isApplyingTag}
-          onApplyColorTag={(colorTag) => applyColorTag(selectedIds, colorTag)}
-          onApplyTag={(name) => applyTag(selectedIds, name)}
-          onClearSelection={clearSelection}
-          onExitBatchMode={exitBatchMode}
-          selectedCount={selectedCount}
-        />
+        <div className="subset-batch-block">
+          <BatchActionBar
+            isApplyingColorTag={isApplyingColorTag}
+            isApplyingTag={isApplyingTag}
+            onApplyColorTag={(colorTag) => applyColorTag(selectedIds, colorTag)}
+            onApplyTag={(name) => applyTag(selectedIds, name)}
+            onClearSelection={clearSelection}
+            onExitBatchMode={exitBatchMode}
+            selectedCount={selectedCount}
+          />
+        </div>
       ) : null}
 
       <div className="files-meta-row">
-        <p>Showing recognized .epub and .pdf files from the active indexed library with book-first visual cues and the shared workbench actions.</p>
-        {booksQuery.data ? <span>{booksQuery.data.total} ebook files</span> : null}
+        <p>{t("features.books.meta")}</p>
+        {booksQuery.data ? <span>{t("common.labels.ebookFiles", { count: booksQuery.data.total })}</span> : null}
       </div>
 
       {showLoadingSkeleton ? (
-        <div className="books-library-grid books-library-grid--loading" aria-label="Loading books library">
+        <div className="compact-library-table compact-library-table--loading" aria-label={t("features.books.loadingAria")}>
           {Array.from({ length: 8 }, (_, index) => (
-            <BooksCardSkeleton key={index} />
+            <BooksRowSkeleton key={index} />
           ))}
         </div>
       ) : null}
 
       {booksQuery.error instanceof Error ? (
         <div className="status-block page-card">
-          <strong>Books listing failed</strong>
+          <strong>{t("features.books.failedTitle")}</strong>
           <p>{booksQuery.error.message}</p>
         </div>
       ) : null}
 
       {hasNoRecognizedBooks ? (
-        <div className="future-frame">
-          No recognized ebook files are available yet. Add a source and run a scan to populate this subset surface.
-        </div>
+        <div className="future-frame">{t("features.books.empty")}</div>
       ) : null}
 
       {hasNoCurrentPageResults ? (
-        <div className="future-frame">
-          No recognized ebook files match the current page and filters. Move between pages or change sorting to keep
-          browsing.
-        </div>
+        <div className="future-frame">{t("features.books.noResults")}</div>
       ) : null}
 
       {booksQuery.data && booksQuery.data.items.length > 0 ? (
         <>
-          <div className="books-library-grid">
+          <div className="compact-library-table" role="table" aria-label={t("features.books.table.ariaLabel")}>
+            <div className="compact-library-table__header" role="row">
+              <span>{t("features.books.table.name")}</span>
+              <span>{t("features.books.table.type")}</span>
+              <span>{t("features.books.table.kind")}</span>
+              <span>{t("features.books.table.modified")}</span>
+              <span>{t("features.books.table.size")}</span>
+              <span>{t("features.books.table.signals")}</span>
+            </div>
             {booksQuery.data.items.map((item) => (
-              <BooksLibraryCard
+              <BooksLibraryRow
                 key={item.id}
                 bookFormat={item.book_format}
                 displayTitle={item.display_title}
@@ -464,18 +556,16 @@ export function BooksFeature() {
               onClick={() => setPage((current) => Math.max(1, current - 1))}
               disabled={page <= 1}
             >
-              Previous
+              {t("common.actions.previous")}
             </button>
-            <span>
-              Page {page} of {totalPages}
-            </span>
+            <span>{t("common.labels.page", { page, total: totalPages })}</span>
             <button
               className="secondary-button"
               type="button"
               onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
               disabled={page >= totalPages}
             >
-              Next
+              {t("common.actions.next")}
             </button>
           </div>
         </>
