@@ -3,15 +3,60 @@ import { useQuery } from "@tanstack/react-query";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t } from "../../shared/text";
+import { AssetIconGrid, ViewModeToggle, useViewMode, type AssetIconCardItem } from "../../shared/ui/view-mode";
 import type { ColorTagValue, FileType, SearchSortBy, SearchSortOrder } from "../../entities/file/types";
+import { getFileThumbnailUrl } from "../../services/api/fileDetailsApi";
 import { searchFiles } from "../../services/api/searchApi";
 import { listTags } from "../../services/api/tagsApi";
+import {
+  hasDesktopOpenActionsBridge,
+  normalizeIndexedFilePath,
+  openIndexedFile,
+} from "../../services/desktop/openActions";
 import { queryKeys } from "../../services/query/queryKeys";
+
+
+function formatSearchModifiedAt(value: string): string {
+  return new Date(value).toLocaleString();
+}
+
+function getSearchTypeMark(fileType: FileType): string {
+  if (fileType === "image") {
+    return "IMG";
+  }
+  if (fileType === "video") {
+    return "VID";
+  }
+  if (fileType === "document") {
+    return "DOC";
+  }
+  if (fileType === "archive") {
+    return "ZIP";
+  }
+  return "FILE";
+}
+
+function getSearchTypeLabel(fileType: FileType): string {
+  if (fileType === "image") {
+    return t("common.fileTypes.image");
+  }
+  if (fileType === "video") {
+    return t("common.fileTypes.video");
+  }
+  if (fileType === "document") {
+    return t("common.fileTypes.document");
+  }
+  if (fileType === "archive") {
+    return t("common.fileTypes.archive");
+  }
+  return t("common.fileTypes.other");
+}
 
 
 export function SearchFeature() {
   const selectedItemId = useUIStore((state) => state.selectedItemId);
   const selectItem = useUIStore((state) => state.selectItem);
+  const { viewMode, setViewMode } = useViewMode("search");
   const fileTypeOptions: Array<{ label: string; value: FileType | "all" }> = [
     { label: t("common.fileTypes.all"), value: "all" },
     { label: t("common.fileTypes.image"), value: "image" },
@@ -58,6 +103,20 @@ export function SearchFeature() {
   });
 
   const totalPages = searchQuery.data ? Math.max(1, Math.ceil(searchQuery.data.total / searchQuery.data.page_size)) : 1;
+  const iconItems = (searchQuery.data?.items ?? []).map(
+    (item): AssetIconCardItem => ({
+      id: item.id,
+      title: item.name,
+      path: item.path,
+      typeLabel: getSearchTypeLabel(item.file_type),
+      meta: formatSearchModifiedAt(item.modified_at),
+      mark: getSearchTypeMark(item.file_type),
+      markTone: item.file_type,
+      thumbnailUrl: item.file_type === "image" || item.file_type === "video" ? getFileThumbnailUrl(item.id) : undefined,
+      thumbnailAlt: item.name,
+      selected: selectedItemId === String(item.id),
+    }),
+  );
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -168,6 +227,9 @@ export function SearchFeature() {
               <option value="asc">{t("common.sortOrder.ascending")}</option>
             </select>
           </label>
+          <div className="compact-filter-toolbar__view-mode">
+            <ViewModeToggle value={viewMode} onChange={setViewMode} />
+          </div>
         </div>
       </form>
 
@@ -200,25 +262,48 @@ export function SearchFeature() {
 
       {searchQuery.data && searchQuery.data.items.length > 0 ? (
         <>
-          <div className="search-results">
-            {searchQuery.data.items.map((item) => (
-              <button
-                key={item.id}
-                className={`search-result-row${selectedItemId === String(item.id) ? " search-result-row--selected" : ""}`}
-                type="button"
-                onClick={() => selectItem(String(item.id))}
-              >
-                <div className="search-result-row__meta">
-                  <strong>{item.name}</strong>
-                  <p>{item.path}</p>
-                </div>
-                <div className="search-result-row__badges">
-                  <span className="status-pill">{item.file_type}</span>
-                  <span className="status-pill">{new Date(item.modified_at).toLocaleString()}</span>
-                </div>
-              </button>
-            ))}
-          </div>
+          {viewMode === "icons" ? (
+            <AssetIconGrid
+              ariaLabel={t("features.search.title")}
+              items={iconItems}
+              onSelect={(item) => selectItem(String(item.id))}
+              onOpen={(iconItem) => {
+                const matchedItem = searchQuery.data.items.find((item) => item.id === iconItem.id);
+                const normalizedPath = normalizeIndexedFilePath(matchedItem?.path);
+                if (!normalizedPath || !hasDesktopOpenActionsBridge()) {
+                  return;
+                }
+                void openIndexedFile(normalizedPath);
+              }}
+            />
+          ) : (
+            <div className="search-results">
+              {searchQuery.data.items.map((item) => (
+                <button
+                  key={item.id}
+                  className={`search-result-row${selectedItemId === String(item.id) ? " search-result-row--selected" : ""}`}
+                  type="button"
+                  onClick={() => selectItem(String(item.id))}
+                  onDoubleClick={() => {
+                    const normalizedPath = normalizeIndexedFilePath(item.path);
+                    if (!normalizedPath || !hasDesktopOpenActionsBridge()) {
+                      return;
+                    }
+                    void openIndexedFile(normalizedPath);
+                  }}
+                >
+                  <div className="search-result-row__meta">
+                    <strong>{item.name}</strong>
+                    <p>{item.path}</p>
+                  </div>
+                  <div className="search-result-row__badges">
+                    <span className="status-pill">{item.file_type}</span>
+                    <span className="status-pill">{formatSearchModifiedAt(item.modified_at)}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
           <div className="search-pager">
             <button
               className="secondary-button"

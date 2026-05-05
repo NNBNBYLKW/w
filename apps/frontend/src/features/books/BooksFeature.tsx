@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t, useLocale } from "../../shared/text";
+import { AssetIconGrid, ViewModeToggle, useViewMode, type AssetIconCardItem } from "../../shared/ui/view-mode";
 import { BatchActionBar } from "../batch-organize/BatchActionBar";
 import { useBatchOrganizeActions } from "../batch-organize/useBatchOrganizeActions";
 import { useBatchSelection } from "../batch-organize/useBatchSelection";
@@ -163,6 +164,7 @@ export function BooksFeature() {
   const { locale } = useLocale();
   const selectedItemId = useUIStore((state) => state.selectedItemId);
   const selectItem = useUIStore((state) => state.selectItem);
+  const { viewMode, setViewMode } = useViewMode("books");
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [sortBy, setSortBy] = useState<FileListSortBy>("modified_at");
@@ -263,6 +265,25 @@ export function BooksFeature() {
     }
     return null;
   }, [entry, locale]);
+  const iconItems = useMemo<AssetIconCardItem[]>(
+    () =>
+      currentItems.map((item) => ({
+        id: item.id,
+        title: item.display_title,
+        path: item.path,
+        typeLabel: formatBookFormat(item.book_format),
+        meta: `${buildBookEntryLabel(item.book_format)} · ${formatBytes(item.size_bytes)}`,
+        mark: item.book_format.toUpperCase(),
+        markTone: "document",
+        selected: isBatchMode ? isSelected(item.id) : selectedItemId === String(item.id),
+        signals: [
+          item.is_favorite ? t("common.favorites.favorite") : null,
+          item.rating !== null ? `★ ${item.rating}` : null,
+          isBatchMode && isSelected(item.id) ? t("common.states.selected") : null,
+        ].filter((value): value is string => value !== null),
+      })),
+    [currentItems, isBatchMode, isSelected, selectedItemId],
+  );
 
   useEffect(() => {
     const nextTagId = searchParams.get("tag_id");
@@ -453,6 +474,9 @@ export function BooksFeature() {
               ))}
             </select>
           </label>
+          <div className="compact-filter-toolbar__view-mode">
+            <ViewModeToggle value={viewMode} onChange={setViewMode} />
+          </div>
         </div>
 
         {entryCopy ? <div className="context-flow-note">{entryCopy}</div> : null}
@@ -518,37 +542,62 @@ export function BooksFeature() {
 
       {booksQuery.data && booksQuery.data.items.length > 0 ? (
         <>
-          <div className="compact-library-table" role="table" aria-label={t("features.books.table.ariaLabel")}>
-            <div className="compact-library-table__header" role="row">
-              <span>{t("features.books.table.name")}</span>
-              <span>{t("features.books.table.type")}</span>
-              <span>{t("features.books.table.kind")}</span>
-              <span>{t("features.books.table.modified")}</span>
-              <span>{t("features.books.table.size")}</span>
-              <span>{t("features.books.table.signals")}</span>
+          {viewMode === "icons" ? (
+            <AssetIconGrid
+              ariaLabel={t("features.books.table.ariaLabel")}
+              items={iconItems}
+              onSelect={(item) => {
+                if (isBatchMode) {
+                  toggleSelection(item.id);
+                  return;
+                }
+                selectItem(String(item.id));
+              }}
+              onOpen={(iconItem) => {
+                if (isBatchMode) {
+                  return;
+                }
+                const matchedItem = booksQuery.data.items.find((item) => item.id === iconItem.id);
+                const normalizedPath = normalizeIndexedFilePath(matchedItem?.path);
+                if (!normalizedPath || !hasDesktopOpenActionsBridge()) {
+                  return;
+                }
+                void openIndexedFile(normalizedPath);
+              }}
+            />
+          ) : (
+            <div className="compact-library-table" role="table" aria-label={t("features.books.table.ariaLabel")}>
+              <div className="compact-library-table__header" role="row">
+                <span>{t("features.books.table.name")}</span>
+                <span>{t("features.books.table.type")}</span>
+                <span>{t("features.books.table.kind")}</span>
+                <span>{t("features.books.table.modified")}</span>
+                <span>{t("features.books.table.size")}</span>
+                <span>{t("features.books.table.signals")}</span>
+              </div>
+              {booksQuery.data.items.map((item) => (
+                <BooksLibraryRow
+                  key={item.id}
+                  bookFormat={item.book_format}
+                  displayTitle={item.display_title}
+                  isFavorite={item.is_favorite}
+                  isBatchMode={isBatchMode}
+                  modifiedAt={item.modified_at}
+                  path={item.path}
+                  rating={item.rating}
+                  selected={isBatchMode ? isSelected(item.id) : selectedItemId === String(item.id)}
+                  sizeBytes={item.size_bytes}
+                  onSelect={() => {
+                    if (isBatchMode) {
+                      toggleSelection(item.id);
+                      return;
+                    }
+                    selectItem(String(item.id));
+                  }}
+                />
+              ))}
             </div>
-            {booksQuery.data.items.map((item) => (
-              <BooksLibraryRow
-                key={item.id}
-                bookFormat={item.book_format}
-                displayTitle={item.display_title}
-                isFavorite={item.is_favorite}
-                isBatchMode={isBatchMode}
-                modifiedAt={item.modified_at}
-                path={item.path}
-                rating={item.rating}
-                selected={isBatchMode ? isSelected(item.id) : selectedItemId === String(item.id)}
-                sizeBytes={item.size_bytes}
-                onSelect={() => {
-                  if (isBatchMode) {
-                    toggleSelection(item.id);
-                    return;
-                  }
-                  selectItem(String(item.id));
-                }}
-              />
-            ))}
-          </div>
+          )}
           <div className="files-pager">
             <button
               className="secondary-button"

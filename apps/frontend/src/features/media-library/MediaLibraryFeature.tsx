@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t, useLocale } from "../../shared/text";
+import { AssetIconGrid, ViewModeToggle, useViewMode, type AssetIconCardItem } from "../../shared/ui/view-mode";
 import { BatchActionBar } from "../batch-organize/BatchActionBar";
 import { useBatchOrganizeActions } from "../batch-organize/useBatchOrganizeActions";
 import { useBatchSelection } from "../batch-organize/useBatchSelection";
@@ -212,6 +213,7 @@ export function MediaLibraryFeature() {
   const { locale } = useLocale();
   const selectedItemId = useUIStore((state) => state.selectedItemId);
   const selectItem = useUIStore((state) => state.selectItem);
+  const { viewMode, setViewMode } = useViewMode("media");
   const navigate = useNavigate();
   const viewScopeOptions: Array<{ label: string; value: MediaViewScope }> = [
     { label: t("features.media.scopes.all"), value: "all" },
@@ -350,6 +352,27 @@ export function MediaLibraryFeature() {
     nextParams.set("entry", "media");
     return `/collections?${nextParams.toString()}`;
   }, [hasActiveFilters, locale, selectedColorTag, selectedTagId, selectedTagName, viewScope]);
+  const iconItems = useMemo<AssetIconCardItem[]>(
+    () =>
+      currentItems.map((item) => ({
+        id: item.id,
+        title: item.name,
+        path: item.path,
+        typeLabel: item.file_type === "image" ? t("features.media.types.image") : t("features.media.types.video"),
+        meta: `${formatModifiedAt(item.modified_at)} · ${formatBytes(item.size_bytes)}`,
+        mark: item.file_type === "image" ? t("features.media.types.imageShort") : t("features.media.types.videoShort"),
+        markTone: item.file_type,
+        thumbnailUrl: getFileThumbnailUrl(item.id),
+        thumbnailAlt: t("features.media.thumbnailAlt", { name: item.name }),
+        selected: isBatchMode ? isSelected(item.id) : selectedItemId === String(item.id),
+        signals: [
+          item.is_favorite ? t("common.favorites.favorite") : null,
+          item.rating !== null ? `★ ${item.rating}` : null,
+          isBatchMode && isSelected(item.id) ? t("common.states.selected") : null,
+        ].filter((value): value is string => value !== null),
+      })),
+    [currentItems, isBatchMode, isSelected, selectedItemId],
+  );
 
   useEffect(() => {
     const nextViewScope = searchParams.get("view_scope");
@@ -549,6 +572,9 @@ export function MediaLibraryFeature() {
               <option value="asc">{t("common.sortOrder.ascending")}</option>
             </select>
           </label>
+          <div className="compact-filter-toolbar__view-mode">
+            <ViewModeToggle value={viewMode} onChange={setViewMode} />
+          </div>
         </div>
         <div className="media-library-filter-summary compact-filter-summary">
           <p>{filterSummary}</p>
@@ -610,38 +636,63 @@ export function MediaLibraryFeature() {
 
       {mediaQuery.data && mediaQuery.data.items.length > 0 ? (
         <>
-          <div className="compact-library-table" role="table" aria-label={t("features.media.table.ariaLabel")}>
-            <div className="compact-library-table__header" role="row">
-              <span>{t("features.media.table.name")}</span>
-              <span>{t("features.media.table.type")}</span>
-              <span>{t("features.media.table.kind")}</span>
-              <span>{t("features.media.table.modified")}</span>
-              <span>{t("features.media.table.size")}</span>
-              <span>{t("features.media.table.signals")}</span>
+          {viewMode === "icons" ? (
+            <AssetIconGrid
+              ariaLabel={t("features.media.table.ariaLabel")}
+              items={iconItems}
+              onSelect={(item) => {
+                if (isBatchMode) {
+                  toggleSelection(item.id);
+                  return;
+                }
+                selectItem(String(item.id));
+              }}
+              onOpen={(iconItem) => {
+                if (isBatchMode) {
+                  return;
+                }
+                const matchedItem = mediaQuery.data.items.find((item) => item.id === iconItem.id);
+                const normalizedPath = normalizeIndexedFilePath(matchedItem?.path);
+                if (!normalizedPath || !hasDesktopOpenActionsBridge()) {
+                  return;
+                }
+                void openIndexedFile(normalizedPath);
+              }}
+            />
+          ) : (
+            <div className="compact-library-table" role="table" aria-label={t("features.media.table.ariaLabel")}>
+              <div className="compact-library-table__header" role="row">
+                <span>{t("features.media.table.name")}</span>
+                <span>{t("features.media.table.type")}</span>
+                <span>{t("features.media.table.kind")}</span>
+                <span>{t("features.media.table.modified")}</span>
+                <span>{t("features.media.table.size")}</span>
+                <span>{t("features.media.table.signals")}</span>
+              </div>
+              {mediaQuery.data.items.map((item) => (
+                <MediaLibraryRow
+                  key={item.id}
+                  fileId={item.id}
+                  fileType={item.file_type}
+                  isFavorite={item.is_favorite}
+                  isBatchMode={isBatchMode}
+                  modifiedAt={item.modified_at}
+                  name={item.name}
+                  path={item.path}
+                  rating={item.rating}
+                  selected={isBatchMode ? isSelected(item.id) : selectedItemId === String(item.id)}
+                  sizeBytes={item.size_bytes}
+                  onSelect={() => {
+                    if (isBatchMode) {
+                      toggleSelection(item.id);
+                      return;
+                    }
+                    selectItem(String(item.id));
+                  }}
+                />
+              ))}
             </div>
-            {mediaQuery.data.items.map((item) => (
-              <MediaLibraryRow
-                key={item.id}
-                fileId={item.id}
-                fileType={item.file_type}
-                isFavorite={item.is_favorite}
-                isBatchMode={isBatchMode}
-                modifiedAt={item.modified_at}
-                name={item.name}
-                path={item.path}
-                rating={item.rating}
-                selected={isBatchMode ? isSelected(item.id) : selectedItemId === String(item.id)}
-                sizeBytes={item.size_bytes}
-                onSelect={() => {
-                  if (isBatchMode) {
-                    toggleSelection(item.id);
-                    return;
-                  }
-                  selectItem(String(item.id));
-                }}
-              />
-            ))}
-          </div>
+          )}
           <div className="media-library-pager">
             <button
               className="secondary-button"
