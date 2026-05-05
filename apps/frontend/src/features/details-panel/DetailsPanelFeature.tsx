@@ -509,6 +509,7 @@ export function DetailsPanelFeature() {
     const isBookContext = isBooksRoute || inferredBookFormat !== null;
     const isGameContext = isGamesRoute || inferredGameEntry || item.status !== null;
     const isSoftwareContext = !isGameContext && (isSoftwareRoute || inferredSoftwareFormat !== null);
+    const isExeSoftwareFile = isSoftwareContext && inferredSoftwareFormat === "exe";
     const metadata = item.metadata;
     const firstTag = item.tags[0] ?? null;
     const activeVideoPreviewFrameIndex = videoPreviewFrameIndexes[videoPreviewFrameIndex] ?? videoPreviewFrameIndexes[0];
@@ -660,15 +661,19 @@ export function DetailsPanelFeature() {
             </dl>
           )}
         </section>
-        {isImageFile || isVideoFile ? (
+        {isImageFile || isVideoFile || isExeSoftwareFile ? (
           <section className="details-preview-section">
             <div className="details-preview-section__header">
               <h4>{t("details.sections.preview")}</h4>
             </div>
             {!previewLoadFailed ? (
-              <div className={`details-preview-frame${isVideoPreviewActive ? " details-preview-frame--looping" : ""}`}>
+              <div
+                className={`details-preview-frame${isVideoPreviewActive ? " details-preview-frame--looping" : ""}${
+                  isExeSoftwareFile ? " details-preview-frame--software-icon" : ""
+                }`}
+              >
                 <img
-                  className="details-preview-image"
+                  className={`details-preview-image${isExeSoftwareFile ? " details-preview-image--software-icon" : ""}`}
                   src={previewImageSrc}
                   alt={`Preview for ${item.name}`}
                   onError={() => {
@@ -690,7 +695,9 @@ export function DetailsPanelFeature() {
                 <p className="details-preview-state">
                   {isImageFile
                     ? t("details.notes.imagePreviewUnavailable")
-                    : t("details.notes.videoPreviewUnavailable")}
+                    : isVideoFile
+                      ? t("details.notes.videoPreviewUnavailable")
+                      : t("details.notes.softwareIconUnavailable")}
                 </p>
               </div>
             )}

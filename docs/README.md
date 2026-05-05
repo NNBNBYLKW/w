@@ -32,7 +32,7 @@ Document boundary:
   - Known limitations for external validation
 - [前端文本层与语言切换](<前端文本层与语言切换.md>)
   - 当前前端文案组织方式
-  - `t(key, params?)`、locale 资源和 `Settings` 语言切换说明
+  - `t(key, params?)`、locale 资源、`Settings` 语言切换和 Light / Dark 主题入口说明
   - 后续补文案、补语言和继续接入页面的维护入口
 
 ## API Contract Docs
@@ -67,7 +67,7 @@ If you are working on frontend UI refactors or need the current backend contract
 
 为准，而不是先从历史执行稿或 archive 材料反推当前界面口径。
 
-如果你这次主要在做前端 UI 文案、locale 切换、`Settings` 语言入口或继续补齐页面接入，优先再看：
+如果你这次主要在做前端 UI 文案、locale 切换、`Settings` 语言 / 主题入口或继续补齐页面接入，优先再看：
 
 - [前端文本层与语言切换](<前端文本层与语言切换.md>)
 
@@ -105,7 +105,7 @@ Recent frontend work is still part of beta-stage experience closure:
 - the sidebar can expand / collapse
 - details can show / hide and the center pane fills the freed space
 - backend state, details toggle, and scrollbar polish are current UI expression changes, not new product capabilities
-- frontend high-visibility copy now uses a lightweight text layer and current locale switching in `Settings`
+- frontend high-visibility copy now uses a lightweight text layer, with current locale switching and Light / Dark theme switching in `Settings`
 
 For collaboration, treat these as current interface facts rather than as a new feature batch.
 

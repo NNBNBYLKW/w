@@ -95,10 +95,10 @@ def get_file_thumbnail(
     file_id: int = Path(..., ge=1),
     db: Session = Depends(get_db),
 ) -> FileResponse:
-    thumbnail_path = thumbnail_service.get_thumbnail_path(db, file_id)
+    thumbnail = thumbnail_service.get_thumbnail(db, file_id)
     return FileResponse(
-        path=thumbnail_path,
-        media_type="image/jpeg",
+        path=thumbnail.path,
+        media_type=thumbnail.media_type,
         headers={"Cache-Control": "no-store"},
     )
 

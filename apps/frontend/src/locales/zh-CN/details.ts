@@ -75,6 +75,7 @@ export const details = {
     noMetadata: "尚无提取出的元数据。",
     imagePreviewUnavailable: "当前无法提供这张图片的预览。",
     videoPreviewUnavailable: "当前还无法提供这个视频的预览。",
+    softwareIconUnavailable: "当前还无法提供这个可执行文件的图标。",
     noTags: "这个文件还没有附加普通标签。",
   },
   values: {
