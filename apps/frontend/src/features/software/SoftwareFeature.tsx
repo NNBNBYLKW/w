@@ -4,13 +4,13 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t, useLocale } from "../../shared/text";
+import { AssetIconGrid, ViewModeToggle, useViewMode, type AssetIconCardItem } from "../../shared/ui/view-mode";
 import { BatchActionBar } from "../batch-organize/BatchActionBar";
 import { useBatchOrganizeActions } from "../batch-organize/useBatchOrganizeActions";
 import { useBatchSelection } from "../batch-organize/useBatchSelection";
 import type { ColorTagValue, FileListSortBy, FileListSortOrder } from "../../entities/file/types";
 import type { SoftwareFormat } from "../../entities/software/types";
 import { listSoftware } from "../../services/api/softwareApi";
-import { getFileThumbnailUrl } from "../../services/api/fileDetailsApi";
 import { listTags } from "../../services/api/tagsApi";
 import {
   hasDesktopOpenActionsBridge,
@@ -86,7 +86,6 @@ const COLOR_TAG_OPTIONS: ColorTagValue[] = ["red", "yellow", "green", "blue", "p
 
 function SoftwareLibraryRow({
   displayTitle,
-  fileId,
   isFavorite,
   isBatchMode,
   modifiedAt,
@@ -98,7 +97,6 @@ function SoftwareLibraryRow({
   onSelect,
 }: {
   displayTitle: string;
-  fileId: number;
   isFavorite: boolean;
   isBatchMode: boolean;
   modifiedAt: string;
@@ -109,11 +107,9 @@ function SoftwareLibraryRow({
   softwareFormat: SoftwareFormat;
   onSelect: () => void;
 }) {
-  const [iconLoadFailed, setIconLoadFailed] = useState(false);
   const hasDesktopOpenActions = hasDesktopOpenActionsBridge();
   const entryLabel = buildSoftwareEntryLabel(softwareFormat);
   const formatCopy = buildSoftwareFormatCopy(softwareFormat);
-  const shouldLoadExeIcon = softwareFormat === "exe" && !iconLoadFailed;
 
   const handleDoubleClick = async () => {
     if (!hasDesktopOpenActions) {
@@ -142,16 +138,9 @@ function SoftwareLibraryRow({
     >
       <span className="software-table__name-cell">
         <span className={`software-table__format-mark software-table__format-mark--${softwareFormat}`} aria-hidden="true">
-          {shouldLoadExeIcon ? (
-            <img
-              className="software-table__format-icon"
-              src={getFileThumbnailUrl(fileId)}
-              alt=""
-              onError={() => setIconLoadFailed(true)}
-            />
-          ) : (
-            <span>{softwareFormat === "exe" ? "EXE" : softwareFormat === "msi" ? "MSI" : "ZIP"}</span>
-          )}
+          <span>
+            {softwareFormat === "exe" ? "EXE" : softwareFormat === "msi" ? "MSI" : "ZIP"}
+          </span>
         </span>
         <span className="software-table__name-copy">
           <strong title={displayTitle}>{displayTitle}</strong>
@@ -197,6 +186,7 @@ export function SoftwareFeature() {
   const { locale } = useLocale();
   const selectedItemId = useUIStore((state) => state.selectedItemId);
   const selectItem = useUIStore((state) => state.selectItem);
+  const { viewMode, setViewMode } = useViewMode("software");
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [sortBy, setSortBy] = useState<FileListSortBy>("modified_at");
@@ -299,6 +289,25 @@ export function SoftwareFeature() {
     }
     return null;
   }, [entry, locale]);
+  const iconItems = useMemo<AssetIconCardItem[]>(
+    () =>
+      currentItems.map((item) => ({
+        id: item.id,
+        title: item.display_title,
+        path: item.path,
+        typeLabel: formatSoftwareFormat(item.software_format),
+        meta: `${buildSoftwareEntryLabel(item.software_format)} · ${formatBytes(item.size_bytes)}`,
+        mark: item.software_format.toUpperCase(),
+        markTone: "software",
+        selected: isBatchMode ? isSelected(item.id) : selectedItemId === String(item.id),
+        signals: [
+          item.is_favorite ? t("common.favorites.favorite") : null,
+          item.rating !== null ? `★ ${item.rating}` : null,
+          isBatchMode && isSelected(item.id) ? t("common.states.selected") : null,
+        ].filter((value): value is string => value !== null),
+      })),
+    [currentItems, isBatchMode, isSelected, selectedItemId],
+  );
 
   useEffect(() => {
     const nextTagId = searchParams.get("tag_id");
@@ -492,6 +501,9 @@ export function SoftwareFeature() {
               ))}
             </select>
           </label>
+          <div className="compact-filter-toolbar__view-mode">
+            <ViewModeToggle value={viewMode} onChange={setViewMode} />
+          </div>
         </div>
 
         {entryCopy ? <div className="context-flow-note">{entryCopy}</div> : null}
@@ -557,38 +569,62 @@ export function SoftwareFeature() {
 
       {softwareQuery.data && softwareQuery.data.items.length > 0 ? (
         <>
-          <div className="software-table" role="table" aria-label={t("features.software.table.ariaLabel")}>
-            <div className="software-table__header" role="row">
-              <span>{t("features.software.table.name")}</span>
-              <span>{t("features.software.table.type")}</span>
-              <span>{t("features.software.table.kind")}</span>
-              <span>{t("features.software.table.modified")}</span>
-              <span>{t("features.software.table.size")}</span>
-              <span>{t("features.software.table.signals")}</span>
+          {viewMode === "icons" ? (
+            <AssetIconGrid
+              ariaLabel={t("features.software.table.ariaLabel")}
+              items={iconItems}
+              onSelect={(item) => {
+                if (isBatchMode) {
+                  toggleSelection(item.id);
+                  return;
+                }
+                selectItem(String(item.id));
+              }}
+              onOpen={(iconItem) => {
+                if (isBatchMode) {
+                  return;
+                }
+                const matchedItem = softwareQuery.data.items.find((item) => item.id === iconItem.id);
+                const normalizedPath = normalizeIndexedFilePath(matchedItem?.path);
+                if (!normalizedPath || !hasDesktopOpenActionsBridge()) {
+                  return;
+                }
+                void openIndexedFile(normalizedPath);
+              }}
+            />
+          ) : (
+            <div className="software-table" role="table" aria-label={t("features.software.table.ariaLabel")}>
+              <div className="software-table__header" role="row">
+                <span>{t("features.software.table.name")}</span>
+                <span>{t("features.software.table.type")}</span>
+                <span>{t("features.software.table.kind")}</span>
+                <span>{t("features.software.table.modified")}</span>
+                <span>{t("features.software.table.size")}</span>
+                <span>{t("features.software.table.signals")}</span>
+              </div>
+              {softwareQuery.data.items.map((item) => (
+                <SoftwareLibraryRow
+                  key={item.id}
+                  displayTitle={item.display_title}
+                  isFavorite={item.is_favorite}
+                  isBatchMode={isBatchMode}
+                  modifiedAt={item.modified_at}
+                  path={item.path}
+                  rating={item.rating}
+                  selected={isBatchMode ? isSelected(item.id) : selectedItemId === String(item.id)}
+                  sizeBytes={item.size_bytes}
+                  softwareFormat={item.software_format}
+                  onSelect={() => {
+                    if (isBatchMode) {
+                      toggleSelection(item.id);
+                      return;
+                    }
+                    selectItem(String(item.id));
+                  }}
+                />
+              ))}
             </div>
-            {softwareQuery.data.items.map((item) => (
-              <SoftwareLibraryRow
-                key={item.id}
-                displayTitle={item.display_title}
-                fileId={item.id}
-                isFavorite={item.is_favorite}
-                isBatchMode={isBatchMode}
-                modifiedAt={item.modified_at}
-                path={item.path}
-                rating={item.rating}
-                selected={isBatchMode ? isSelected(item.id) : selectedItemId === String(item.id)}
-                sizeBytes={item.size_bytes}
-                softwareFormat={item.software_format}
-                onSelect={() => {
-                  if (isBatchMode) {
-                    toggleSelection(item.id);
-                    return;
-                  }
-                  selectItem(String(item.id));
-                }}
-              />
-            ))}
-          </div>
+          )}
           <div className="files-pager">
             <button
               className="secondary-button"
