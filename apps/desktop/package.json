@@ -5,11 +5,46 @@
   "main": "dist/electron/main.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "npm run build && electron ./dist/electron/main.js"
+    "dev": "npm run build && electron ./dist/electron/main.js",
+    "prepare:frontend": "npm --prefix ../frontend run build",
+    "build:backend": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-backend.ps1",
+    "prepare:ffmpeg": "node ./scripts/prepare-ffmpeg-resource.mjs",
+    "package:win": "npm run prepare:frontend && npm run build:backend && npm run prepare:ffmpeg && npm run build && electron-builder --win --x64"
+  },
+  "build": {
+    "appId": "local.workbench.beta",
+    "productName": "Workbench Beta",
+    "artifactName": "Workbench Beta Integrated Setup ${version}.${ext}",
+    "directories": {
+      "output": "release/integrated"
+    },
+    "files": [
+      "dist/electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../frontend/dist",
+        "to": "frontend/dist"
+      },
+      {
+        "from": "../backend/dist/workbench-backend",
+        "to": "backend"
+      },
+      {
+        "from": "build-resources/ffmpeg",
+        "to": "ffmpeg"
+      }
+    ],
+    "win": {
+      "target": "nsis"
+    }
   },
   "devDependencies": {
     "@types/node": "^22.13.10",
-    "electron": "^35.0.0",
+    "electron": "^39.8.9",
+    "electron-builder": "^26.0.12",
+    "ffmpeg-static": "5.3.0",
     "typescript": "^5.7.3"
   }
 }

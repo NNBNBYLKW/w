@@ -3,13 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
+import { t } from "../../shared/text";
 import type { FileListSortBy, FileListSortOrder } from "../../entities/file/types";
 import { listFilesForTag, listTags, TagsApiError } from "../../services/api/tagsApi";
 import { queryKeys } from "../../services/query/queryKeys";
 
 
 function formatBytes(value: number | null): string {
-  return value === null ? "Size unavailable" : `${value.toLocaleString()} bytes`;
+  return value === null ? t("common.states.sizeUnavailable") : `${value.toLocaleString()} bytes`;
 }
 
 
@@ -87,7 +88,7 @@ export function TagBrowserFeature() {
   const totalPages = tagFilesQuery.data ? Math.max(1, Math.ceil(tagFilesQuery.data.total / tagFilesQuery.data.page_size)) : 1;
   const missingSelectedTag = tagFilesQuery.error instanceof TagsApiError && tagFilesQuery.error.code === "TAG_NOT_FOUND";
   const selectedTag = tagsQuery.data?.items.find((tag) => tag.id === selectedTagId) ?? null;
-  const tagFlowNote = requestedFocusId ? "Opened from a re-find path so you can land back on the tagged file directly." : null;
+  const tagFlowNote = requestedFocusId ? t("features.tags.flowNote") : null;
 
   useEffect(() => {
     if (!requestedFocusId || !tagFilesQuery.data) {
@@ -103,30 +104,30 @@ export function TagBrowserFeature() {
   return (
     <section className="feature-shell">
       <div className="feature-header">
-        <span className="page-header__eyebrow">Tag-scoped retrieval</span>
-        <h3>Tagged indexed files</h3>
-        <p>Use normal tags as a lightweight retrieval surface without expanding into tag-management tooling.</p>
+        <span className="page-header__eyebrow">{t("features.tags.eyebrow")}</span>
+        <h3>{t("features.tags.title")}</h3>
+        <p>{t("features.tags.description")}</p>
       </div>
 
-      {tagsQuery.isLoading ? <p>Loading tag retrieval...</p> : null}
+      {tagsQuery.isLoading ? <p>{t("features.tags.loading")}</p> : null}
 
       {tagsQuery.error instanceof Error ? (
         <div className="status-block page-card">
-          <strong>Tags page unavailable</strong>
+          <strong>{t("features.tags.unavailableTitle")}</strong>
           <p>{tagsQuery.error.message}</p>
         </div>
       ) : null}
 
       {tagsQuery.data && tagsQuery.data.items.length === 0 ? (
-        <div className="future-frame">No normal tags are available yet. Add tags from shared details to start using Tags as a retrieval surface.</div>
+        <div className="future-frame">{t("features.tags.empty")}</div>
       ) : null}
 
       {tagsQuery.data && tagsQuery.data.items.length > 0 ? (
         <div className="tag-browser-layout">
           <aside className="tag-browser-sidebar">
             <div className="tag-browser-sidebar__header">
-              <span className="page-header__eyebrow">Tags</span>
-              <p>{tagsQuery.data.items.length} tags</p>
+              <span className="page-header__eyebrow">{t("pages.tags.title")}</span>
+              <p>{t("common.labels.tags", { count: tagsQuery.data.items.length })}</p>
             </div>
             <div className="tag-browser-list">
               {tagsQuery.data.items.map((tag) => (
@@ -149,7 +150,7 @@ export function TagBrowserFeature() {
           <div className="tag-browser-content">
             <div className="files-toolbar">
               <label className="field-stack files-toolbar__field">
-                <span>Sort by</span>
+                <span>{t("common.labels.sortBy")}</span>
                 <select
                   className="select-input"
                   value={sortBy}
@@ -158,13 +159,13 @@ export function TagBrowserFeature() {
                     setPage(1);
                   }}
                 >
-                  <option value="modified_at">Modified</option>
-                  <option value="name">Name</option>
-                  <option value="discovered_at">Discovered</option>
+                  <option value="modified_at">{t("common.sortBy.modified")}</option>
+                  <option value="name">{t("common.sortBy.name")}</option>
+                  <option value="discovered_at">{t("common.sortBy.discovered")}</option>
                 </select>
               </label>
               <label className="field-stack files-toolbar__field">
-                <span>Order</span>
+                <span>{t("common.labels.order")}</span>
                 <select
                   className="select-input"
                   value={sortOrder}
@@ -173,16 +174,16 @@ export function TagBrowserFeature() {
                     setPage(1);
                   }}
                 >
-                  <option value="desc">Descending</option>
-                  <option value="asc">Ascending</option>
+                  <option value="desc">{t("common.sortOrder.descending")}</option>
+                  <option value="asc">{t("common.sortOrder.ascending")}</option>
                 </select>
               </label>
             </div>
 
               <div className="files-meta-row">
-                <p>Showing active indexed files attached to the selected normal tag.</p>
+                <p>{t("features.tags.matchingMeta")}</p>
                 <div className="files-meta-row__actions">
-                  {tagFilesQuery.data ? <span>{tagFilesQuery.data.total} tagged files</span> : null}
+                  {tagFilesQuery.data ? <span>{t("common.labels.files", { count: tagFilesQuery.data.total })}</span> : null}
                   {selectedTag ? (
                     <>
                       <button
@@ -196,7 +197,7 @@ export function TagBrowserFeature() {
                           navigate(`/library/media?${params.toString()}`);
                         }}
                       >
-                        Open matching media
+                        {t("common.actions.openMatchingMedia")}
                       </button>
                       <button
                         className="ghost-button"
@@ -209,7 +210,7 @@ export function TagBrowserFeature() {
                           navigate(`/library/books?${params.toString()}`);
                         }}
                       >
-                        Open matching books
+                        {t("common.actions.openMatchingBooks")}
                       </button>
                       <button
                         className="ghost-button"
@@ -222,7 +223,7 @@ export function TagBrowserFeature() {
                           navigate(`/library/games?${params.toString()}`);
                         }}
                       >
-                        Open matching games
+                        {t("common.actions.openMatchingGames")}
                       </button>
                       <button
                         className="ghost-button"
@@ -232,10 +233,10 @@ export function TagBrowserFeature() {
                             tag_id: String(selectedTag.id),
                             entry: "tags",
                           });
-                          navigate(`/library/software?${params.toString()}`);
+                          navigate(`/software?${params.toString()}`);
                         }}
                       >
-                        Open matching software
+                        {t("common.actions.openMatchingSoftware")}
                       </button>
                     </>
                   ) : null}
@@ -244,24 +245,24 @@ export function TagBrowserFeature() {
 
             {tagFlowNote ? <div className="context-flow-note">{tagFlowNote}</div> : null}
 
-            {tagFilesQuery.isLoading ? <p>Loading matching files...</p> : null}
+            {tagFilesQuery.isLoading ? <p>{t("features.tags.loading")}</p> : null}
 
             {missingSelectedTag ? (
               <div className="status-block page-card">
-                <strong>Selected tag no longer exists</strong>
-                <p>Select another tag to keep browsing tagged files.</p>
+                <strong>{t("features.tags.selectedTagMissingTitle")}</strong>
+                <p>{t("features.tags.selectedTagMissingDescription")}</p>
               </div>
             ) : null}
 
             {!missingSelectedTag && tagFilesQuery.error instanceof Error ? (
               <div className="status-block page-card">
-                <strong>Tagged files unavailable</strong>
+                <strong>{t("features.tags.matchesUnavailableTitle")}</strong>
                 <p>{tagFilesQuery.error.message}</p>
               </div>
             ) : null}
 
             {tagFilesQuery.data && tagFilesQuery.data.items.length === 0 ? (
-              <div className="future-frame">No active indexed files are currently attached to this tag.</div>
+              <div className="future-frame">{t("features.tags.noMatches")}</div>
             ) : null}
 
             {tagFilesQuery.data && tagFilesQuery.data.items.length > 0 ? (
@@ -293,18 +294,16 @@ export function TagBrowserFeature() {
                     onClick={() => setPage((current) => Math.max(1, current - 1))}
                     disabled={page <= 1}
                   >
-                    Previous
+                    {t("common.actions.previous")}
                   </button>
-                  <span>
-                    Page {page} of {totalPages}
-                  </span>
+                  <span>{t("common.labels.page", { page, total: totalPages })}</span>
                   <button
                     className="secondary-button"
                     type="button"
                     onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
                     disabled={page >= totalPages}
                   >
-                    Next
+                    {t("common.actions.next")}
                   </button>
                 </div>
               </>

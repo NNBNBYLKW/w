@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
+import { t } from "../../shared/text";
 import type { FileListSortOrder } from "../../entities/file/types";
 import type { RecentActivityListItemVM, RecentFamilyKind, RecentRangeValue } from "../../entities/recent/types";
 import { BatchActionBar } from "../batch-organize/BatchActionBar";
@@ -18,7 +19,7 @@ import { queryKeys } from "../../services/query/queryKeys";
 
 
 function formatBytes(value: number | null): string {
-  return value === null ? "Size unavailable" : `${value.toLocaleString()} bytes`;
+  return value === null ? t("common.states.unavailable") : `${value.toLocaleString()} bytes`;
 }
 
 function inferBookFile(name: string, path: string): boolean {
@@ -65,7 +66,7 @@ function getSubsetTarget(item: RecentActivityListItemVM): { label: string; to: s
       entry: "recent",
     });
     return {
-      label: "Open in Media",
+      label: t("features.recent.openInMedia"),
       to: `/library/media?${params.toString()}`,
     };
   }
@@ -76,7 +77,7 @@ function getSubsetTarget(item: RecentActivityListItemVM): { label: string; to: s
       entry: "recent",
     });
     return {
-      label: "Open in Books",
+      label: t("features.recent.openInBooks"),
       to: `/library/books?${params.toString()}`,
     };
   }
@@ -87,7 +88,7 @@ function getSubsetTarget(item: RecentActivityListItemVM): { label: string; to: s
       entry: "recent",
     });
     return {
-      label: "Open in Games",
+      label: t("features.recent.openInGames"),
       to: `/library/games?${params.toString()}`,
     };
   }
@@ -98,8 +99,8 @@ function getSubsetTarget(item: RecentActivityListItemVM): { label: string; to: s
       entry: "recent",
     });
     return {
-      label: "Open in Software",
-      to: `/library/software?${params.toString()}`,
+      label: t("features.recent.openInSoftware"),
+      to: `/software?${params.toString()}`,
     };
   }
 
@@ -120,23 +121,20 @@ async function openRecentFile(path: string) {
 }
 
 
-const FAMILY_OPTIONS: Array<{ label: string; value: RecentFamilyKind }> = [
-  { label: "Imports", value: "imports" },
-  { label: "Tagged", value: "tagged" },
-  { label: "Color-tagged", value: "color-tagged" },
-];
-
-const RANGE_OPTIONS: Array<{ label: string; hint: string; value: RecentRangeValue }> = [
-  { label: "1 day", hint: "Last 1 day", value: "1d" },
-  { label: "7 days", hint: "Last 7 days", value: "7d" },
-  { label: "30 days", hint: "Last 30 days", value: "30d" },
-];
-
-
 export function RecentImportsFeature() {
   const selectedItemId = useUIStore((state) => state.selectedItemId);
   const selectItem = useUIStore((state) => state.selectItem);
   const navigate = useNavigate();
+  const familyOptions: Array<{ label: string; value: RecentFamilyKind }> = [
+    { label: t("features.recent.families.imports"), value: "imports" },
+    { label: t("features.recent.families.tagged"), value: "tagged" },
+    { label: t("features.recent.families.colorTagged"), value: "color-tagged" },
+  ];
+  const rangeOptions: Array<{ label: string; hint: string; value: RecentRangeValue }> = [
+    { label: t("features.recent.ranges.oneDay"), hint: t("features.recent.ranges.oneDayHint"), value: "1d" },
+    { label: t("features.recent.ranges.sevenDays"), hint: t("features.recent.ranges.sevenDaysHint"), value: "7d" },
+    { label: t("features.recent.ranges.thirtyDays"), hint: t("features.recent.ranges.thirtyDaysHint"), value: "30d" },
+  ];
   const [family, setFamily] = useState<RecentFamilyKind>("imports");
   const [range, setRange] = useState<RecentRangeValue>("7d");
   const [sortOrder, setSortOrder] = useState<FileListSortOrder>("desc");
@@ -151,7 +149,7 @@ export function RecentImportsFeature() {
     selectedIds,
     toggleSelection,
   } = useBatchSelection({
-    pageLabel: "Recent Imports",
+    pageLabel: t("shell.topbar.pages.recent"),
     resetDeps: [family, range, sortOrder, page],
   });
   const { applyColorTag, applyTag, isApplyingColorTag, isApplyingTag } = useBatchOrganizeActions({
@@ -164,7 +162,7 @@ export function RecentImportsFeature() {
     }
   }, [exitBatchMode, family, isBatchMode]);
 
-  const selectedRangeLabel = RANGE_OPTIONS.find((option) => option.value === range)?.hint ?? "Last 7 days";
+  const selectedRangeLabel = rangeOptions.find((option) => option.value === range)?.hint ?? t("features.recent.ranges.sevenDaysHint");
   const queryParams = {
     range,
     page,
@@ -202,22 +200,22 @@ export function RecentImportsFeature() {
   const totalPages = activeQuery.data ? Math.max(1, Math.ceil(activeQuery.data.total / activeQuery.data.page_size)) : 1;
   const familyDescription =
     family === "imports"
-      ? `Showing active indexed files first discovered in the selected recent window: ${selectedRangeLabel}.`
+      ? t("features.recent.descriptions.imports", { range: selectedRangeLabel })
       : family === "tagged"
-        ? `Showing active indexed files most recently tagged in the selected recent window: ${selectedRangeLabel}.`
-        : `Showing active indexed files whose current color tag was most recently updated in the selected recent window: ${selectedRangeLabel}.`;
+        ? t("features.recent.descriptions.tagged", { range: selectedRangeLabel })
+        : t("features.recent.descriptions.colorTagged", { range: selectedRangeLabel });
 
   return (
     <section className="feature-shell">
       <div className="feature-header">
-        <span className="page-header__eyebrow">Recent family</span>
-        <h3>Recent retrieval surfaces</h3>
-        <p>Use Recent Imports, Tagged, and Color-tagged as lightweight retrieval surfaces. Single-click still loads shared details and double-click still opens the indexed file.</p>
+        <span className="page-header__eyebrow">{t("features.recent.eyebrow")}</span>
+        <h3>{t("features.recent.title")}</h3>
+        <p>{t("features.recent.description")}</p>
       </div>
 
       <div className="recent-toolbar">
-        <div className="recent-range-switch" aria-label="Recent family">
-          {FAMILY_OPTIONS.map((option) => (
+        <div className="recent-range-switch" aria-label={t("pages.recent.title")}>
+          {familyOptions.map((option) => (
             <button
               key={option.value}
               className={`secondary-button recent-range-button${family === option.value ? " recent-range-button--selected" : ""}`}
@@ -231,8 +229,8 @@ export function RecentImportsFeature() {
             </button>
           ))}
         </div>
-        <div className="recent-range-switch" aria-label="Recent range">
-          {RANGE_OPTIONS.map((option) => (
+        <div className="recent-range-switch" aria-label={t("pages.recent.eyebrow")}>
+          {rangeOptions.map((option) => (
             <button
               key={option.value}
               className={`secondary-button recent-range-button${range === option.value ? " recent-range-button--selected" : ""}`}
@@ -247,7 +245,7 @@ export function RecentImportsFeature() {
           ))}
         </div>
         <label className="field-stack recent-toolbar__field">
-          <span>Order</span>
+          <span>{t("common.labels.order")}</span>
           <select
             className="select-input"
             value={sortOrder}
@@ -256,8 +254,8 @@ export function RecentImportsFeature() {
               setPage(1);
             }}
           >
-            <option value="desc">Newest first</option>
-            <option value="asc">Oldest first</option>
+            <option value="desc">{t("common.sortOrder.newestFirst")}</option>
+            <option value="asc">{t("common.sortOrder.oldestFirst")}</option>
           </select>
         </label>
       </div>
@@ -265,10 +263,10 @@ export function RecentImportsFeature() {
       <div className="recent-meta-row">
         <p>{familyDescription}</p>
         <div className="files-meta-row__actions">
-          {activeQuery.data ? <span>{activeQuery.data.total} files</span> : null}
+          {activeQuery.data ? <span>{t("common.labels.files", { count: activeQuery.data.total })}</span> : null}
           {family === "imports" && !isBatchMode ? (
             <button className="ghost-button" type="button" onClick={enterBatchMode}>
-              Batch organize
+              {t("common.actions.batchOrganize")}
             </button>
           ) : null}
         </div>
@@ -286,11 +284,11 @@ export function RecentImportsFeature() {
         />
       ) : null}
 
-      {activeQuery.isLoading ? <p>Loading recent retrieval...</p> : null}
+      {activeQuery.isLoading ? <p>{t("features.recent.loading")}</p> : null}
 
       {activeQuery.error instanceof Error ? (
         <div className="status-block page-card">
-          <strong>Recent family failed</strong>
+          <strong>{t("features.recent.failedTitle")}</strong>
           <p>{activeQuery.error.message}</p>
         </div>
       ) : null}
@@ -298,10 +296,10 @@ export function RecentImportsFeature() {
       {activeQuery.data && items.length === 0 ? (
         <div className="future-frame">
           {family === "imports"
-            ? "No active indexed files were discovered in this recent window yet."
+            ? t("features.recent.emptyImports")
             : family === "tagged"
-              ? "No active indexed files were tagged in this recent window yet."
-              : "No active indexed files currently carry a color tag updated in this recent window."}
+              ? t("features.recent.emptyTagged")
+              : t("features.recent.emptyColorTagged")}
         </div>
       ) : null}
 
@@ -347,7 +345,7 @@ export function RecentImportsFeature() {
                       <span className="status-pill">{item.file_type}</span>
                       <span className="status-pill">{new Date(item.occurred_at).toLocaleString()}</span>
                       <span className="status-pill">{formatBytes(item.size_bytes)}</span>
-                      {isImportsBatch && isSelected(item.id) ? <span className="status-pill">Selected</span> : null}
+                      {isImportsBatch && isSelected(item.id) ? <span className="status-pill">{t("common.states.selected")}</span> : null}
                     </div>
                   </button>
                   {!isImportsBatch && subsetTarget ? (
@@ -372,18 +370,16 @@ export function RecentImportsFeature() {
               onClick={() => setPage((current) => Math.max(1, current - 1))}
               disabled={page <= 1}
             >
-              Previous
+              {t("common.actions.previous")}
             </button>
-            <span>
-              Page {page} of {totalPages}
-            </span>
+            <span>{t("common.labels.page", { page, total: totalPages })}</span>
             <button
               className="secondary-button"
               type="button"
               onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
               disabled={page >= totalPages}
             >
-              Next
+              {t("common.actions.next")}
             </button>
           </div>
         </>

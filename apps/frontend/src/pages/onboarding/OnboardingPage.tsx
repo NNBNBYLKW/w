@@ -1,13 +1,14 @@
 import { SourceManagementFeature } from "../../features/source-management/SourceManagementFeature";
+import { t } from "../../shared/text";
 
 
 export function OnboardingPage() {
   return (
     <section className="page-card">
       <header className="page-header">
-        <span className="page-header__eyebrow">Getting started</span>
-        <h3>Source setup</h3>
-        <p>Start source setup for the local-first workbench, review saved source rows, and run an initial scan.</p>
+        <span className="page-header__eyebrow">{t("pages.onboarding.eyebrow")}</span>
+        <h3>{t("pages.onboarding.title")}</h3>
+        <p>{t("pages.onboarding.description")}</p>
       </header>
       <SourceManagementFeature />
     </section>

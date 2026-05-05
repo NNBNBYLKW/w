@@ -1,16 +1,14 @@
 import { CollectionsFeature } from "../../features/collections/CollectionsFeature";
+import { t } from "../../shared/text";
 
 
 export function CollectionsPage() {
   return (
     <section className="page-card">
       <header className="page-header">
-        <span className="page-header__eyebrow">Saved retrieval surface</span>
-        <h3>Collections</h3>
-        <p>
-          Use saved retrieval conditions as reusable entry points for active indexed files. Selection continues into
-          shared details and the existing open actions.
-        </p>
+        <span className="page-header__eyebrow">{t("pages.collections.eyebrow")}</span>
+        <h3>{t("pages.collections.title")}</h3>
+        <p>{t("pages.collections.description")}</p>
       </header>
       <CollectionsFeature />
     </section>

@@ -4,7 +4,7 @@ import path from "node:path";
 import { contextBridge, ipcRenderer, shell } from "electron";
 
 
-const backendBaseUrl = process.env.BACKEND_URL ?? "http://127.0.0.1:8000";
+const defaultBackendBaseUrl = "http://127.0.0.1:8000";
 const selectFolderChannel = "asset-workbench:select-folder";
 const minimizeWindowChannel = "asset-workbench:minimize-window";
 const toggleMaximizeWindowChannel = "asset-workbench:toggle-maximize-window";
@@ -112,7 +112,7 @@ async function openContainingFolder(filePath: string): Promise<OpenActionResult>
 
 
 contextBridge.exposeInMainWorld("assetWorkbench", {
-  getBackendBaseUrl: () => backendBaseUrl,
+  getBackendBaseUrl: () => process.env.BACKEND_URL ?? defaultBackendBaseUrl,
   selectFolder: async (): Promise<string | null> => ipcRenderer.invoke(selectFolderChannel),
   openFile,
   openContainingFolder,

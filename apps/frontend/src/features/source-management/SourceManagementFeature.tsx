@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
 
+import { t } from "../../shared/text";
 import { createSource, getSources, SourcesApiError, triggerSourceScan } from "../../services/api/sourcesApi";
 import { queryKeys } from "../../services/query/queryKeys";
 
@@ -39,7 +40,7 @@ export function SourceManagementFeature() {
     onSuccess: async () => {
       setPath("");
       setDisplayName("");
-      setCreateFeedback("Source added. Next, run a scan for this source.");
+      setCreateFeedback(t("settings.sourceManagement.createSuccess"));
       await queryClient.invalidateQueries({ queryKey: queryKeys.sources });
       await queryClient.invalidateQueries({ queryKey: queryKeys.systemStatus });
     },
@@ -55,7 +56,10 @@ export function SourceManagementFeature() {
       setScanFeedback({
         sourceId,
         kind: "success",
-        message: `Task #${result.task_id} finished with status ${result.status}.`,
+        message: t("settings.sourceManagement.scanFeedback.success", {
+          status: result.status,
+          taskId: result.task_id,
+        }),
       });
       await queryClient.invalidateQueries({ queryKey: queryKeys.sources });
       await queryClient.invalidateQueries({ queryKey: queryKeys.systemStatus });
@@ -63,10 +67,10 @@ export function SourceManagementFeature() {
     onError: async (error, sourceId) => {
       const message =
         error instanceof SourcesApiError && error.code === "SCAN_ALREADY_RUNNING"
-          ? "A scan is already running for this source."
+          ? t("settings.sourceManagement.scanFeedback.running")
           : error instanceof Error
             ? error.message
-            : "Scan could not be completed.";
+            : t("settings.sourceManagement.scanFeedback.failed");
       setScanFeedback({
         sourceId,
         kind: "error",
@@ -111,27 +115,27 @@ export function SourceManagementFeature() {
 
   const formatScanStatusLabel = (value: string | null) => {
     if (value === "running") {
-      return "Scan running";
+      return t("settings.sourceManagement.scanStatus.running");
     }
     if (value === "failed") {
-      return "Last scan failed";
+      return t("settings.sourceManagement.scanStatus.failed");
     }
     if (value === "succeeded") {
-      return "Last scan succeeded";
+      return t("settings.sourceManagement.scanStatus.succeeded");
     }
-    return "No scan yet";
+    return t("settings.sourceManagement.scanStatus.none");
   };
 
   const getCreateErrorMessage = (error: unknown) => {
     if (error instanceof SourcesApiError) {
       if (error.code === "INVALID_SOURCE_PATH") {
-        return "Enter a local folder path before adding the source.";
+        return t("settings.sourceManagement.addErrorInvalidPath");
       }
       if (error.code === "SOURCE_ALREADY_EXISTS") {
-        return "This folder is already added as a source.";
+        return t("settings.sourceManagement.addErrorAlreadyExists");
       }
       if (error.code === "SOURCE_ROOT_OVERLAP") {
-        return "This folder overlaps with an existing source root.";
+        return t("settings.sourceManagement.addErrorOverlap");
       }
       if (error.message) {
         return error.message;
@@ -142,7 +146,7 @@ export function SourceManagementFeature() {
       return error.message;
     }
 
-    return "Source could not be added right now.";
+    return t("settings.sourceManagement.addErrorDefault");
   };
 
   const resetCreatePresentation = () => {
@@ -154,7 +158,7 @@ export function SourceManagementFeature() {
     <section className="source-management">
       <form className="form-grid" onSubmit={handleSubmit}>
         <div className="field-stack">
-          <label htmlFor="source-path">Source path</label>
+          <label htmlFor="source-path">{t("settings.sourceManagement.sourcePath")}</label>
           <input
             id="source-path"
             className="text-input"
@@ -163,10 +167,10 @@ export function SourceManagementFeature() {
               resetCreatePresentation();
               setPath(event.target.value);
             }}
-            placeholder="D:\\Assets"
+            placeholder={t("settings.sourceManagement.sourcePathPlaceholder")}
             required
           />
-          <p>Choose a local folder to scan and index. Desktop shell can use Choose folder; browser mode can type the path.</p>
+          <p>{t("settings.sourceManagement.sourcePathHelp")}</p>
           <div className="source-row__actions">
             <button
               className="secondary-button"
@@ -174,12 +178,12 @@ export function SourceManagementFeature() {
               onClick={handleChooseFolder}
               disabled={!selectFolder || isSelectingFolder}
             >
-              {isSelectingFolder ? "Choosing..." : "Choose folder"}
+              {isSelectingFolder ? t("settings.sourceManagement.choosingFolder") : t("settings.sourceManagement.chooseFolder")}
             </button>
           </div>
         </div>
         <div className="field-stack">
-          <label htmlFor="source-display-name">Display name</label>
+          <label htmlFor="source-display-name">{t("settings.sourceManagement.displayName")}</label>
           <input
             id="source-display-name"
             className="text-input"
@@ -188,12 +192,12 @@ export function SourceManagementFeature() {
               resetCreatePresentation();
               setDisplayName(event.target.value);
             }}
-            placeholder="Optional"
+            placeholder={t("settings.sourceManagement.displayNamePlaceholder")}
           />
         </div>
         <div className="source-row__actions">
           <button className="primary-button" type="submit" disabled={createSourceMutation.isPending}>
-            {createSourceMutation.isPending ? "Saving..." : "Add source"}
+            {createSourceMutation.isPending ? t("common.actions.saving") : t("settings.sourceManagement.addSource")}
           </button>
         </div>
         {createFeedback ? <p>{createFeedback}</p> : null}
@@ -201,19 +205,19 @@ export function SourceManagementFeature() {
 
       {createSourceMutation.error instanceof Error ? (
         <div className="status-block page-card">
-          <strong>Source could not be added</strong>
+          <strong>{t("settings.sourceManagement.createErrorTitle")}</strong>
           <p>{getCreateErrorMessage(createSourceMutation.error)}</p>
         </div>
       ) : null}
 
       <div className="feature-shell">
         <div className="feature-header">
-          <span className="page-header__eyebrow">Source setup and scan control</span>
-          <h3>Saved sources</h3>
+          <span className="page-header__eyebrow">{t("settings.sourceManagement.savedSources.eyebrow")}</span>
+          <h3>{t("settings.sourceManagement.savedSources.title")}</h3>
         </div>
-        {sourcesQuery.isLoading ? <p>Loading source rows...</p> : null}
+        {sourcesQuery.isLoading ? <p>{t("settings.sourceManagement.savedSources.loading")}</p> : null}
         {sourcesQuery.data?.length === 0 ? (
-          <p>No sources yet. Add a local source first, then run a scan to index files.</p>
+          <p>{t("settings.sourceManagement.savedSources.empty")}</p>
         ) : null}
         <div className="source-list">
           {sourcesQuery.data?.map((source) => (
@@ -221,20 +225,29 @@ export function SourceManagementFeature() {
               <div className="source-row__meta">
                 <strong>{source.display_name || source.path}</strong>
                 <p className="source-row__path">{source.path}</p>
-                <p className="source-row__path">Scan status: {formatScanStatusLabel(source.last_scan_status)}</p>
+                <p className="source-row__path">
+                  {t("settings.sourceManagement.savedSources.statusLabel", {
+                    status: formatScanStatusLabel(source.last_scan_status),
+                  })}
+                </p>
                 {source.last_scan_status === null ? (
-                  <p className="source-row__path">Run scan indexes files from this folder so they appear in search and browse.</p>
+                  <p className="source-row__path">{t("settings.sourceManagement.savedSources.runScanHint")}</p>
                 ) : null}
                 {source.last_scan_status === "running" ? (
-                  <p className="source-row__path">Scan running for this source.</p>
+                  <p className="source-row__path">{t("settings.sourceManagement.savedSources.runningHint")}</p>
                 ) : null}
                 {source.last_scan_status === "failed" && source.last_scan_error_message ? (
-                  <p className="source-row__path">Last scan failed: {source.last_scan_error_message}</p>
+                  <p className="source-row__path">
+                    {t("settings.sourceManagement.savedSources.failedHint", {
+                      message: source.last_scan_error_message,
+                    })}
+                  </p>
                 ) : null}
                 {scanFeedback?.sourceId === source.id ? (
                   <p className="source-row__path">
-                    Scan update: 
-                    {scanFeedback.message}
+                    {t("settings.sourceManagement.savedSources.updateHint", {
+                      message: scanFeedback.message,
+                    })}
                   </p>
                 ) : null}
               </div>
@@ -245,7 +258,9 @@ export function SourceManagementFeature() {
                   onClick={() => triggerScanMutation.mutate(source.id)}
                   disabled={pendingSourceIds.includes(source.id) || source.last_scan_status === "running"}
                 >
-                  {pendingSourceIds.includes(source.id) ? "Running..." : "Run scan"}
+                  {pendingSourceIds.includes(source.id)
+                    ? t("settings.sourceManagement.savedSources.running")
+                    : t("settings.sourceManagement.savedSources.runScan")}
                 </button>
               </div>
             </article>

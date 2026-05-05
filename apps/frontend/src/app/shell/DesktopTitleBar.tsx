@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { t } from "../../shared/text";
 import { SidebarIcon } from "../../shared/ui/icons";
 import {
   closeDesktopWindow,
@@ -43,22 +44,22 @@ export function DesktopTitleBar() {
   }
 
   const maximizeIconName = isMaximized ? "maxmize2" : "maxmize1";
-  const maximizeLabel = isMaximized ? "Restore window" : "Maximize window";
+  const maximizeLabel = isMaximized ? t("shell.desktopTitleBar.restore") : t("shell.desktopTitleBar.maximize");
 
   return (
     <header className="desktop-titlebar">
-      <div className="desktop-titlebar__brand" aria-label="Asset Workbench window title">
+      <div className="desktop-titlebar__brand" aria-label={t("shell.desktopTitleBar.windowTitle")}>
         <span className="desktop-titlebar__brand-icon" aria-hidden="true">
           <SidebarIcon name="software" />
         </span>
-        <span className="desktop-titlebar__brand-title">Asset Workbench</span>
+        <span className="desktop-titlebar__brand-title">{t("shell.desktopTitleBar.appTitle")}</span>
       </div>
       <div className="desktop-titlebar__controls">
         <button
           className="desktop-titlebar__button"
           type="button"
-          aria-label="Minimize window"
-          title="Minimize window"
+          aria-label={t("shell.desktopTitleBar.minimize")}
+          title={t("shell.desktopTitleBar.minimize")}
           onClick={() => {
             void minimizeDesktopWindow();
           }}
@@ -85,8 +86,8 @@ export function DesktopTitleBar() {
         <button
           className="desktop-titlebar__button desktop-titlebar__button--close"
           type="button"
-          aria-label="Close window"
-          title="Close window"
+          aria-label={t("shell.desktopTitleBar.close")}
+          title={t("shell.desktopTitleBar.close")}
           onClick={() => {
             void closeDesktopWindow();
           }}

@@ -1,4 +1,5 @@
 export type NavigationIconName =
+  | "home"
   | "onboarding"
   | "search"
   | "files"

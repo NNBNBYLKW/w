@@ -2,7 +2,9 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { useUIStore } from "../../app/providers/uiStore";
-import type { ColorTagValue, FileListSortBy, FileListSortOrder } from "../../entities/file/types";
+import { t } from "../../shared/text";
+import type { ColorTagValue, FileListSortBy, FileListSortOrder, FileType } from "../../entities/file/types";
+import { getFileThumbnailUrl } from "../../services/api/fileDetailsApi";
 import { listIndexedFiles } from "../../services/api/filesApi";
 import { getSources } from "../../services/api/sourcesApi";
 import { listTags } from "../../services/api/tagsApi";
@@ -10,18 +12,28 @@ import { queryKeys } from "../../services/query/queryKeys";
 
 
 function formatBytes(value: number | null): string {
-  return value === null ? "Size unavailable" : `${value.toLocaleString()} bytes`;
+  return value === null ? t("common.states.unavailable") : `${value.toLocaleString()} bytes`;
 }
 
+function FileRowThumbnail({ fileId, fileType }: { fileId: number; fileType: FileType }) {
+  const [thumbnailFailed, setThumbnailFailed] = useState(false);
+  const canLoadThumbnail = (fileType === "image" || fileType === "video") && !thumbnailFailed;
 
-const COLOR_TAG_OPTIONS: Array<{ label: string; value: ColorTagValue | "all" }> = [
-  { label: "All colors", value: "all" },
-  { label: "Red", value: "red" },
-  { label: "Yellow", value: "yellow" },
-  { label: "Green", value: "green" },
-  { label: "Blue", value: "blue" },
-  { label: "Purple", value: "purple" },
-];
+  return (
+    <span className={`files-list-row__thumbnail files-list-row__thumbnail--${fileType}`} aria-hidden="true">
+      {canLoadThumbnail ? (
+        <img
+          src={getFileThumbnailUrl(fileId)}
+          alt=""
+          loading="lazy"
+          onError={() => setThumbnailFailed(true)}
+        />
+      ) : (
+        <span>{fileType === "video" ? "VID" : fileType.toUpperCase().slice(0, 3)}</span>
+      )}
+    </span>
+  );
+}
 
 
 function isDriveRoot(value: string): boolean {
@@ -73,6 +85,14 @@ function getParentDirectoryPath(path: string): string {
 export function FileBrowserFeature() {
   const selectedItemId = useUIStore((state) => state.selectedItemId);
   const selectItem = useUIStore((state) => state.selectItem);
+  const colorTagOptions: Array<{ label: string; value: ColorTagValue | "all" }> = [
+    { label: t("common.colors.all"), value: "all" },
+    { label: t("common.colors.red"), value: "red" },
+    { label: t("common.colors.yellow"), value: "yellow" },
+    { label: t("common.colors.green"), value: "green" },
+    { label: t("common.colors.blue"), value: "blue" },
+    { label: t("common.colors.purple"), value: "purple" },
+  ];
   const [selectedSourceId, setSelectedSourceId] = useState("all");
   const [draftParentPath, setDraftParentPath] = useState("");
   const [appliedParentPath, setAppliedParentPath] = useState<string | null>(null);
@@ -151,7 +171,7 @@ export function FileBrowserFeature() {
 
     const normalizedPath = normalizeDirectoryPath(draftParentPath) || selectedSourceRoot;
     if (!isWithinSourceRoot(normalizedPath, selectedSourceRoot)) {
-      setBrowseError("The current directory must stay within the selected source root.");
+      setBrowseError(t("features.files.withinSourceError"));
       return;
     }
 
@@ -194,39 +214,33 @@ export function FileBrowserFeature() {
       emptyState = (
         <div className="future-frame">
           {isAtSourceRoot ? (
-            <p>
-              This exact-directory view only shows files directly inside the selected source root. No directly indexed
-              files were found here yet, so browse a deeper path manually.
-            </p>
+            <p>{t("features.files.exactDirectoryRootEmpty")}</p>
           ) : (
-            <p>
-              This exact-directory view only shows files directly inside the current directory. Browse a different
-              exact path manually or move up to another directory.
-            </p>
+            <p>{t("features.files.exactDirectoryEmpty")}</p>
           )}
         </div>
       );
     } else {
-      emptyState = <div className="future-frame">No active indexed files are available yet.</div>;
+      emptyState = <div className="future-frame">{t("features.files.empty")}</div>;
     }
   }
 
   return (
     <section className="feature-shell">
       <div className="feature-header">
-        <span className="page-header__eyebrow">Flat indexed-files listing</span>
-        <h3>Indexed file records</h3>
+        <span className="page-header__eyebrow">{t("features.files.eyebrow")}</span>
+        <h3>{t("features.files.title")}</h3>
       </div>
 
       <div className="files-toolbar">
         <label className="field-stack files-toolbar__field">
-          <span>Source</span>
+          <span>{t("common.labels.source")}</span>
           <select
             className="select-input"
             value={selectedSourceId}
             onChange={(event) => handleSourceChange(event.target.value)}
           >
-            <option value="all">All indexed files</option>
+            <option value="all">{t("features.files.sourceAll")}</option>
             {(sourcesQuery.data ?? []).map((source) => (
               <option key={source.id} value={source.id}>
                 {source.display_name ?? source.path}
@@ -235,7 +249,7 @@ export function FileBrowserFeature() {
           </select>
         </label>
         <label className="field-stack files-toolbar__field">
-          <span>Sort by</span>
+          <span>{t("common.labels.sortBy")}</span>
           <select
             className="select-input"
             value={sortBy}
@@ -244,13 +258,13 @@ export function FileBrowserFeature() {
               setPage(1);
             }}
           >
-            <option value="modified_at">Modified</option>
-            <option value="name">Name</option>
-            <option value="discovered_at">Discovered</option>
+            <option value="modified_at">{t("common.sortBy.modified")}</option>
+            <option value="name">{t("common.sortBy.name")}</option>
+            <option value="discovered_at">{t("common.sortBy.discovered")}</option>
             </select>
           </label>
         <label className="field-stack files-toolbar__field">
-          <span>Tag</span>
+          <span>{t("common.labels.tag")}</span>
           <select
             className="select-input"
             value={selectedTagId}
@@ -260,7 +274,9 @@ export function FileBrowserFeature() {
             }}
             disabled={tagsQuery.isLoading || tagsQuery.error instanceof Error}
           >
-            <option value="all">{tagsQuery.error instanceof Error ? "Tags unavailable" : "All tags"}</option>
+            <option value="all">
+              {tagsQuery.error instanceof Error ? t("common.tagFilters.unavailable") : t("common.tagFilters.all")}
+            </option>
             {(tagsQuery.data?.items ?? []).map((tag) => (
               <option key={tag.id} value={tag.id}>
                 {tag.name}
@@ -269,7 +285,7 @@ export function FileBrowserFeature() {
           </select>
         </label>
         <label className="field-stack files-toolbar__field">
-          <span>Color</span>
+          <span>{t("common.labels.color")}</span>
           <select
             className="select-input"
             value={selectedColorTag}
@@ -278,7 +294,7 @@ export function FileBrowserFeature() {
               setPage(1);
             }}
           >
-            {COLOR_TAG_OPTIONS.map((option) => (
+            {colorTagOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -286,7 +302,7 @@ export function FileBrowserFeature() {
           </select>
         </label>
         <label className="field-stack files-toolbar__field">
-          <span>Order</span>
+          <span>{t("common.labels.order")}</span>
           <select
             className="select-input"
             value={sortOrder}
@@ -295,8 +311,8 @@ export function FileBrowserFeature() {
               setPage(1);
             }}
           >
-            <option value="desc">Descending</option>
-            <option value="asc">Ascending</option>
+            <option value="desc">{t("common.sortOrder.descending")}</option>
+            <option value="asc">{t("common.sortOrder.ascending")}</option>
           </select>
           </label>
         </div>
@@ -304,8 +320,8 @@ export function FileBrowserFeature() {
       {selectedSourceRoot !== null ? (
         <section className="files-path-section">
           <div className="files-path-section__copy">
-            <span className="page-header__eyebrow">Exact directory browsing</span>
-            <p>Browse one exact indexed directory at a time. This is not a tree or breadcrumb view.</p>
+            <span className="page-header__eyebrow">{t("features.files.exactBrowsingEyebrow")}</span>
+            <p>{t("features.files.exactBrowsingDescription")}</p>
           </div>
           <form
             className="files-path-form"
@@ -315,7 +331,7 @@ export function FileBrowserFeature() {
             }}
           >
             <label className="field-stack files-path-form__field">
-              <span>Current directory</span>
+              <span>{t("common.labels.currentDirectory")}</span>
               <input
                 className="text-input"
                 value={draftParentPath}
@@ -328,13 +344,13 @@ export function FileBrowserFeature() {
             </label>
             <div className="files-path-actions">
               <button className="secondary-button" type="button" onClick={goToSourceRoot}>
-                Root
+                {t("common.actions.root")}
               </button>
               <button className="secondary-button" type="button" onClick={goUpOneDirectory}>
-                Up
+                {t("common.actions.up")}
               </button>
               <button className="secondary-button" type="submit">
-                Browse
+                {t("common.actions.browse")}
               </button>
             </div>
           </form>
@@ -345,31 +361,31 @@ export function FileBrowserFeature() {
       <div className="files-meta-row">
         <p>
           {selectedSourceRoot !== null
-            ? "Showing active indexed file records for the current exact directory."
-            : "Showing active indexed file records."}
+            ? t("features.files.currentDirectoryMeta")
+            : t("features.files.globalMeta")}
         </p>
-        {filesQuery.data ? <span>{filesQuery.data.total} indexed files</span> : null}
+        {filesQuery.data ? <span>{t("common.labels.indexedFiles", { count: filesQuery.data.total })}</span> : null}
       </div>
 
-      {filesQuery.isLoading ? <p>Loading indexed files...</p> : null}
+      {filesQuery.isLoading ? <p>{t("features.files.loading")}</p> : null}
 
       {sourcesQuery.error instanceof Error ? (
         <div className="status-block page-card">
-          <strong>Source list unavailable</strong>
+          <strong>{t("features.files.sourceUnavailableTitle")}</strong>
           <p>{sourcesQuery.error.message}</p>
         </div>
       ) : null}
 
       {tagsQuery.error instanceof Error ? (
         <div className="status-block page-card">
-          <strong>Tag filters unavailable</strong>
+          <strong>{t("features.files.tagUnavailableTitle")}</strong>
           <p>{tagsQuery.error.message}</p>
         </div>
       ) : null}
 
       {filesQuery.error instanceof Error ? (
         <div className="status-block page-card">
-          <strong>Files listing failed</strong>
+          <strong>{t("features.files.failedTitle")}</strong>
           <p>{filesQuery.error.message}</p>
         </div>
       ) : null}
@@ -386,6 +402,7 @@ export function FileBrowserFeature() {
                 type="button"
                 onClick={() => selectItem(String(item.id))}
               >
+                <FileRowThumbnail fileId={item.id} fileType={item.file_type} />
                 <div className="files-list-row__meta">
                   <strong>{item.name}</strong>
                   <p>{item.path}</p>
@@ -405,18 +422,16 @@ export function FileBrowserFeature() {
               onClick={() => setPage((current) => Math.max(1, current - 1))}
               disabled={page <= 1}
             >
-              Previous
+              {t("common.actions.previous")}
             </button>
-            <span>
-              Page {page} of {totalPages}
-            </span>
+            <span>{t("common.labels.page", { page, total: totalPages })}</span>
             <button
               className="secondary-button"
               type="button"
               onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
               disabled={page >= totalPages}
             >
-              Next
+              {t("common.actions.next")}
             </button>
           </div>
         </>

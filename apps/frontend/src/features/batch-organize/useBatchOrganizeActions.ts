@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useUIStore } from "../../app/providers/uiStore";
+import { t } from "../../shared/text";
 import type { ColorTagValue } from "../../entities/file/types";
 import { updateFilesColorTagBatch } from "../../services/api/colorTagsApi";
 import { attachTagToFilesBatch } from "../../services/api/tagsApi";
@@ -37,7 +38,7 @@ export function useBatchOrganizeActions({ onSuccess }: UseBatchOrganizeActionsOp
     mutationFn: ({ fileIds, name }: { fileIds: number[]; name: string }) => attachTagToFilesBatch(fileIds, name),
     onSuccess: async (response) => {
       await invalidateQueries();
-      pushToast(`Applied tag "${response.tag.name}" to ${response.updated_count} files.`);
+      pushToast(t("features.toasts.tagApplied", { count: response.updated_count, name: response.tag.name }));
       onSuccess();
     },
   });
@@ -49,8 +50,8 @@ export function useBatchOrganizeActions({ onSuccess }: UseBatchOrganizeActionsOp
       await invalidateQueries();
       pushToast(
         response.color_tag
-          ? `Applied ${response.color_tag} color tag to ${response.updated_count} files.`
-          : `Cleared color tag on ${response.updated_count} files.`,
+          ? t("features.toasts.colorApplied", { color: response.color_tag, count: response.updated_count })
+          : t("features.toasts.colorCleared", { count: response.updated_count }),
       );
       onSuccess();
     },

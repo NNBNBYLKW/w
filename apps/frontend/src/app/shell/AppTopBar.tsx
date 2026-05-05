@@ -2,24 +2,25 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
 
 import { SidebarIcon } from "../../shared/ui/icons";
+import { t } from "../../shared/text";
 import { useUIStore } from "../providers/uiStore";
 import { getSystemStatus } from "../../services/api/systemApi";
 import { queryKeys } from "../../services/query/queryKeys";
 
 
-const pageTitles: Record<string, string> = {
-  "/": "Home",
-  "/onboarding": "Onboarding",
-  "/search": "Search",
-  "/files": "Files",
-  "/books": "Books",
-  "/software": "Software",
-  "/library/media": "Media Library",
-  "/library/games": "Games",
-  "/recent": "Recent Imports",
-  "/tags": "Tags",
-  "/collections": "Collections",
-  "/settings": "Settings",
+const pageTitleKeys: Record<string, Parameters<typeof t>[0]> = {
+  "/home": "shell.topbar.pages.home",
+  "/onboarding": "shell.topbar.pages.onboarding",
+  "/search": "shell.topbar.pages.search",
+  "/files": "shell.topbar.pages.files",
+  "/books": "shell.topbar.pages.books",
+  "/software": "shell.topbar.pages.software",
+  "/library/media": "shell.topbar.pages.media",
+  "/library/games": "shell.topbar.pages.games",
+  "/recent": "shell.topbar.pages.recent",
+  "/tags": "shell.topbar.pages.tags",
+  "/collections": "shell.topbar.pages.collections",
+  "/settings": "shell.topbar.pages.settings",
 };
 
 
@@ -32,15 +33,15 @@ export function AppTopBar() {
     queryFn: getSystemStatus,
   });
   const isBackendConnected = data?.app === "ok" && data?.database === "ok";
-  const detailsToggleLabel = isDetailsPanelOpen ? "Hide details" : "Show details";
+  const detailsToggleLabel = isDetailsPanelOpen ? t("shell.topbar.details.hide") : t("shell.topbar.details.show");
   const detailsToggleIcon = isDetailsPanelOpen ? "sidebar1" : "sidebar2";
-  const connectionLabel = isBackendConnected ? "Connected" : "Disconnected";
+  const connectionLabel = isBackendConnected ? t("shell.topbar.backend.connected") : t("shell.topbar.backend.disconnected");
 
   return (
     <header className="app-topbar">
       <div>
-        <span className="app-topbar__eyebrow">Windows Local Asset Workbench</span>
-        <h2>{pageTitles[location.pathname] ?? "Workbench"}</h2>
+        <span className="app-topbar__eyebrow">{t("shell.topbar.eyebrow")}</span>
+        <h2>{pageTitleKeys[location.pathname] ? t(pageTitleKeys[location.pathname]) : t("shell.topbar.fallbackTitle")}</h2>
       </div>
       <div className="app-topbar__actions">
         <div

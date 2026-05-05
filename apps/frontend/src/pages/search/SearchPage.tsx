@@ -1,13 +1,14 @@
 import { SearchFeature } from "../../features/search/SearchFeature";
+import { t } from "../../shared/text";
 
 
 export function SearchPage() {
   return (
     <section className="page-card">
       <header className="page-header">
-        <span className="page-header__eyebrow">Search results</span>
-        <h3>Search</h3>
-        <p>Review active indexed search results by name or path with the current filters, sorting, and pagination.</p>
+        <span className="page-header__eyebrow">{t("pages.search.eyebrow")}</span>
+        <h3>{t("pages.search.title")}</h3>
+        <p>{t("pages.search.description")}</p>
       </header>
       <SearchFeature />
     </section>

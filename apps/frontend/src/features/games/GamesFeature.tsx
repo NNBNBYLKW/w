@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
+import { t, useLocale } from "../../shared/text";
 import { BatchActionBar } from "../batch-organize/BatchActionBar";
 import { useBatchOrganizeActions } from "../batch-organize/useBatchOrganizeActions";
 import { useBatchSelection } from "../batch-organize/useBatchSelection";
@@ -15,13 +16,14 @@ import {
 import { listGames } from "../../services/api/gamesApi";
 import { listTags } from "../../services/api/tagsApi";
 import { queryKeys } from "../../services/query/queryKeys";
+import type { GameFormat } from "../../entities/game/types";
 
 
 function formatBytes(value: number | null): string {
-  return value === null ? "Size unavailable" : `${value.toLocaleString()} bytes`;
+  return value === null ? t("common.states.sizeUnavailable") : `${value.toLocaleString()} bytes`;
 }
 
-function formatGameFormat(value: "exe" | "lnk"): string {
+function formatGameFormat(value: GameFormat): string {
   return value.toUpperCase();
 }
 
@@ -29,33 +31,45 @@ function formatModifiedAt(value: string): string {
   return new Date(value).toLocaleString();
 }
 
-function buildGameEntryLabel(value: "exe" | "lnk"): string {
-  return value === "lnk" ? "Shortcut entry" : "Executable entry";
+function buildGameEntryLabel(value: GameFormat): string {
+  return value === "lnk" ? t("features.games.shortcutEntry") : t("features.games.executableEntry");
 }
 
 function formatStatusLabel(value: FileStatusValue): string {
-  return value === "playing" ? "Playing" : value === "completed" ? "Completed" : "Shelved";
+  return value === "playing"
+    ? t("features.games.statuses.playing")
+    : value === "completed"
+      ? t("features.games.statuses.completed")
+      : t("features.games.statuses.shelved");
 }
 
 function formatColorTagLabel(value: ColorTagValue): string {
-  return value.charAt(0).toUpperCase() + value.slice(1);
+  if (value === "red") {
+    return t("common.colors.red");
+  }
+  if (value === "yellow") {
+    return t("common.colors.yellow");
+  }
+  if (value === "green") {
+    return t("common.colors.green");
+  }
+  if (value === "blue") {
+    return t("common.colors.blue");
+  }
+  return t("common.colors.purple");
 }
 
-const GAME_STATUS_OPTIONS: Array<{ label: string; value: FileStatusValue | "all" }> = [
-  { label: "All", value: "all" },
-  { label: "Playing", value: "playing" },
-  { label: "Completed", value: "completed" },
-  { label: "Shelved", value: "shelved" },
-];
+function countByFormat(items: Array<{ game_format: GameFormat }>, format: GameFormat): number {
+  return items.filter((item) => item.game_format === format).length;
+}
 
-const GAMES_ENTRY_COPY: Record<string, string> = {
-  details: "Opened from shared details so you can keep re-finding this game entry inside the current subset surface.",
-};
+function countWithStatus(items: Array<{ status: FileStatusValue | null }>): number {
+  return items.filter((item) => item.status !== null).length;
+}
 
-function GamesLibraryCard({
+function GamesLibraryRow({
   displayTitle,
   gameFormat,
-  id,
   isFavorite,
   isBatchMode,
   modifiedAt,
@@ -67,8 +81,7 @@ function GamesLibraryCard({
   onSelect,
 }: {
   displayTitle: string;
-  gameFormat: "exe" | "lnk";
-  id: number;
+  gameFormat: GameFormat;
   isFavorite: boolean;
   isBatchMode: boolean;
   modifiedAt: string;
@@ -96,7 +109,7 @@ function GamesLibraryCard({
 
   return (
     <button
-      className={`games-card${selected ? " games-card--selected" : ""}`}
+      className={`compact-library-table__row${selected ? " compact-library-table__row--selected" : ""}`}
       type="button"
       onClick={onSelect}
       onDoubleClick={() => {
@@ -106,59 +119,65 @@ function GamesLibraryCard({
         void handleDoubleClick();
       }}
     >
-      <div className={`games-card__poster games-card__poster--${gameFormat}`}>
-        <div className="games-card__poster-copy">
-          <span className="games-card__poster-icon" aria-hidden="true">
-            {gameFormat === "lnk" ? "↗" : "▶"}
-          </span>
-          <strong>{buildGameEntryLabel(gameFormat)}</strong>
-          <span>{formatGameFormat(gameFormat)} game entry file</span>
-        </div>
-      </div>
-      <div className="games-card__body">
-        <strong title={displayTitle}>{displayTitle}</strong>
-        <p title={path}>{path}</p>
-      </div>
-      <div className="games-card__meta">
+      <span className="compact-library-table__name-cell">
+        <span className={`compact-library-table__format-mark compact-library-table__format-mark--game-${gameFormat}`} aria-hidden="true">
+          <span>{formatGameFormat(gameFormat)}</span>
+        </span>
+        <span className="compact-library-table__name-copy">
+          <strong title={displayTitle}>{displayTitle}</strong>
+          <span title={path}>{path}</span>
+        </span>
+      </span>
+      <span className="compact-library-table__type-cell">
         <span className="status-pill">{formatGameFormat(gameFormat)}</span>
-        <span className="status-pill">{formatBytes(sizeBytes)}</span>
-        <span className="status-pill">{formatModifiedAt(modifiedAt)}</span>
-        {status ? <span className="status-pill games-card__status-pill">{formatStatusLabel(status)}</span> : null}
-        {isFavorite ? <span className="status-pill status-pill--favorite">★ Favorite</span> : null}
+      </span>
+      <span className="compact-library-table__kind-cell" title={t("features.games.gameEntryFile", { format: formatGameFormat(gameFormat) })}>
+        <strong>{buildGameEntryLabel(gameFormat)}</strong>
+        <span>{t("features.games.gameEntryFile", { format: formatGameFormat(gameFormat) })}</span>
+      </span>
+      <span className="compact-library-table__status-cell">
+        {status ? <span className="status-pill games-card__status-pill">{formatStatusLabel(status)}</span> : <span className="compact-library-table__signals-empty">{t("common.states.none")}</span>}
+      </span>
+      <span className="compact-library-table__modified-cell">{formatModifiedAt(modifiedAt)}</span>
+      <span className="compact-library-table__size-cell">{formatBytes(sizeBytes)}</span>
+      <span className="compact-library-table__signals-cell">
+        {isFavorite ? <span className="status-pill status-pill--favorite">{t("common.favorites.favorite")}</span> : null}
         {rating !== null ? <span className="status-pill status-pill--rating">★ {rating}</span> : null}
-        {isBatchMode && selected ? <span className="status-pill">Selected</span> : null}
-      </div>
-      <span className="games-card__hint">Single-click for shared details. Double-click to open the indexed file.</span>
-      <span className="games-card__id" aria-hidden="true">
-        #{id}
+        {isBatchMode && selected ? <span className="status-pill">{t("common.states.selected")}</span> : null}
+        {!isFavorite && rating === null && !(isBatchMode && selected) ? (
+          <span className="compact-library-table__signals-empty">{t("common.states.none")}</span>
+        ) : null}
       </span>
     </button>
   );
 }
 
-function GamesCardSkeleton() {
+function GamesRowSkeleton() {
   return (
-    <div className="games-card games-card--skeleton" aria-hidden="true">
-      <div className="games-card__poster games-card__poster--skeleton" />
-      <div className="games-card__body games-card__body--skeleton">
-        <span className="games-card__skeleton-line games-card__skeleton-line--title" />
-        <span className="games-card__skeleton-line games-card__skeleton-line--path" />
-        <span className="games-card__skeleton-line games-card__skeleton-line--path-short" />
-      </div>
-      <div className="games-card__meta games-card__meta--skeleton">
-        <span className="games-card__skeleton-pill" />
-        <span className="games-card__skeleton-pill" />
-        <span className="games-card__skeleton-pill" />
-      </div>
+    <div className="compact-library-table__row compact-library-table__row--skeleton" aria-hidden="true">
+      <span className="compact-library-skeleton-line compact-library-skeleton-line--title" />
+      <span className="compact-library-skeleton-pill" />
+      <span className="compact-library-skeleton-line compact-library-skeleton-line--short" />
+      <span className="compact-library-skeleton-pill" />
+      <span className="compact-library-skeleton-line" />
+      <span className="compact-library-skeleton-line compact-library-skeleton-line--short" />
+      <span className="compact-library-skeleton-pill" />
     </div>
   );
 }
 
 
 export function GamesFeature() {
+  const { locale } = useLocale();
   const selectedItemId = useUIStore((state) => state.selectedItemId);
   const selectItem = useUIStore((state) => state.selectItem);
   const navigate = useNavigate();
+  const gameStatusOptions: Array<{ label: string; value: FileStatusValue | "all" }> = [
+    { label: t("features.games.statuses.all"), value: "all" },
+    { label: t("features.games.statuses.playing"), value: "playing" },
+    { label: t("features.games.statuses.completed"), value: "completed" },
+    { label: t("features.games.statuses.shelved"), value: "shelved" },
+  ];
   const [searchParams, setSearchParams] = useSearchParams();
   const entry = searchParams.get("entry");
   const requestedFocusId = searchParams.get("focus");
@@ -178,7 +197,7 @@ export function GamesFeature() {
     selectedIds,
     toggleSelection,
   } = useBatchSelection({
-    pageLabel: "Games",
+    pageLabel: t("pages.games.title"),
     resetDeps: [sortBy, sortOrder, statusFilter, tagFilter, colorTagFilter, page],
   });
   const { applyColorTag, applyTag, isApplyingColorTag, isApplyingTag } = useBatchOrganizeActions({
@@ -213,41 +232,62 @@ export function GamesFeature() {
       return null;
     }
     const matchedTag = tagsQuery.data?.items.find((tag) => tag.id === tagFilter);
-    return matchedTag?.name ?? `Tag #${tagFilter}`;
-  }, [tagFilter, tagsQuery.data]);
+    return matchedTag?.name ?? t("common.labels.tagId", { id: tagFilter });
+  }, [locale, tagFilter, tagsQuery.data]);
   const showEmptyState = (gamesQuery.data?.total === 0) && !hasActiveStatusFilter && !hasActiveRetrievalFilters;
   const showNoResultsState =
     ((hasActiveStatusFilter || hasActiveRetrievalFilters) && (gamesQuery.data?.total ?? 0) === 0) ||
     ((gamesQuery.data?.total ?? 0) > 0 && (gamesQuery.data?.items.length ?? 0) === 0);
+  const currentItems = gamesQuery.data?.items ?? [];
+  const summaryStats = useMemo(
+    () => ({
+      total: gamesQuery.data?.total ?? 0,
+      visible: currentItems.length,
+      exe: countByFormat(currentItems, "exe"),
+      lnk: countByFormat(currentItems, "lnk"),
+      status: countWithStatus(currentItems),
+      filters: [hasActiveStatusFilter ? statusFilter : null, tagFilter, colorTagFilter].filter(Boolean).length,
+    }),
+    [colorTagFilter, currentItems, gamesQuery.data?.total, hasActiveStatusFilter, statusFilter, tagFilter],
+  );
   const entryCopy = useMemo(() => {
     if (entry === "tags") {
-      return "Opened from Tags so you can review the games subset attached to the current tag.";
+      return t("features.games.entry.tags");
     }
     if (entry === "collections") {
-      return "Opened from Collections so you can browse the games subset represented by the selected retrieval.";
+      return t("features.games.entry.collections");
     }
     if (entry === "recent") {
-      return "Opened from Recent so you can continue organizing this game entry inside the Games subset surface.";
+      return t("features.games.entry.recent");
     }
-    return entry ? GAMES_ENTRY_COPY[entry] : null;
-  }, [entry]);
+    if (entry === "details") {
+      return t("features.games.entry.details");
+    }
+    return null;
+  }, [entry, locale]);
   const filterSummary = useMemo(() => {
-    const sortLabel = sortBy === "modified_at" ? "Modified" : sortBy === "name" ? "Name" : "Discovered";
+    const sortLabel =
+      sortBy === "modified_at" ? t("common.sortBy.modified") : sortBy === "name" ? t("common.sortBy.name") : t("common.sortBy.discovered");
     const parts: string[] = [];
     if (hasActiveStatusFilter) {
-      parts.push(`Status: ${formatStatusLabel(statusFilter)}`);
+      parts.push(`${t("common.labels.status")}: ${formatStatusLabel(statusFilter)}`);
     }
     if (selectedTagLabel) {
-      parts.push(`Tag: ${selectedTagLabel}`);
+      parts.push(`${t("common.labels.tag")}: ${selectedTagLabel}`);
     }
     if (colorTagFilter) {
-      parts.push(`Color: ${formatColorTagLabel(colorTagFilter)}`);
+      parts.push(`${t("common.labels.color")}: ${formatColorTagLabel(colorTagFilter)}`);
     }
-    parts.push(`Sorted by ${sortLabel} (${sortOrder === "desc" ? "Descending" : "Ascending"})`);
+    parts.push(
+      t("common.labels.sortedBy", {
+        sort: sortLabel,
+        order: sortOrder === "desc" ? t("common.sortOrder.descending") : t("common.sortOrder.ascending"),
+      }),
+    );
     return parts.length > 1
-      ? `Showing: ${parts.join(" · ")}`
-      : `Showing all recognized game-entry files. ${parts[0]}`;
-  }, [colorTagFilter, hasActiveStatusFilter, selectedTagLabel, sortBy, sortOrder, statusFilter]);
+      ? t("features.games.showingSummary", { summary: parts.join(" · ") })
+      : t("features.games.allSummary", { summary: parts[0] });
+  }, [colorTagFilter, hasActiveStatusFilter, locale, selectedTagLabel, sortBy, sortOrder, statusFilter]);
 
   useEffect(() => {
     const nextStatus = searchParams.get("status");
@@ -302,179 +342,230 @@ export function GamesFeature() {
       params.set("prefill_color_tag", colorTagFilter);
       defaultNameParts.push(formatColorTagLabel(colorTagFilter));
     }
-    params.set("prefill_name", defaultNameParts.length > 0 ? `${defaultNameParts.join(" ")} Games` : "Games Collection");
+    params.set(
+      "prefill_name",
+      defaultNameParts.length > 0
+        ? `${defaultNameParts.join(" ")} ${t("features.games.collectionPrefill.base")}`
+        : t("features.games.collectionPrefill.default"),
+    );
     navigate(`/collections?${params.toString()}`);
   };
 
   return (
-    <section className="feature-shell">
-      <div className="feature-header">
-        <span className="page-header__eyebrow">Library subset browsing</span>
-        <h3>Recognized game-entry files</h3>
-        <p>Select a card to load shared details. Double-click a card to open the indexed file.</p>
+    <section className="feature-shell compact-library">
+      <div className="feature-header compact-library__header">
+        <span className="page-header__eyebrow">{t("features.games.eyebrow")}</span>
+        <h3>{t("features.games.title")}</h3>
+        <p>{t("features.games.description")}</p>
       </div>
 
-      {entryCopy ? <div className="context-flow-note">{entryCopy}</div> : null}
+      <div className="compact-summary-strip" aria-label={t("features.games.summary.ariaLabel")}>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.games.summary.total")}</span>
+          <strong>{summaryStats.total.toLocaleString()}</strong>
+        </div>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.games.summary.visible")}</span>
+          <strong>{summaryStats.visible.toLocaleString()}</strong>
+        </div>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.games.summary.exe")}</span>
+          <strong>{summaryStats.exe.toLocaleString()}</strong>
+        </div>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.games.summary.lnk")}</span>
+          <strong>{summaryStats.lnk.toLocaleString()}</strong>
+        </div>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.games.summary.status")}</span>
+          <strong>{summaryStats.status.toLocaleString()}</strong>
+        </div>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.games.summary.filters")}</span>
+          <strong>{summaryStats.filters.toLocaleString()}</strong>
+        </div>
+      </div>
 
-      <div className="files-toolbar">
-        <label className="field-stack files-toolbar__field">
-          <span>Sort by</span>
-          <select
-            className="select-input"
-            value={sortBy}
-            onChange={(event) => {
-              setSortBy(event.target.value as FileListSortBy);
-              setPage(1);
-            }}
-          >
-            <option value="modified_at">Modified</option>
-            <option value="name">Name</option>
-            <option value="discovered_at">Discovered</option>
-          </select>
-        </label>
-        <label className="field-stack files-toolbar__field">
-          <span>Order</span>
-          <select
-            className="select-input"
-            value={sortOrder}
-            onChange={(event) => {
-              setSortOrder(event.target.value as FileListSortOrder);
-              setPage(1);
-            }}
-          >
-            <option value="desc">Descending</option>
-            <option value="asc">Ascending</option>
-          </select>
-        </label>
-        <label className="field-stack files-toolbar__field">
-          <span>Tag</span>
-          <select
-            className="select-input"
-            value={tagFilter === null ? "all" : String(tagFilter)}
-            onChange={(event) => {
-              const nextValue = event.target.value;
-              setTagFilter(nextValue === "all" ? null : Number(nextValue));
-              setPage(1);
-            }}
-            disabled={tagsQuery.isLoading || tagsQuery.isError}
-          >
-            <option value="all">All tags</option>
-            {tagsQuery.data?.items.map((tag) => (
-              <option key={tag.id} value={tag.id}>
-                {tag.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field-stack files-toolbar__field">
-          <span>Color</span>
-          <select
-            className="select-input"
-            value={colorTagFilter ?? "all"}
-            onChange={(event) => {
-              const nextValue = event.target.value;
-              setColorTagFilter(nextValue === "all" ? null : (nextValue as ColorTagValue));
-              setPage(1);
-            }}
-          >
-            <option value="all">All colors</option>
-            {(["red", "yellow", "green", "blue", "purple"] as ColorTagValue[]).map((colorTag) => (
-              <option key={colorTag} value={colorTag}>
-                {formatColorTagLabel(colorTag)}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <div className="games-status-switch" aria-label="Games status filter">
-        {GAME_STATUS_OPTIONS.map((option) => (
-          <button
-            key={option.value}
-            className={`secondary-button games-status-button${statusFilter === option.value ? " games-status-button--selected" : ""}`}
-            type="button"
-            onClick={() => {
-              setStatusFilter(option.value);
-              setPage(1);
-            }}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-      <div className="games-filter-summary">
-        <p>{filterSummary}</p>
-        <div className="software-filter-summary__actions">
+      <div className="compact-action-bar">
+        <div className="compact-action-bar__copy">
+          <span className="page-header__eyebrow">{t("features.games.quickActions.eyebrow")}</span>
+          <p>{t("features.games.quickActions.description")}</p>
+        </div>
+        <div className="compact-action-bar__actions">
           {!isBatchMode ? (
             <button className="ghost-button" type="button" onClick={enterBatchMode}>
-              Batch organize
+              {t("common.actions.batchOrganize")}
             </button>
           ) : null}
+          <button className="ghost-button" type="button" onClick={() => navigate("/search")}>
+            {t("features.games.quickActions.search")}
+          </button>
+          <button className="ghost-button" type="button" onClick={() => navigate("/settings")}>
+            {t("features.games.quickActions.sources")}
+          </button>
           {hasActiveStatusFilter || hasActiveRetrievalFilters ? (
             <button className="ghost-button" type="button" onClick={clearFilters}>
-              Clear filters
+              {t("common.actions.clearFilters")}
             </button>
           ) : null}
           {hasActiveRetrievalFilters ? (
             <button className="ghost-button" type="button" onClick={saveCurrentGameFiltersAsCollection}>
-              Save current game filters as collection
+              {t("features.games.saveFiltersAsCollection")}
             </button>
           ) : null}
         </div>
       </div>
 
+      <div className="subset-filter-block compact-filter-block">
+        {entryCopy ? <div className="context-flow-note">{entryCopy}</div> : null}
+
+        <div className="files-toolbar compact-filter-toolbar">
+          <label className="field-stack files-toolbar__field compact-filter-toolbar__field">
+            <span>{t("common.labels.sortBy")}</span>
+            <select
+              className="select-input"
+              value={sortBy}
+              onChange={(event) => {
+                setSortBy(event.target.value as FileListSortBy);
+                setPage(1);
+              }}
+            >
+              <option value="modified_at">{t("common.sortBy.modified")}</option>
+              <option value="name">{t("common.sortBy.name")}</option>
+              <option value="discovered_at">{t("common.sortBy.discovered")}</option>
+            </select>
+          </label>
+          <label className="field-stack files-toolbar__field compact-filter-toolbar__field">
+            <span>{t("common.labels.order")}</span>
+            <select
+              className="select-input"
+              value={sortOrder}
+              onChange={(event) => {
+                setSortOrder(event.target.value as FileListSortOrder);
+                setPage(1);
+              }}
+            >
+              <option value="desc">{t("common.sortOrder.descending")}</option>
+              <option value="asc">{t("common.sortOrder.ascending")}</option>
+            </select>
+          </label>
+          <label className="field-stack files-toolbar__field compact-filter-toolbar__field">
+            <span>{t("common.labels.tag")}</span>
+            <select
+              className="select-input"
+              value={tagFilter === null ? "all" : String(tagFilter)}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                setTagFilter(nextValue === "all" ? null : Number(nextValue));
+                setPage(1);
+              }}
+              disabled={tagsQuery.isLoading || tagsQuery.isError}
+            >
+              <option value="all">{t("common.tagFilters.all")}</option>
+              {tagsQuery.data?.items.map((tag) => (
+                <option key={tag.id} value={tag.id}>
+                  {tag.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field-stack files-toolbar__field compact-filter-toolbar__field">
+            <span>{t("common.labels.color")}</span>
+            <select
+              className="select-input"
+              value={colorTagFilter ?? "all"}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                setColorTagFilter(nextValue === "all" ? null : (nextValue as ColorTagValue));
+                setPage(1);
+              }}
+            >
+              <option value="all">{t("common.colors.all")}</option>
+              {(["red", "yellow", "green", "blue", "purple"] as ColorTagValue[]).map((colorTag) => (
+                <option key={colorTag} value={colorTag}>
+                  {formatColorTagLabel(colorTag)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="games-status-switch" aria-label={t("features.games.statusFilterAria")}>
+          {gameStatusOptions.map((option) => (
+            <button
+              key={option.value}
+              className={`secondary-button games-status-button${statusFilter === option.value ? " games-status-button--selected" : ""}`}
+              type="button"
+              onClick={() => {
+                setStatusFilter(option.value);
+                setPage(1);
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <div className="games-filter-summary compact-filter-summary">
+          <p>{filterSummary}</p>
+        </div>
+      </div>
+
       {isBatchMode ? (
-        <BatchActionBar
-          isApplyingColorTag={isApplyingColorTag}
-          isApplyingTag={isApplyingTag}
-          onApplyColorTag={(colorTag) => applyColorTag(selectedIds, colorTag)}
-          onApplyTag={(name) => applyTag(selectedIds, name)}
-          onClearSelection={clearSelection}
-          onExitBatchMode={exitBatchMode}
-          selectedCount={selectedCount}
-        />
+        <div className="subset-batch-block">
+          <BatchActionBar
+            isApplyingColorTag={isApplyingColorTag}
+            isApplyingTag={isApplyingTag}
+            onApplyColorTag={(colorTag) => applyColorTag(selectedIds, colorTag)}
+            onApplyTag={(name) => applyTag(selectedIds, name)}
+            onClearSelection={clearSelection}
+            onExitBatchMode={exitBatchMode}
+            selectedCount={selectedCount}
+          />
+        </div>
       ) : null}
 
       <div className="files-meta-row">
-        <p>Showing recognized game-entry files from the active indexed library without expanding into a launcher platform.</p>
-        {gamesQuery.data ? <span>{gamesQuery.data.total} game-entry files</span> : null}
+        <p>{t("features.games.meta")}</p>
+        {gamesQuery.data ? <span>{t("common.labels.gameEntryFiles", { count: gamesQuery.data.total })}</span> : null}
       </div>
 
       {showLoadingSkeleton ? (
-        <div className="games-library-grid games-library-grid--loading" aria-label="Loading games library">
+        <div className="compact-library-table compact-library-table--loading" aria-label={t("features.games.loadingAria")}>
           {Array.from({ length: 8 }, (_, index) => (
-            <GamesCardSkeleton key={index} />
+            <GamesRowSkeleton key={index} />
           ))}
         </div>
       ) : null}
 
       {gamesQuery.error instanceof Error ? (
         <div className="status-block page-card">
-          <strong>Games listing failed</strong>
+          <strong>{t("features.games.failedTitle")}</strong>
           <p>{gamesQuery.error.message}</p>
         </div>
       ) : null}
 
       {showEmptyState ? (
-        <div className="future-frame">
-          No recognized game-entry files are available yet. Scan a source with .lnk files or narrow game-entry .exe
-          files to populate this subset surface.
-        </div>
+        <div className="future-frame">{t("features.games.empty")}</div>
       ) : null}
 
       {showNoResultsState ? (
-        <div className="future-frame">
-          No recognized game-entry files match the current filters on this page. Move between pages, clear the filters,
-          or change sorting to keep browsing.
-        </div>
+        <div className="future-frame">{t("features.games.noResults")}</div>
       ) : null}
 
       {gamesQuery.data && gamesQuery.data.items.length > 0 ? (
         <>
-          <div className="games-library-grid">
+          <div className="compact-library-table compact-library-table--games" role="table" aria-label={t("features.games.table.ariaLabel")}>
+            <div className="compact-library-table__header" role="row">
+              <span>{t("features.games.table.name")}</span>
+              <span>{t("features.games.table.type")}</span>
+              <span>{t("features.games.table.kind")}</span>
+              <span>{t("features.games.table.status")}</span>
+              <span>{t("features.games.table.modified")}</span>
+              <span>{t("features.games.table.size")}</span>
+              <span>{t("features.games.table.signals")}</span>
+            </div>
             {gamesQuery.data.items.map((item) => (
-              <GamesLibraryCard
+              <GamesLibraryRow
                 key={item.id}
-                id={item.id}
                 displayTitle={item.display_title}
                 gameFormat={item.game_format}
                 isFavorite={item.is_favorite}
@@ -502,18 +593,16 @@ export function GamesFeature() {
               onClick={() => setPage((current) => Math.max(1, current - 1))}
               disabled={page <= 1}
             >
-              Previous
+              {t("common.actions.previous")}
             </button>
-            <span>
-              Page {page} of {totalPages}
-            </span>
+            <span>{t("common.labels.page", { page, total: totalPages })}</span>
             <button
               className="secondary-button"
               type="button"
               onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
               disabled={page >= totalPages}
             >
-              Next
+              {t("common.actions.next")}
             </button>
           </div>
         </>

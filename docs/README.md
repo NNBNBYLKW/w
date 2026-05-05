@@ -25,6 +25,15 @@ Document boundary:
   - Suggested walkthroughs
   - Observation template
   - Feedback priority rules
+- [测试版发布准备](<测试版发布准备.md>)
+  - Integrated Windows beta package goal and boundary
+  - Packaged backend / bundled FFmpeg behavior
+  - Smoke test checklist
+  - Known limitations for external validation
+- [前端文本层与语言切换](<前端文本层与语言切换.md>)
+  - 当前前端文案组织方式
+  - `t(key, params?)`、locale 资源和 `Settings` 语言切换说明
+  - 后续补文案、补语言和继续接入页面的维护入口
 
 ## API Contract Docs
 
@@ -48,6 +57,7 @@ If you are working on frontend UI refactors or need the current backend contract
 2. [测试版当前状态总览](<测试版当前状态总览.md>)
 3. [测试版范围与边界](<测试版范围与边界.md>)
 4. [测试版验证准备](<测试版验证准备.md>)
+5. [测试版发布准备](<测试版发布准备.md>)
 
 如果你这次主要在做前端 UI 协作、workbench shell 调整或 details / navigation 相关收口，当前界面现状应优先以：
 
@@ -56,6 +66,10 @@ If you are working on frontend UI refactors or need the current backend contract
 - [测试版验证准备](<测试版验证准备.md>)
 
 为准，而不是先从历史执行稿或 archive 材料反推当前界面口径。
+
+如果你这次主要在做前端 UI 文案、locale 切换、`Settings` 语言入口或继续补齐页面接入，优先再看：
+
+- [前端文本层与语言切换](<前端文本层与语言切换.md>)
 
 If you are specifically touching frontend contract work, continue with:
 
@@ -91,6 +105,7 @@ Recent frontend work is still part of beta-stage experience closure:
 - the sidebar can expand / collapse
 - details can show / hide and the center pane fills the freed space
 - backend state, details toggle, and scrollbar polish are current UI expression changes, not new product capabilities
+- frontend high-visibility copy now uses a lightweight text layer and current locale switching in `Settings`
 
 For collaboration, treat these as current interface facts rather than as a new feature batch.
 
