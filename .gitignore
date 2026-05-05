@@ -1,3 +1,17 @@
+
+# Backend runtime data
+apps/backend/data/
+!apps/backend/data/.gitkeep
+
+# SQLite runtime databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Generated cache data
+apps/backend/data/thumbnails/
+apps/backend/data/**/thumbnails/
+
 node_modules/
 dist/
 .venv/
@@ -6,3 +20,45 @@ __pycache__/
 docs/_wip/*
 !docs/_wip/.gitkeep
 !docs/_wip/README.md
+
+# Backend runtime data
+apps/backend/data/
+!apps/backend/data/.gitkeep
+
+# SQLite runtime databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Desktop release artifacts
+apps/desktop/release/
+
+# Bundled/generated binary resources
+apps/desktop/build-resources/ffmpeg/
+
+# Frontend / desktop generated outputs
+apps/frontend/dist/
+apps/desktop/dist/
+apps/desktop/out/
+
+# Backend runtime data and generated cache
+apps/backend/data/*
+!apps/backend/data/.gitkeep
+
+# SQLite runtime databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Frontend generated output
+apps/frontend/dist/
+
+# Desktop generated output
+apps/desktop/dist/
+apps/desktop/out/
+
+# Desktop release artifacts
+apps/desktop/release/
+
+# Bundled/generated FFmpeg binary resource
+apps/desktop/build-resources/ffmpeg/
