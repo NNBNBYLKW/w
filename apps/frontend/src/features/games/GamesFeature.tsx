@@ -16,13 +16,14 @@ import {
 import { listGames } from "../../services/api/gamesApi";
 import { listTags } from "../../services/api/tagsApi";
 import { queryKeys } from "../../services/query/queryKeys";
+import type { GameFormat } from "../../entities/game/types";
 
 
 function formatBytes(value: number | null): string {
   return value === null ? t("common.states.sizeUnavailable") : `${value.toLocaleString()} bytes`;
 }
 
-function formatGameFormat(value: "exe" | "lnk"): string {
+function formatGameFormat(value: GameFormat): string {
   return value.toUpperCase();
 }
 
@@ -30,7 +31,7 @@ function formatModifiedAt(value: string): string {
   return new Date(value).toLocaleString();
 }
 
-function buildGameEntryLabel(value: "exe" | "lnk"): string {
+function buildGameEntryLabel(value: GameFormat): string {
   return value === "lnk" ? t("features.games.shortcutEntry") : t("features.games.executableEntry");
 }
 
@@ -58,10 +59,17 @@ function formatColorTagLabel(value: ColorTagValue): string {
   return t("common.colors.purple");
 }
 
-function GamesLibraryCard({
+function countByFormat(items: Array<{ game_format: GameFormat }>, format: GameFormat): number {
+  return items.filter((item) => item.game_format === format).length;
+}
+
+function countWithStatus(items: Array<{ status: FileStatusValue | null }>): number {
+  return items.filter((item) => item.status !== null).length;
+}
+
+function GamesLibraryRow({
   displayTitle,
   gameFormat,
-  id,
   isFavorite,
   isBatchMode,
   modifiedAt,
@@ -73,8 +81,7 @@ function GamesLibraryCard({
   onSelect,
 }: {
   displayTitle: string;
-  gameFormat: "exe" | "lnk";
-  id: number;
+  gameFormat: GameFormat;
   isFavorite: boolean;
   isBatchMode: boolean;
   modifiedAt: string;
@@ -102,7 +109,7 @@ function GamesLibraryCard({
 
   return (
     <button
-      className={`games-card${selected ? " games-card--selected" : ""}`}
+      className={`compact-library-table__row${selected ? " compact-library-table__row--selected" : ""}`}
       type="button"
       onClick={onSelect}
       onDoubleClick={() => {
@@ -112,50 +119,49 @@ function GamesLibraryCard({
         void handleDoubleClick();
       }}
     >
-      <div className={`games-card__poster games-card__poster--${gameFormat}`}>
-        <div className="games-card__poster-copy">
-          <span className="games-card__poster-icon" aria-hidden="true">
-            {gameFormat === "lnk" ? "↗" : "▶"}
-          </span>
-          <strong>{buildGameEntryLabel(gameFormat)}</strong>
-          <span>{t("features.games.gameEntryFile", { format: formatGameFormat(gameFormat) })}</span>
-        </div>
-      </div>
-      <div className="games-card__body">
-        <strong title={displayTitle}>{displayTitle}</strong>
-        <p title={path}>{path}</p>
-      </div>
-      <div className="games-card__meta">
+      <span className="compact-library-table__name-cell">
+        <span className={`compact-library-table__format-mark compact-library-table__format-mark--game-${gameFormat}`} aria-hidden="true">
+          <span>{formatGameFormat(gameFormat)}</span>
+        </span>
+        <span className="compact-library-table__name-copy">
+          <strong title={displayTitle}>{displayTitle}</strong>
+          <span title={path}>{path}</span>
+        </span>
+      </span>
+      <span className="compact-library-table__type-cell">
         <span className="status-pill">{formatGameFormat(gameFormat)}</span>
-        <span className="status-pill">{formatBytes(sizeBytes)}</span>
-        <span className="status-pill">{formatModifiedAt(modifiedAt)}</span>
-        {status ? <span className="status-pill games-card__status-pill">{formatStatusLabel(status)}</span> : null}
+      </span>
+      <span className="compact-library-table__kind-cell" title={t("features.games.gameEntryFile", { format: formatGameFormat(gameFormat) })}>
+        <strong>{buildGameEntryLabel(gameFormat)}</strong>
+        <span>{t("features.games.gameEntryFile", { format: formatGameFormat(gameFormat) })}</span>
+      </span>
+      <span className="compact-library-table__status-cell">
+        {status ? <span className="status-pill games-card__status-pill">{formatStatusLabel(status)}</span> : <span className="compact-library-table__signals-empty">{t("common.states.none")}</span>}
+      </span>
+      <span className="compact-library-table__modified-cell">{formatModifiedAt(modifiedAt)}</span>
+      <span className="compact-library-table__size-cell">{formatBytes(sizeBytes)}</span>
+      <span className="compact-library-table__signals-cell">
         {isFavorite ? <span className="status-pill status-pill--favorite">{t("common.favorites.favorite")}</span> : null}
         {rating !== null ? <span className="status-pill status-pill--rating">★ {rating}</span> : null}
         {isBatchMode && selected ? <span className="status-pill">{t("common.states.selected")}</span> : null}
-      </div>
-      <span className="games-card__hint">{t("features.games.clickHint")}</span>
-      <span className="games-card__id" aria-hidden="true">
-        #{id}
+        {!isFavorite && rating === null && !(isBatchMode && selected) ? (
+          <span className="compact-library-table__signals-empty">{t("common.states.none")}</span>
+        ) : null}
       </span>
     </button>
   );
 }
 
-function GamesCardSkeleton() {
+function GamesRowSkeleton() {
   return (
-    <div className="games-card games-card--skeleton" aria-hidden="true">
-      <div className="games-card__poster games-card__poster--skeleton" />
-      <div className="games-card__body games-card__body--skeleton">
-        <span className="games-card__skeleton-line games-card__skeleton-line--title" />
-        <span className="games-card__skeleton-line games-card__skeleton-line--path" />
-        <span className="games-card__skeleton-line games-card__skeleton-line--path-short" />
-      </div>
-      <div className="games-card__meta games-card__meta--skeleton">
-        <span className="games-card__skeleton-pill" />
-        <span className="games-card__skeleton-pill" />
-        <span className="games-card__skeleton-pill" />
-      </div>
+    <div className="compact-library-table__row compact-library-table__row--skeleton" aria-hidden="true">
+      <span className="compact-library-skeleton-line compact-library-skeleton-line--title" />
+      <span className="compact-library-skeleton-pill" />
+      <span className="compact-library-skeleton-line compact-library-skeleton-line--short" />
+      <span className="compact-library-skeleton-pill" />
+      <span className="compact-library-skeleton-line" />
+      <span className="compact-library-skeleton-line compact-library-skeleton-line--short" />
+      <span className="compact-library-skeleton-pill" />
     </div>
   );
 }
@@ -232,6 +238,18 @@ export function GamesFeature() {
   const showNoResultsState =
     ((hasActiveStatusFilter || hasActiveRetrievalFilters) && (gamesQuery.data?.total ?? 0) === 0) ||
     ((gamesQuery.data?.total ?? 0) > 0 && (gamesQuery.data?.items.length ?? 0) === 0);
+  const currentItems = gamesQuery.data?.items ?? [];
+  const summaryStats = useMemo(
+    () => ({
+      total: gamesQuery.data?.total ?? 0,
+      visible: currentItems.length,
+      exe: countByFormat(currentItems, "exe"),
+      lnk: countByFormat(currentItems, "lnk"),
+      status: countWithStatus(currentItems),
+      filters: [hasActiveStatusFilter ? statusFilter : null, tagFilter, colorTagFilter].filter(Boolean).length,
+    }),
+    [colorTagFilter, currentItems, gamesQuery.data?.total, hasActiveStatusFilter, statusFilter, tagFilter],
+  );
   const entryCopy = useMemo(() => {
     if (entry === "tags") {
       return t("features.games.entry.tags");
@@ -334,18 +352,75 @@ export function GamesFeature() {
   };
 
   return (
-    <section className="feature-shell">
-      <div className="feature-header">
+    <section className="feature-shell compact-library">
+      <div className="feature-header compact-library__header">
         <span className="page-header__eyebrow">{t("features.games.eyebrow")}</span>
         <h3>{t("features.games.title")}</h3>
         <p>{t("features.games.description")}</p>
       </div>
 
-      <div className="subset-filter-block">
+      <div className="compact-summary-strip" aria-label={t("features.games.summary.ariaLabel")}>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.games.summary.total")}</span>
+          <strong>{summaryStats.total.toLocaleString()}</strong>
+        </div>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.games.summary.visible")}</span>
+          <strong>{summaryStats.visible.toLocaleString()}</strong>
+        </div>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.games.summary.exe")}</span>
+          <strong>{summaryStats.exe.toLocaleString()}</strong>
+        </div>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.games.summary.lnk")}</span>
+          <strong>{summaryStats.lnk.toLocaleString()}</strong>
+        </div>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.games.summary.status")}</span>
+          <strong>{summaryStats.status.toLocaleString()}</strong>
+        </div>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.games.summary.filters")}</span>
+          <strong>{summaryStats.filters.toLocaleString()}</strong>
+        </div>
+      </div>
+
+      <div className="compact-action-bar">
+        <div className="compact-action-bar__copy">
+          <span className="page-header__eyebrow">{t("features.games.quickActions.eyebrow")}</span>
+          <p>{t("features.games.quickActions.description")}</p>
+        </div>
+        <div className="compact-action-bar__actions">
+          {!isBatchMode ? (
+            <button className="ghost-button" type="button" onClick={enterBatchMode}>
+              {t("common.actions.batchOrganize")}
+            </button>
+          ) : null}
+          <button className="ghost-button" type="button" onClick={() => navigate("/search")}>
+            {t("features.games.quickActions.search")}
+          </button>
+          <button className="ghost-button" type="button" onClick={() => navigate("/settings")}>
+            {t("features.games.quickActions.sources")}
+          </button>
+          {hasActiveStatusFilter || hasActiveRetrievalFilters ? (
+            <button className="ghost-button" type="button" onClick={clearFilters}>
+              {t("common.actions.clearFilters")}
+            </button>
+          ) : null}
+          {hasActiveRetrievalFilters ? (
+            <button className="ghost-button" type="button" onClick={saveCurrentGameFiltersAsCollection}>
+              {t("features.games.saveFiltersAsCollection")}
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="subset-filter-block compact-filter-block">
         {entryCopy ? <div className="context-flow-note">{entryCopy}</div> : null}
 
-        <div className="files-toolbar">
-          <label className="field-stack files-toolbar__field">
+        <div className="files-toolbar compact-filter-toolbar">
+          <label className="field-stack files-toolbar__field compact-filter-toolbar__field">
             <span>{t("common.labels.sortBy")}</span>
             <select
               className="select-input"
@@ -360,7 +435,7 @@ export function GamesFeature() {
               <option value="discovered_at">{t("common.sortBy.discovered")}</option>
             </select>
           </label>
-          <label className="field-stack files-toolbar__field">
+          <label className="field-stack files-toolbar__field compact-filter-toolbar__field">
             <span>{t("common.labels.order")}</span>
             <select
               className="select-input"
@@ -374,7 +449,7 @@ export function GamesFeature() {
               <option value="asc">{t("common.sortOrder.ascending")}</option>
             </select>
           </label>
-          <label className="field-stack files-toolbar__field">
+          <label className="field-stack files-toolbar__field compact-filter-toolbar__field">
             <span>{t("common.labels.tag")}</span>
             <select
               className="select-input"
@@ -394,7 +469,7 @@ export function GamesFeature() {
               ))}
             </select>
           </label>
-          <label className="field-stack files-toolbar__field">
+          <label className="field-stack files-toolbar__field compact-filter-toolbar__field">
             <span>{t("common.labels.color")}</span>
             <select
               className="select-input"
@@ -429,25 +504,8 @@ export function GamesFeature() {
             </button>
           ))}
         </div>
-        <div className="games-filter-summary">
+        <div className="games-filter-summary compact-filter-summary">
           <p>{filterSummary}</p>
-          <div className="software-filter-summary__actions">
-            {!isBatchMode ? (
-              <button className="ghost-button" type="button" onClick={enterBatchMode}>
-                {t("common.actions.batchOrganize")}
-              </button>
-            ) : null}
-            {hasActiveStatusFilter || hasActiveRetrievalFilters ? (
-              <button className="ghost-button" type="button" onClick={clearFilters}>
-                {t("common.actions.clearFilters")}
-              </button>
-            ) : null}
-            {hasActiveRetrievalFilters ? (
-              <button className="ghost-button" type="button" onClick={saveCurrentGameFiltersAsCollection}>
-                {t("features.games.saveFiltersAsCollection")}
-              </button>
-            ) : null}
-          </div>
         </div>
       </div>
 
@@ -471,9 +529,9 @@ export function GamesFeature() {
       </div>
 
       {showLoadingSkeleton ? (
-        <div className="games-library-grid games-library-grid--loading" aria-label={t("features.games.loadingAria")}>
+        <div className="compact-library-table compact-library-table--loading" aria-label={t("features.games.loadingAria")}>
           {Array.from({ length: 8 }, (_, index) => (
-            <GamesCardSkeleton key={index} />
+            <GamesRowSkeleton key={index} />
           ))}
         </div>
       ) : null}
@@ -495,11 +553,19 @@ export function GamesFeature() {
 
       {gamesQuery.data && gamesQuery.data.items.length > 0 ? (
         <>
-          <div className="games-library-grid">
+          <div className="compact-library-table compact-library-table--games" role="table" aria-label={t("features.games.table.ariaLabel")}>
+            <div className="compact-library-table__header" role="row">
+              <span>{t("features.games.table.name")}</span>
+              <span>{t("features.games.table.type")}</span>
+              <span>{t("features.games.table.kind")}</span>
+              <span>{t("features.games.table.status")}</span>
+              <span>{t("features.games.table.modified")}</span>
+              <span>{t("features.games.table.size")}</span>
+              <span>{t("features.games.table.signals")}</span>
+            </div>
             {gamesQuery.data.items.map((item) => (
-              <GamesLibraryCard
+              <GamesLibraryRow
                 key={item.id}
-                id={item.id}
                 displayTitle={item.display_title}
                 gameFormat={item.game_format}
                 isFavorite={item.is_favorite}

@@ -24,6 +24,14 @@ function formatBytes(value: number | null): string {
   return value === null ? t("common.states.sizeUnavailable") : `${value.toLocaleString()} bytes`;
 }
 
+function formatModifiedAt(value: string): string {
+  return new Date(value).toLocaleString();
+}
+
+function countByMediaType(items: Array<{ file_type: "image" | "video" }>, fileType: "image" | "video"): number {
+  return items.filter((item) => item.file_type === fileType).length;
+}
+
 function getColorTagLabel(value: ColorTagValue | "all"): string {
   if (value === "all") {
     return t("common.colors.all");
@@ -71,7 +79,7 @@ function buildCollectionPrefillName({
   return parts.join(" · ");
 }
 
-function MediaPoster({
+function MediaInlinePreview({
   fileId,
   fileType,
   name,
@@ -84,58 +92,42 @@ function MediaPoster({
   const [thumbnailLoaded, setThumbnailLoaded] = useState(false);
 
   if (thumbnailFailed) {
-      return (
-        <div className={`media-card__poster ${fileType === "video" ? "media-card__poster--video" : ""}`}>
-          <div className="media-card__poster-copy">
-            <strong>
-              {fileType === "image"
-                ? t("features.media.previewFallback.imageTitle")
-                : t("features.media.previewFallback.videoTitle")}
-            </strong>
-            <span>
-              {fileType === "image"
-                ? t("features.media.previewFallback.imageHint")
-                : t("features.media.previewFallback.videoHint")}
-            </span>
-          </div>
-        </div>
-      );
+    return (
+      <span className={`compact-library-table__format-mark compact-library-table__format-mark--media-${fileType}`} aria-hidden="true">
+        <span>{fileType === "image" ? t("features.media.types.imageShort") : t("features.media.types.videoShort")}</span>
+      </span>
+    );
   }
 
   return (
-    <div className={`media-card__poster media-card__poster--image${fileType === "video" ? " media-card__poster--video-thumb" : ""}`}>
-      {!thumbnailLoaded ? <div className="media-card__poster-skeleton" aria-hidden="true" /> : null}
+    <span className={`compact-library-table__thumb compact-library-table__thumb--${fileType}`}>
+      {!thumbnailLoaded ? <span className="compact-library-table__thumb-skeleton" aria-hidden="true" /> : null}
       <img
-        className={`media-card__thumbnail${thumbnailLoaded ? " media-card__thumbnail--ready" : ""}`}
+        className={`compact-library-table__thumb-image${thumbnailLoaded ? " compact-library-table__thumb-image--ready" : ""}`}
         src={getFileThumbnailUrl(fileId)}
         alt={t("features.media.thumbnailAlt", { name })}
         loading="lazy"
         onError={() => setThumbnailFailed(true)}
         onLoad={() => setThumbnailLoaded(true)}
       />
-    </div>
+    </span>
   );
 }
 
-function MediaCardSkeleton() {
+function MediaRowSkeleton() {
   return (
-    <div className="media-card media-card--skeleton" aria-hidden="true">
-      <div className="media-card__poster media-card__poster--skeleton" />
-      <div className="media-card__body media-card__body--skeleton">
-        <span className="media-card__skeleton-line media-card__skeleton-line--title" />
-        <span className="media-card__skeleton-line media-card__skeleton-line--path" />
-        <span className="media-card__skeleton-line media-card__skeleton-line--path-short" />
-      </div>
-      <div className="media-card__meta media-card__meta--skeleton">
-        <span className="media-card__skeleton-pill" />
-        <span className="media-card__skeleton-pill" />
-        <span className="media-card__skeleton-pill" />
-      </div>
+    <div className="compact-library-table__row compact-library-table__row--skeleton" aria-hidden="true">
+      <span className="compact-library-skeleton-line compact-library-skeleton-line--title" />
+      <span className="compact-library-skeleton-pill" />
+      <span className="compact-library-skeleton-line compact-library-skeleton-line--short" />
+      <span className="compact-library-skeleton-line" />
+      <span className="compact-library-skeleton-line compact-library-skeleton-line--short" />
+      <span className="compact-library-skeleton-pill" />
     </div>
   );
 }
 
-function MediaLibraryCard({
+function MediaLibraryRow({
   fileId,
   fileType,
   isFavorite,
@@ -177,7 +169,7 @@ function MediaLibraryCard({
 
   return (
     <button
-      className={`media-card${selected ? " media-card--selected" : ""}`}
+      className={`compact-library-table__row${selected ? " compact-library-table__row--selected" : ""}`}
       type="button"
       onClick={onSelect}
       onDoubleClick={() => {
@@ -187,19 +179,30 @@ function MediaLibraryCard({
         void handleDoubleClick();
       }}
     >
-      <MediaPoster fileId={fileId} fileType={fileType} name={name} />
-      <div className="media-card__body">
-        <strong title={name}>{name}</strong>
-        <p title={path}>{path}</p>
-      </div>
-      <div className="media-card__meta">
-        <span className="status-pill">{fileType}</span>
-        <span className="status-pill">{formatBytes(sizeBytes)}</span>
-        <span className="status-pill">{new Date(modifiedAt).toLocaleString()}</span>
+      <span className="compact-library-table__name-cell">
+        <MediaInlinePreview fileId={fileId} fileType={fileType} name={name} />
+        <span className="compact-library-table__name-copy">
+          <strong title={name}>{name}</strong>
+          <span title={path}>{path}</span>
+        </span>
+      </span>
+      <span className="compact-library-table__type-cell">
+        <span className="status-pill">{fileType === "image" ? t("features.media.types.image") : t("features.media.types.video")}</span>
+      </span>
+      <span className="compact-library-table__kind-cell">
+        <strong>{fileType === "image" ? t("features.media.kinds.image") : t("features.media.kinds.video")}</strong>
+        <span>{fileType === "image" ? t("features.media.kindHints.image") : t("features.media.kindHints.video")}</span>
+      </span>
+      <span className="compact-library-table__modified-cell">{formatModifiedAt(modifiedAt)}</span>
+      <span className="compact-library-table__size-cell">{formatBytes(sizeBytes)}</span>
+      <span className="compact-library-table__signals-cell">
         {isFavorite ? <span className="status-pill status-pill--favorite">{t("common.favorites.favorite")}</span> : null}
         {rating !== null ? <span className="status-pill status-pill--rating">★ {rating}</span> : null}
         {isBatchMode && selected ? <span className="status-pill">{t("common.states.selected")}</span> : null}
-      </div>
+        {!isFavorite && rating === null && !(isBatchMode && selected) ? (
+          <span className="compact-library-table__signals-empty">{t("common.states.none")}</span>
+        ) : null}
+      </span>
     </button>
   );
 }
@@ -272,6 +275,17 @@ export function MediaLibraryFeature() {
   const showLoadingSkeleton = mediaQuery.isLoading && !mediaQuery.data;
   const showEmptyState = mediaQuery.data?.total === 0;
   const showNoResultsState = (mediaQuery.data?.total ?? 0) > 0 && (mediaQuery.data?.items.length ?? 0) === 0;
+  const currentItems = mediaQuery.data?.items ?? [];
+  const summaryStats = useMemo(
+    () => ({
+      total: mediaQuery.data?.total ?? 0,
+      visible: currentItems.length,
+      images: countByMediaType(currentItems, "image"),
+      videos: countByMediaType(currentItems, "video"),
+      filters: [viewScope !== "all" ? viewScope : null, selectedTagId !== "all" ? selectedTagId : null, selectedColorTag !== "all" ? selectedColorTag : null].filter(Boolean).length,
+    }),
+    [currentItems, mediaQuery.data?.total, selectedColorTag, selectedTagId, viewScope],
+  );
   const selectedTagName =
     selectedTagId === "all"
       ? null
@@ -380,18 +394,77 @@ export function MediaLibraryFeature() {
   };
 
   return (
-    <section className="feature-shell">
-      <div className="feature-header">
+    <section className="feature-shell compact-library">
+      <div className="feature-header compact-library__header">
         <span className="page-header__eyebrow">{t("features.media.eyebrow")}</span>
         <h3>{t("features.media.title")}</h3>
         <p>{t("features.media.description")}</p>
       </div>
 
-      <div className="subset-filter-block">
+      <div className="compact-summary-strip compact-summary-strip--five" aria-label={t("features.media.summary.ariaLabel")}>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.media.summary.total")}</span>
+          <strong>{summaryStats.total.toLocaleString()}</strong>
+        </div>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.media.summary.visible")}</span>
+          <strong>{summaryStats.visible.toLocaleString()}</strong>
+        </div>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.media.summary.images")}</span>
+          <strong>{summaryStats.images.toLocaleString()}</strong>
+        </div>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.media.summary.videos")}</span>
+          <strong>{summaryStats.videos.toLocaleString()}</strong>
+        </div>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.media.summary.filters")}</span>
+          <strong>{summaryStats.filters.toLocaleString()}</strong>
+        </div>
+      </div>
+
+      <div className="compact-action-bar">
+        <div className="compact-action-bar__copy">
+          <span className="page-header__eyebrow">{t("features.media.quickActions.eyebrow")}</span>
+          <p>{t("features.media.quickActions.description")}</p>
+        </div>
+        <div className="compact-action-bar__actions">
+          {!isBatchMode ? (
+            <button className="ghost-button" type="button" onClick={enterBatchMode}>
+              {t("common.actions.batchOrganize")}
+            </button>
+          ) : null}
+          <button className="ghost-button" type="button" onClick={() => navigate("/search")}>
+            {t("features.media.quickActions.search")}
+          </button>
+          <button className="ghost-button" type="button" onClick={() => navigate("/settings")}>
+            {t("features.media.quickActions.sources")}
+          </button>
+          {saveCollectionHref ? (
+            <button
+              className="ghost-button"
+              type="button"
+              onClick={() => {
+                navigate(saveCollectionHref);
+              }}
+            >
+              {t("features.media.saveFiltersAsCollection")}
+            </button>
+          ) : null}
+          {hasActiveFilters ? (
+            <button className="ghost-button" type="button" onClick={resetFilters}>
+              {t("common.actions.clearFilters")}
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="subset-filter-block compact-filter-block">
         {entryCopy ? <div className="media-library-flow-note">{entryCopy}</div> : null}
 
-        <div className="media-library-toolbar">
-          <div className="field-stack media-library-toolbar__field media-library-toolbar__field--wide">
+        <div className="media-library-toolbar compact-filter-toolbar">
+          <div className="field-stack media-library-toolbar__field media-library-toolbar__field--wide compact-filter-toolbar__field compact-filter-toolbar__field--wide">
             <span>{t("common.labels.scope")}</span>
             <div className="media-library-scope-switch" aria-label={t("features.media.scopeAria")}>
                   {viewScopeOptions.map((option) => (
@@ -409,7 +482,7 @@ export function MediaLibraryFeature() {
               ))}
             </div>
           </div>
-          <label className="field-stack media-library-toolbar__field">
+          <label className="field-stack media-library-toolbar__field compact-filter-toolbar__field">
             <span>{t("common.labels.tag")}</span>
             <select
               className="select-input"
@@ -430,7 +503,7 @@ export function MediaLibraryFeature() {
               ))}
             </select>
           </label>
-          <label className="field-stack media-library-toolbar__field">
+          <label className="field-stack media-library-toolbar__field compact-filter-toolbar__field">
             <span>{t("common.labels.color")}</span>
             <select
               className="select-input"
@@ -447,7 +520,7 @@ export function MediaLibraryFeature() {
               ))}
             </select>
           </label>
-          <label className="field-stack media-library-toolbar__field">
+          <label className="field-stack media-library-toolbar__field compact-filter-toolbar__field">
             <span>{t("common.labels.sortBy")}</span>
             <select
               className="select-input"
@@ -462,7 +535,7 @@ export function MediaLibraryFeature() {
               <option value="discovered_at">{t("common.sortBy.discovered")}</option>
             </select>
           </label>
-          <label className="field-stack media-library-toolbar__field">
+          <label className="field-stack media-library-toolbar__field compact-filter-toolbar__field">
             <span>{t("common.labels.order")}</span>
             <select
               className="select-input"
@@ -477,31 +550,8 @@ export function MediaLibraryFeature() {
             </select>
           </label>
         </div>
-        <div className="media-library-filter-summary">
+        <div className="media-library-filter-summary compact-filter-summary">
           <p>{filterSummary}</p>
-          <div className="media-library-filter-summary__actions">
-            {!isBatchMode ? (
-              <button className="ghost-button" type="button" onClick={enterBatchMode}>
-                {t("common.actions.batchOrganize")}
-              </button>
-            ) : null}
-            {saveCollectionHref ? (
-              <button
-                className="ghost-button"
-                type="button"
-                onClick={() => {
-                  navigate(saveCollectionHref);
-                }}
-              >
-                {t("features.media.saveFiltersAsCollection")}
-              </button>
-            ) : null}
-            {hasActiveFilters ? (
-              <button className="ghost-button media-library-filter-summary__clear" type="button" onClick={resetFilters}>
-                {t("common.actions.clearFilters")}
-              </button>
-            ) : null}
-          </div>
         </div>
       </div>
 
@@ -529,9 +579,9 @@ export function MediaLibraryFeature() {
       </div>
 
       {showLoadingSkeleton ? (
-        <div className="media-library-grid media-library-grid--loading" aria-label={t("features.media.loadingAria")}>
+        <div className="compact-library-table compact-library-table--loading" aria-label={t("features.media.loadingAria")}>
           {Array.from({ length: 8 }, (_, index) => (
-            <MediaCardSkeleton key={index} />
+            <MediaRowSkeleton key={index} />
           ))}
         </div>
       ) : null}
@@ -560,9 +610,17 @@ export function MediaLibraryFeature() {
 
       {mediaQuery.data && mediaQuery.data.items.length > 0 ? (
         <>
-          <div className="media-library-grid">
+          <div className="compact-library-table" role="table" aria-label={t("features.media.table.ariaLabel")}>
+            <div className="compact-library-table__header" role="row">
+              <span>{t("features.media.table.name")}</span>
+              <span>{t("features.media.table.type")}</span>
+              <span>{t("features.media.table.kind")}</span>
+              <span>{t("features.media.table.modified")}</span>
+              <span>{t("features.media.table.size")}</span>
+              <span>{t("features.media.table.signals")}</span>
+            </div>
             {mediaQuery.data.items.map((item) => (
-              <MediaLibraryCard
+              <MediaLibraryRow
                 key={item.id}
                 fileId={item.id}
                 fileType={item.file_type}

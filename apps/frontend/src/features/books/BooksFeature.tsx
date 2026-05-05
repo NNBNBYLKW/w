@@ -31,6 +31,10 @@ function formatModifiedAt(value: string): string {
   return new Date(value).toLocaleString();
 }
 
+function countByFormat(items: Array<{ book_format: BookFormat }>, format: BookFormat): number {
+  return items.filter((item) => item.book_format === format).length;
+}
+
 function buildBookEntryLabel(value: BookFormat): string {
   return value === "epub" ? t("features.books.ebookEntry") : t("features.books.documentEdition");
 }
@@ -61,7 +65,7 @@ function formatColorTagLabel(value: ColorTagValue): string {
 
 const COLOR_TAG_OPTIONS: ColorTagValue[] = ["red", "yellow", "green", "blue", "purple"];
 
-function BooksLibraryCard({
+function BooksLibraryRow({
   bookFormat,
   displayTitle,
   isFavorite,
@@ -101,7 +105,7 @@ function BooksLibraryCard({
 
   return (
     <button
-      className={`books-card${selected ? " books-card--selected" : ""}`}
+      className={`compact-library-table__row${selected ? " compact-library-table__row--selected" : ""}`}
       type="button"
       onClick={onSelect}
       onDoubleClick={() => {
@@ -111,48 +115,45 @@ function BooksLibraryCard({
         void handleDoubleClick();
       }}
     >
-      <div className={`books-card__poster books-card__poster--${bookFormat}`}>
-        <span className="books-card__spine" aria-hidden="true" />
-        <div className="books-card__poster-copy">
-          <span className="books-card__poster-icon" aria-hidden="true">
-            {bookFormat === "epub" ? "EP" : "PDF"}
-          </span>
-          <strong>{buildBookEntryLabel(bookFormat)}</strong>
-          <span>{buildBookFormatHint(bookFormat)}</span>
-        </div>
-      </div>
-      <div className="books-card__body">
-        <strong title={displayTitle}>{displayTitle}</strong>
-        <span className={`books-card__entry-note books-card__entry-note--${bookFormat}`}>{buildBookFormatCopy(bookFormat)}</span>
-        <p title={path}>{path}</p>
-      </div>
-      <div className="books-card__meta">
+      <span className="compact-library-table__name-cell">
+        <span className={`compact-library-table__format-mark compact-library-table__format-mark--book-${bookFormat}`} aria-hidden="true">
+          <span>{bookFormat === "epub" ? "EPUB" : "PDF"}</span>
+        </span>
+        <span className="compact-library-table__name-copy">
+          <strong title={displayTitle}>{displayTitle}</strong>
+          <span title={path}>{path}</span>
+        </span>
+      </span>
+      <span className="compact-library-table__type-cell">
         <span className="status-pill">{formatBookFormat(bookFormat)}</span>
-        <span className="status-pill">{formatBytes(sizeBytes)}</span>
-        <span className="status-pill">{formatModifiedAt(modifiedAt)}</span>
+      </span>
+      <span className="compact-library-table__kind-cell" title={buildBookFormatHint(bookFormat)}>
+        <strong>{buildBookEntryLabel(bookFormat)}</strong>
+        <span>{buildBookFormatCopy(bookFormat)}</span>
+      </span>
+      <span className="compact-library-table__modified-cell">{formatModifiedAt(modifiedAt)}</span>
+      <span className="compact-library-table__size-cell">{formatBytes(sizeBytes)}</span>
+      <span className="compact-library-table__signals-cell">
         {isFavorite ? <span className="status-pill status-pill--favorite">{t("common.favorites.favorite")}</span> : null}
         {rating !== null ? <span className="status-pill status-pill--rating">★ {rating}</span> : null}
         {isBatchMode && selected ? <span className="status-pill">{t("common.states.selected")}</span> : null}
-      </div>
-      <span className="books-card__hint">{t("features.books.clickHint")}</span>
+        {!isFavorite && rating === null && !(isBatchMode && selected) ? (
+          <span className="compact-library-table__signals-empty">{t("common.states.none")}</span>
+        ) : null}
+      </span>
     </button>
   );
 }
 
-function BooksCardSkeleton() {
+function BooksRowSkeleton() {
   return (
-    <div className="books-card books-card--skeleton" aria-hidden="true">
-      <div className="books-card__poster books-card__poster--skeleton" />
-      <div className="books-card__body books-card__body--skeleton">
-        <span className="books-card__skeleton-line books-card__skeleton-line--title" />
-        <span className="books-card__skeleton-line books-card__skeleton-line--path" />
-        <span className="books-card__skeleton-line books-card__skeleton-line--path-short" />
-      </div>
-      <div className="books-card__meta books-card__meta--skeleton">
-        <span className="books-card__skeleton-pill" />
-        <span className="books-card__skeleton-pill" />
-        <span className="books-card__skeleton-pill" />
-      </div>
+    <div className="compact-library-table__row compact-library-table__row--skeleton" aria-hidden="true">
+      <span className="compact-library-skeleton-line compact-library-skeleton-line--title" />
+      <span className="compact-library-skeleton-pill" />
+      <span className="compact-library-skeleton-line compact-library-skeleton-line--short" />
+      <span className="compact-library-skeleton-line" />
+      <span className="compact-library-skeleton-line compact-library-skeleton-line--short" />
+      <span className="compact-library-skeleton-pill" />
     </div>
   );
 }
@@ -211,6 +212,17 @@ export function BooksFeature() {
   const hasNoRecognizedBooks = booksQuery.data !== undefined && booksQuery.data.total === 0;
   const hasNoCurrentPageResults = booksQuery.data !== undefined && booksQuery.data.total > 0 && booksQuery.data.items.length === 0;
   const hasActiveBookFilters = tagFilter !== null || colorTagFilter !== null;
+  const currentItems = booksQuery.data?.items ?? [];
+  const summaryStats = useMemo(
+    () => ({
+      total: booksQuery.data?.total ?? 0,
+      visible: currentItems.length,
+      epub: countByFormat(currentItems, "epub"),
+      pdf: countByFormat(currentItems, "pdf"),
+      filters: [tagFilter, colorTagFilter].filter(Boolean).length,
+    }),
+    [booksQuery.data?.total, colorTagFilter, currentItems, tagFilter],
+  );
   const selectedTagLabel = useMemo(() => {
     if (tagFilter === null) {
       return null;
@@ -311,16 +323,69 @@ export function BooksFeature() {
   };
 
   return (
-    <section className="feature-shell">
-      <div className="feature-header">
+    <section className="feature-shell compact-library">
+      <div className="feature-header compact-library__header">
         <span className="page-header__eyebrow">{t("features.books.eyebrow")}</span>
         <h3>{t("features.books.title")}</h3>
         <p>{t("features.books.description")}</p>
       </div>
 
-      <div className="subset-filter-block">
-        <div className="files-toolbar">
-          <label className="field-stack files-toolbar__field">
+      <div className="compact-summary-strip compact-summary-strip--five" aria-label={t("features.books.summary.ariaLabel")}>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.books.summary.total")}</span>
+          <strong>{summaryStats.total.toLocaleString()}</strong>
+        </div>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.books.summary.visible")}</span>
+          <strong>{summaryStats.visible.toLocaleString()}</strong>
+        </div>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.books.summary.epub")}</span>
+          <strong>{summaryStats.epub.toLocaleString()}</strong>
+        </div>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.books.summary.pdf")}</span>
+          <strong>{summaryStats.pdf.toLocaleString()}</strong>
+        </div>
+        <div className="compact-summary-strip__item">
+          <span>{t("features.books.summary.filters")}</span>
+          <strong>{summaryStats.filters.toLocaleString()}</strong>
+        </div>
+      </div>
+
+      <div className="compact-action-bar">
+        <div className="compact-action-bar__copy">
+          <span className="page-header__eyebrow">{t("features.books.quickActions.eyebrow")}</span>
+          <p>{t("features.books.quickActions.description")}</p>
+        </div>
+        <div className="compact-action-bar__actions">
+          {!isBatchMode ? (
+            <button className="ghost-button" type="button" onClick={enterBatchMode}>
+              {t("common.actions.batchOrganize")}
+            </button>
+          ) : null}
+          <button className="ghost-button" type="button" onClick={() => navigate("/search")}>
+            {t("features.books.quickActions.search")}
+          </button>
+          <button className="ghost-button" type="button" onClick={() => navigate("/settings")}>
+            {t("features.books.quickActions.sources")}
+          </button>
+          {hasActiveBookFilters ? (
+            <>
+              <button className="ghost-button" type="button" onClick={clearBookFilters}>
+                {t("common.actions.clearFilters")}
+              </button>
+              <button className="ghost-button" type="button" onClick={saveCurrentBookFiltersAsCollection}>
+                {t("features.books.saveFiltersAsCollection")}
+              </button>
+            </>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="subset-filter-block compact-filter-block">
+        <div className="files-toolbar compact-filter-toolbar">
+          <label className="field-stack files-toolbar__field compact-filter-toolbar__field">
             <span>{t("common.labels.sortBy")}</span>
             <select
               className="select-input"
@@ -335,7 +400,7 @@ export function BooksFeature() {
               <option value="discovered_at">{t("common.sortBy.discovered")}</option>
             </select>
           </label>
-          <label className="field-stack files-toolbar__field">
+          <label className="field-stack files-toolbar__field compact-filter-toolbar__field">
             <span>{t("common.labels.order")}</span>
             <select
               className="select-input"
@@ -349,7 +414,7 @@ export function BooksFeature() {
               <option value="asc">{t("common.sortOrder.ascending")}</option>
             </select>
           </label>
-          <label className="field-stack files-toolbar__field">
+          <label className="field-stack files-toolbar__field compact-filter-toolbar__field">
             <span>{t("common.labels.tag")}</span>
             <select
               className="select-input"
@@ -369,7 +434,7 @@ export function BooksFeature() {
               ))}
             </select>
           </label>
-          <label className="field-stack files-toolbar__field">
+          <label className="field-stack files-toolbar__field compact-filter-toolbar__field">
             <span>{t("common.labels.color")}</span>
             <select
               className="select-input"
@@ -392,7 +457,7 @@ export function BooksFeature() {
 
         {entryCopy ? <div className="context-flow-note">{entryCopy}</div> : null}
 
-        <div className="books-filter-summary">
+        <div className="books-filter-summary compact-filter-summary">
           <p>
             {hasActiveBookFilters
               ? filterSummary
@@ -406,23 +471,6 @@ export function BooksFeature() {
                         : t("common.sortBy.discovered"),
                 })}
           </p>
-          <div className="books-filter-summary__actions">
-            {!isBatchMode ? (
-              <button className="ghost-button" type="button" onClick={enterBatchMode}>
-                {t("common.actions.batchOrganize")}
-              </button>
-            ) : null}
-            {hasActiveBookFilters ? (
-              <>
-                <button className="ghost-button" type="button" onClick={clearBookFilters}>
-                  {t("common.actions.clearFilters")}
-                </button>
-                <button className="ghost-button" type="button" onClick={saveCurrentBookFiltersAsCollection}>
-                  {t("features.books.saveFiltersAsCollection")}
-                </button>
-              </>
-            ) : null}
-          </div>
         </div>
       </div>
 
@@ -446,9 +494,9 @@ export function BooksFeature() {
       </div>
 
       {showLoadingSkeleton ? (
-        <div className="books-library-grid books-library-grid--loading" aria-label={t("features.books.loadingAria")}>
+        <div className="compact-library-table compact-library-table--loading" aria-label={t("features.books.loadingAria")}>
           {Array.from({ length: 8 }, (_, index) => (
-            <BooksCardSkeleton key={index} />
+            <BooksRowSkeleton key={index} />
           ))}
         </div>
       ) : null}
@@ -470,9 +518,17 @@ export function BooksFeature() {
 
       {booksQuery.data && booksQuery.data.items.length > 0 ? (
         <>
-          <div className="books-library-grid">
+          <div className="compact-library-table" role="table" aria-label={t("features.books.table.ariaLabel")}>
+            <div className="compact-library-table__header" role="row">
+              <span>{t("features.books.table.name")}</span>
+              <span>{t("features.books.table.type")}</span>
+              <span>{t("features.books.table.kind")}</span>
+              <span>{t("features.books.table.modified")}</span>
+              <span>{t("features.books.table.size")}</span>
+              <span>{t("features.books.table.signals")}</span>
+            </div>
             {booksQuery.data.items.map((item) => (
-              <BooksLibraryCard
+              <BooksLibraryRow
                 key={item.id}
                 bookFormat={item.book_format}
                 displayTitle={item.display_title}
