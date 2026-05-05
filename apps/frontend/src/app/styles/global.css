@@ -2050,7 +2050,15 @@ button {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.asset-icon-card__thumbnail--cover {
   object-fit: cover;
+}
+
+.asset-icon-card__thumbnail--contain {
+  object-fit: contain;
+  padding: 8px;
 }
 
 .asset-icon-card__mark {

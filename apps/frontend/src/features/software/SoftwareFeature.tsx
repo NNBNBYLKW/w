@@ -10,6 +10,7 @@ import { useBatchOrganizeActions } from "../batch-organize/useBatchOrganizeActio
 import { useBatchSelection } from "../batch-organize/useBatchSelection";
 import type { ColorTagValue, FileListSortBy, FileListSortOrder } from "../../entities/file/types";
 import type { SoftwareFormat } from "../../entities/software/types";
+import { getFileThumbnailUrl } from "../../services/api/fileDetailsApi";
 import { listSoftware } from "../../services/api/softwareApi";
 import { listTags } from "../../services/api/tagsApi";
 import {
@@ -86,6 +87,7 @@ const COLOR_TAG_OPTIONS: ColorTagValue[] = ["red", "yellow", "green", "blue", "p
 
 function SoftwareLibraryRow({
   displayTitle,
+  fileId,
   isFavorite,
   isBatchMode,
   modifiedAt,
@@ -97,6 +99,7 @@ function SoftwareLibraryRow({
   onSelect,
 }: {
   displayTitle: string;
+  fileId: number;
   isFavorite: boolean;
   isBatchMode: boolean;
   modifiedAt: string;
@@ -107,9 +110,11 @@ function SoftwareLibraryRow({
   softwareFormat: SoftwareFormat;
   onSelect: () => void;
 }) {
+  const [thumbnailFailed, setThumbnailFailed] = useState(false);
   const hasDesktopOpenActions = hasDesktopOpenActionsBridge();
   const entryLabel = buildSoftwareEntryLabel(softwareFormat);
   const formatCopy = buildSoftwareFormatCopy(softwareFormat);
+  const shouldLoadThumbnail = softwareFormat === "exe" && !thumbnailFailed;
 
   const handleDoubleClick = async () => {
     if (!hasDesktopOpenActions) {
@@ -138,9 +143,18 @@ function SoftwareLibraryRow({
     >
       <span className="software-table__name-cell">
         <span className={`software-table__format-mark software-table__format-mark--${softwareFormat}`} aria-hidden="true">
-          <span>
-            {softwareFormat === "exe" ? "EXE" : softwareFormat === "msi" ? "MSI" : "ZIP"}
-          </span>
+          {shouldLoadThumbnail ? (
+            <img
+              className="software-table__format-icon"
+              src={getFileThumbnailUrl(fileId)}
+              alt=""
+              onError={() => setThumbnailFailed(true)}
+            />
+          ) : (
+            <span>
+              {softwareFormat === "exe" ? "EXE" : softwareFormat === "msi" ? "MSI" : "ZIP"}
+            </span>
+          )}
         </span>
         <span className="software-table__name-copy">
           <strong title={displayTitle}>{displayTitle}</strong>
@@ -299,6 +313,9 @@ export function SoftwareFeature() {
         meta: `${buildSoftwareEntryLabel(item.software_format)} · ${formatBytes(item.size_bytes)}`,
         mark: item.software_format.toUpperCase(),
         markTone: "software",
+        thumbnailUrl: item.software_format === "exe" ? getFileThumbnailUrl(item.id) : undefined,
+        thumbnailAlt: item.display_title,
+        thumbnailFit: item.software_format === "exe" ? "contain" : undefined,
         selected: isBatchMode ? isSelected(item.id) : selectedItemId === String(item.id),
         signals: [
           item.is_favorite ? t("common.favorites.favorite") : null,
@@ -606,6 +623,7 @@ export function SoftwareFeature() {
                 <SoftwareLibraryRow
                   key={item.id}
                   displayTitle={item.display_title}
+                  fileId={item.id}
                   isFavorite={item.is_favorite}
                   isBatchMode={isBatchMode}
                   modifiedAt={item.modified_at}
