@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t, useLocale } from "../../shared/text";
+import { AssetIconGrid, ViewModeToggle, useViewMode, type AssetIconCardItem } from "../../shared/ui/view-mode";
 import { BatchActionBar } from "../batch-organize/BatchActionBar";
 import { useBatchOrganizeActions } from "../batch-organize/useBatchOrganizeActions";
 import { useBatchSelection } from "../batch-organize/useBatchSelection";
@@ -171,6 +172,7 @@ export function GamesFeature() {
   const { locale } = useLocale();
   const selectedItemId = useUIStore((state) => state.selectedItemId);
   const selectItem = useUIStore((state) => state.selectItem);
+  const { viewMode, setViewMode } = useViewMode("games");
   const navigate = useNavigate();
   const gameStatusOptions: Array<{ label: string; value: FileStatusValue | "all" }> = [
     { label: t("features.games.statuses.all"), value: "all" },
@@ -288,6 +290,26 @@ export function GamesFeature() {
       ? t("features.games.showingSummary", { summary: parts.join(" · ") })
       : t("features.games.allSummary", { summary: parts[0] });
   }, [colorTagFilter, hasActiveStatusFilter, locale, selectedTagLabel, sortBy, sortOrder, statusFilter]);
+  const iconItems = useMemo<AssetIconCardItem[]>(
+    () =>
+      currentItems.map((item) => ({
+        id: item.id,
+        title: item.display_title,
+        path: item.path,
+        typeLabel: formatGameFormat(item.game_format),
+        meta: `${buildGameEntryLabel(item.game_format)} · ${formatBytes(item.size_bytes)}`,
+        mark: formatGameFormat(item.game_format),
+        markTone: "game",
+        selected: isBatchMode ? isSelected(item.id) : selectedItemId === String(item.id),
+        signals: [
+          item.status ? formatStatusLabel(item.status) : null,
+          item.is_favorite ? t("common.favorites.favorite") : null,
+          item.rating !== null ? `★ ${item.rating}` : null,
+          isBatchMode && isSelected(item.id) ? t("common.states.selected") : null,
+        ].filter((value): value is string => value !== null),
+      })),
+    [currentItems, isBatchMode, isSelected, selectedItemId],
+  );
 
   useEffect(() => {
     const nextStatus = searchParams.get("status");
@@ -488,6 +510,9 @@ export function GamesFeature() {
               ))}
             </select>
           </label>
+          <div className="compact-filter-toolbar__view-mode">
+            <ViewModeToggle value={viewMode} onChange={setViewMode} />
+          </div>
         </div>
         <div className="games-status-switch" aria-label={t("features.games.statusFilterAria")}>
           {gameStatusOptions.map((option) => (
@@ -553,39 +578,64 @@ export function GamesFeature() {
 
       {gamesQuery.data && gamesQuery.data.items.length > 0 ? (
         <>
-          <div className="compact-library-table compact-library-table--games" role="table" aria-label={t("features.games.table.ariaLabel")}>
-            <div className="compact-library-table__header" role="row">
-              <span>{t("features.games.table.name")}</span>
-              <span>{t("features.games.table.type")}</span>
-              <span>{t("features.games.table.kind")}</span>
-              <span>{t("features.games.table.status")}</span>
-              <span>{t("features.games.table.modified")}</span>
-              <span>{t("features.games.table.size")}</span>
-              <span>{t("features.games.table.signals")}</span>
+          {viewMode === "icons" ? (
+            <AssetIconGrid
+              ariaLabel={t("features.games.table.ariaLabel")}
+              items={iconItems}
+              onSelect={(item) => {
+                if (isBatchMode) {
+                  toggleSelection(item.id);
+                  return;
+                }
+                selectItem(String(item.id));
+              }}
+              onOpen={(iconItem) => {
+                if (isBatchMode) {
+                  return;
+                }
+                const matchedItem = gamesQuery.data.items.find((item) => item.id === iconItem.id);
+                const normalizedPath = normalizeIndexedFilePath(matchedItem?.path);
+                if (!normalizedPath || !hasDesktopOpenActionsBridge()) {
+                  return;
+                }
+                void openIndexedFile(normalizedPath);
+              }}
+            />
+          ) : (
+            <div className="compact-library-table compact-library-table--games" role="table" aria-label={t("features.games.table.ariaLabel")}>
+              <div className="compact-library-table__header" role="row">
+                <span>{t("features.games.table.name")}</span>
+                <span>{t("features.games.table.type")}</span>
+                <span>{t("features.games.table.kind")}</span>
+                <span>{t("features.games.table.status")}</span>
+                <span>{t("features.games.table.modified")}</span>
+                <span>{t("features.games.table.size")}</span>
+                <span>{t("features.games.table.signals")}</span>
+              </div>
+              {gamesQuery.data.items.map((item) => (
+                <GamesLibraryRow
+                  key={item.id}
+                  displayTitle={item.display_title}
+                  gameFormat={item.game_format}
+                  isFavorite={item.is_favorite}
+                  isBatchMode={isBatchMode}
+                  modifiedAt={item.modified_at}
+                  path={item.path}
+                  rating={item.rating}
+                  selected={isBatchMode ? isSelected(item.id) : selectedItemId === String(item.id)}
+                  sizeBytes={item.size_bytes}
+                  status={item.status}
+                  onSelect={() => {
+                    if (isBatchMode) {
+                      toggleSelection(item.id);
+                      return;
+                    }
+                    selectItem(String(item.id));
+                  }}
+                />
+              ))}
             </div>
-            {gamesQuery.data.items.map((item) => (
-              <GamesLibraryRow
-                key={item.id}
-                displayTitle={item.display_title}
-                gameFormat={item.game_format}
-                isFavorite={item.is_favorite}
-                isBatchMode={isBatchMode}
-                modifiedAt={item.modified_at}
-                path={item.path}
-                rating={item.rating}
-                selected={isBatchMode ? isSelected(item.id) : selectedItemId === String(item.id)}
-                sizeBytes={item.size_bytes}
-                status={item.status}
-                onSelect={() => {
-                  if (isBatchMode) {
-                    toggleSelection(item.id);
-                    return;
-                  }
-                  selectItem(String(item.id));
-                }}
-              />
-            ))}
-          </div>
+          )}
           <div className="files-pager">
             <button
               className="secondary-button"

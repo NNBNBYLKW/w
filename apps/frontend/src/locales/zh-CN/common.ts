@@ -99,4 +99,12 @@ export const common = {
     all: "全部标签",
     unavailable: "标签不可用",
   },
+  viewModes: {
+    view: "视图",
+    details: "详细信息",
+    icons: "图标",
+    switchView: "切换视图",
+    detailsView: "详细信息视图",
+    iconView: "图标视图",
+  },
 } as const;
