@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type PropsWithChildren } from "react";
 import { BrowserRouter, HashRouter } from "react-router-dom";
+import { ThemeProvider } from "../../shared/theme";
 import { LocaleProvider } from "../../shared/text";
 
 
@@ -20,9 +21,11 @@ export function AppProviders({ children }: PropsWithChildren) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <LocaleProvider>
-        <Router>{children}</Router>
-      </LocaleProvider>
+      <ThemeProvider>
+        <LocaleProvider>
+          <Router>{children}</Router>
+        </LocaleProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
