@@ -132,6 +132,7 @@ export type AssetIconCardItem = {
   markTone?: string;
   thumbnailUrl?: string;
   thumbnailAlt?: string;
+  thumbnailFit?: "cover" | "contain";
   signals?: string[];
   selected: boolean;
 };
@@ -156,7 +157,7 @@ function AssetIconCard({ item, onOpen, onSelect }: {
       <span className="asset-icon-card__preview">
         {showThumbnail ? (
           <img
-            className="asset-icon-card__thumbnail"
+            className={`asset-icon-card__thumbnail asset-icon-card__thumbnail--${item.thumbnailFit ?? "cover"}`}
             src={item.thumbnailUrl}
             alt={item.thumbnailAlt ?? item.title}
             loading="lazy"
