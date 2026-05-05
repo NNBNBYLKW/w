@@ -1,10 +1,16 @@
 import { SourceManagementFeature } from "../../features/source-management/SourceManagementFeature";
 import { SystemStatusFeature } from "../../features/system-status/SystemStatusFeature";
+import { useTheme, type ThemeMode } from "../../shared/theme";
 import { t, useLocale, type LocaleCode } from "../../shared/text";
 
 
 export function SettingsPage() {
   const { locale, setLocale } = useLocale();
+  const { theme, setTheme } = useTheme();
+  const themeOptions: Array<{ label: string; value: ThemeMode }> = [
+    { label: t("settings.appearance.options.light"), value: "light" },
+    { label: t("settings.appearance.options.dark"), value: "dark" },
+  ];
   const localeOptions: Array<{ label: string; value: LocaleCode }> = [
     { label: t("settings.locale.options.en"), value: "en" },
     { label: t("settings.locale.options.zhCN"), value: "zh-CN" },
@@ -19,15 +25,39 @@ export function SettingsPage() {
       </header>
       <section className="feature-shell">
         <div className="feature-header">
+          <span className="page-header__eyebrow">{t("settings.appearance.eyebrow")}</span>
+          <h3>{t("settings.appearance.title")}</h3>
+          <p>{t("settings.appearance.description")}</p>
+        </div>
+        <div className="settings-segmented-control" role="group" aria-label={t("settings.appearance.ariaLabel")}>
+          {themeOptions.map((option) => (
+            <button
+              key={option.value}
+              className={`secondary-button settings-segmented-button${
+                theme === option.value ? " settings-segmented-button--selected" : ""
+              }`}
+              type="button"
+              onClick={() => setTheme(option.value)}
+              aria-pressed={theme === option.value}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </section>
+      <section className="feature-shell">
+        <div className="feature-header">
           <span className="page-header__eyebrow">{t("settings.locale.eyebrow")}</span>
           <h3>{t("settings.locale.title")}</h3>
           <p>{t("settings.locale.description")}</p>
         </div>
-        <div className="settings-locale-switch" role="group" aria-label={t("settings.locale.ariaLabel")}>
+        <div className="settings-segmented-control settings-locale-switch" role="group" aria-label={t("settings.locale.ariaLabel")}>
           {localeOptions.map((option) => (
             <button
               key={option.value}
-              className={`secondary-button settings-locale-button${locale === option.value ? " settings-locale-button--selected" : ""}`}
+              className={`secondary-button settings-segmented-button settings-locale-button${
+                locale === option.value ? " settings-segmented-button--selected settings-locale-button--selected" : ""
+              }`}
               type="button"
               onClick={() => setLocale(option.value)}
               aria-pressed={locale === option.value}

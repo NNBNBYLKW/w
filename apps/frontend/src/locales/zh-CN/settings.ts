@@ -1,4 +1,14 @@
 export const settings = {
+  appearance: {
+    eyebrow: "外观",
+    title: "主题",
+    description: "选择 Workbench 的显示外观。当前选择会保存在本机上。",
+    ariaLabel: "主题",
+    options: {
+      light: "浅色",
+      dark: "深色",
+    },
+  },
   locale: {
     eyebrow: "界面语言",
     title: "语言",

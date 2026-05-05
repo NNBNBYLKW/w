@@ -1,4 +1,14 @@
 export const settings = {
+  appearance: {
+    eyebrow: "Appearance",
+    title: "Theme",
+    description: "Choose how Workbench looks. Your selection is saved on this device.",
+    ariaLabel: "Theme",
+    options: {
+      light: "Light",
+      dark: "Dark",
+    },
+  },
   locale: {
     eyebrow: "Interface language",
     title: "Language",
