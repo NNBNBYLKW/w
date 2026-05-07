@@ -76,6 +76,9 @@ Workbench 是一个建立在 **Windows 本地文件系统** 之上的 local-firs
   - 图片与视频缩略图使用统一 thumbnail 语义；一体化桌面包随包携带 `ffmpeg`，开发模式仍可回退到系统 `PATH`
   - 视频在 shared details 中支持 6 帧静态循环预览；该预览只在 details 中出现，不扩展到列表动态预览
   - 与 shared details、tags、collections、recent 的回流闭环
+- `Books / documents`
+  - PDF 文件可通过统一 thumbnail endpoint 按需生成第一页 PNG 缩略图，用于 Books / Search / Files / DetailsPanel 的轻量 inspect
+  - PDF 缩略图使用 `pypdfium2` / PDFium；这不是阅读器、OCR 或多页预览能力
 - `Games`
   - 游戏入口文件识别与库式浏览
   - 轻量状态表达
@@ -241,19 +244,120 @@ docs/        当前正式文档入口
 - `start-dev.bat`
   - 作为 PowerShell 启动脚本的 Windows 包装入口
 
-这些脚本适合本地开发时快速拉起窗口，但 README 以下面的分组件命令作为更稳定的说明入口。
+推荐开发启动方式：
+
+```powershell
+.\start-dev.ps1 -StartDesktop
+```
+
+也可以直接双击：
+
+```text
+start-dev.bat
+```
+
+当前脚本会在启动前清理 `8000` / `5173` 上的旧开发进程，然后启动：
+
+- backend：`http://127.0.0.1:8000`
+- frontend：`http://127.0.0.1:5173`
+- desktop：`npm run dev`（使用 `-StartDesktop` 或默认 bat 入口时）
+
+脚本启动后会检查 backend 指纹，正常输出应包含：
+
+- `OK: backend uses .venv Python`
+- `OK: process_id = ...`
+- `OK: process_start_time = ...`
+- `OK: PDF thumbnail render mode is subprocess-v1`
+
+如果这些检查缺失，优先排查是否命中了旧 backend 进程。
 
 ### Backend
 
+开发模式推荐使用仓库根目录的 `.venv`，不要临时切到系统 Python。
+
 ```powershell
 cd apps/backend
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+..\..\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 当前后端会在启动时从 `apps/backend/app/db/migrations/0001_initial_core.sql` 初始化 SQLite 数据库到 `apps/backend/data/`。
+
+### 正确停止开发服务
+
+停止 backend 时，请在 `Backend Dev` 窗口中按 `Ctrl+C`。如果 PowerShell 提示：
+
+```text
+Terminate batch job (Y/N)?
+```
+
+请输入：
+
+```text
+Y
+```
+
+不建议只关闭 PowerShell 窗口。`uvicorn --reload` 会同时存在 reloader 父进程和 server 子进程；如果只关窗口，旧进程可能残留并继续占用 `8000`，后续访问 `http://127.0.0.1:8000` 时就会命中旧 backend。
+
+### 启动前端口检查
+
+如果怀疑命中了旧 backend 或 frontend dev server，先检查端口：
+
+```powershell
+Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue |
+  Select-Object LocalAddress, LocalPort, State, OwningProcess
+
+Get-NetTCPConnection -LocalPort 5173 -ErrorAction SilentlyContinue |
+  Select-Object LocalAddress, LocalPort, State, OwningProcess
+```
+
+必要时清理旧进程：
+
+```powershell
+Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue |
+  ForEach-Object {
+    Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
+  }
+
+Get-NetTCPConnection -LocalPort 5173 -ErrorAction SilentlyContinue |
+  ForEach-Object {
+    Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
+  }
+```
+
+### 启动后后端指纹检查
+
+启动后确认当前访问到的是新 backend：
+
+```powershell
+$base = "http://127.0.0.1:8000"
+
+Invoke-RestMethod "$base/debug/runtime" -TimeoutSec 5 | ConvertTo-Json -Depth 8
+Invoke-RestMethod "$base/debug/thumbnails/warmup" -TimeoutSec 5 | ConvertTo-Json -Depth 8
+```
+
+通过标准：
+
+- `sys_executable` 指向仓库根目录的 `.venv\Scripts\python.exe`
+- `process_id` 存在
+- `process_start_time` 存在
+- `/debug/thumbnails/warmup` 中能看到 `pdf_render_mode=subprocess-v1`
+- `service_module_path`、`service_module_mtime`、`pdf_render_command_kind` 等实现指纹存在
+
+异常表现：
+
+- `sys_executable` 是 `C:\Python314\python.exe`：说明没有使用 `.venv`，或访问到了旧进程
+- `process_id` / `process_start_time` 缺失：说明当前 backend 可能是旧代码
+- `pdf_render_mode=subprocess-v1` 缺失：说明 thumbnail warmup 当前不是最新实现
+
+### Python 版本注意事项
+
+backend 推荐使用项目根目录 `.venv` 中的 Python 3.12。Python 3.14 可能在 app 导入 ORM model 阶段触发 SQLAlchemy 类型解析错误，例如：
+
+```text
+TypeError: descriptor '__getitem__' requires a 'typing.Union' object but received a 'tuple'
+```
+
+这个错误不是 PDF thumbnail 本身的问题。不要手改 `pyvenv.cfg`，也不要复制 `python.exe` 到 venv 中；如需切换 Python 版本，应按项目当前约定重新准备 `.venv`。
 
 ### Frontend
 
@@ -293,6 +397,7 @@ npm run dev
 - Electron 安装包包含桌面壳、frontend 静态资源、PyInstaller 打包的 backend exe
 - packaged mode 会自动启动本地 backend，不需要用户手动运行 `python -m uvicorn`
 - packaged mode 会使用随包携带的 `ffmpeg.exe`，不需要用户自行配置 `PATH`
+- PDF 第一页缩略图使用随 backend 打包的 `pypdfium2` / PDFium 运行时
 - SQLite、thumbnail cache、video preview cache 会写入 Electron `userData` 下的 `backend-data/`
 
 生成 Windows beta 安装包：

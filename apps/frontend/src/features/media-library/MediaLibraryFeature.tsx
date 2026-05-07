@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useUIStore } from "../../app/providers/uiStore";
 import { t, useLocale } from "../../shared/text";
 import { AssetIconGrid, ViewModeToggle, useViewMode, type AssetIconCardItem } from "../../shared/ui/view-mode";
+import { useRetryingThumbnail, useThumbnailWarmup } from "../../shared/ui/thumbnail";
 import { BatchActionBar } from "../batch-organize/BatchActionBar";
 import { useBatchOrganizeActions } from "../batch-organize/useBatchOrganizeActions";
 import { useBatchSelection } from "../batch-organize/useBatchSelection";
@@ -84,15 +85,26 @@ function MediaInlinePreview({
   fileId,
   fileType,
   name,
+  onThumbnailLoaded,
+  thumbnailDisabled,
+  thumbnailRefreshToken,
 }: {
   fileId: number;
   fileType: "image" | "video";
   name: string;
+  onThumbnailLoaded?: () => void;
+  thumbnailDisabled?: boolean;
+  thumbnailRefreshToken?: number;
 }) {
-  const [thumbnailFailed, setThumbnailFailed] = useState(false);
   const [thumbnailLoaded, setThumbnailLoaded] = useState(false);
+  const thumbnail = useRetryingThumbnail<HTMLSpanElement>({
+    enabled: !thumbnailDisabled,
+    onLoad: onThumbnailLoaded,
+    refreshToken: thumbnailRefreshToken,
+    thumbnailUrl: getFileThumbnailUrl(fileId),
+  });
 
-  if (thumbnailFailed) {
+  if (!thumbnail.shouldRenderImage) {
     return (
       <span className={`compact-library-table__format-mark compact-library-table__format-mark--media-${fileType}`} aria-hidden="true">
         <span>{fileType === "image" ? t("features.media.types.imageShort") : t("features.media.types.videoShort")}</span>
@@ -101,15 +113,18 @@ function MediaInlinePreview({
   }
 
   return (
-    <span className={`compact-library-table__thumb compact-library-table__thumb--${fileType}`}>
+    <span className={`compact-library-table__thumb compact-library-table__thumb--${fileType}`} ref={thumbnail.ref}>
       {!thumbnailLoaded ? <span className="compact-library-table__thumb-skeleton" aria-hidden="true" /> : null}
       <img
         className={`compact-library-table__thumb-image${thumbnailLoaded ? " compact-library-table__thumb-image--ready" : ""}`}
-        src={getFileThumbnailUrl(fileId)}
+        src={thumbnail.imageSrc}
         alt={t("features.media.thumbnailAlt", { name })}
         loading="lazy"
-        onError={() => setThumbnailFailed(true)}
-        onLoad={() => setThumbnailLoaded(true)}
+        onError={thumbnail.onError}
+        onLoad={() => {
+          setThumbnailLoaded(true);
+          thumbnail.onLoad();
+        }}
       />
     </span>
   );
@@ -140,6 +155,9 @@ function MediaLibraryRow({
   selected,
   sizeBytes,
   onSelect,
+  onThumbnailLoaded,
+  thumbnailDisabled,
+  thumbnailRefreshToken,
 }: {
   fileId: number;
   fileType: "image" | "video";
@@ -152,6 +170,9 @@ function MediaLibraryRow({
   selected: boolean;
   sizeBytes: number | null;
   onSelect: () => void;
+  onThumbnailLoaded?: () => void;
+  thumbnailDisabled?: boolean;
+  thumbnailRefreshToken?: number;
 }) {
   const hasDesktopOpenActions = hasDesktopOpenActionsBridge();
 
@@ -181,7 +202,14 @@ function MediaLibraryRow({
       }}
     >
       <span className="compact-library-table__name-cell">
-        <MediaInlinePreview fileId={fileId} fileType={fileType} name={name} />
+        <MediaInlinePreview
+          fileId={fileId}
+          fileType={fileType}
+          name={name}
+          onThumbnailLoaded={onThumbnailLoaded}
+          thumbnailDisabled={thumbnailDisabled}
+          thumbnailRefreshToken={thumbnailRefreshToken}
+        />
         <span className="compact-library-table__name-copy">
           <strong title={name}>{name}</strong>
           <span title={path}>{path}</span>
@@ -373,6 +401,7 @@ export function MediaLibraryFeature() {
       })),
     [currentItems, isBatchMode, isSelected, selectedItemId],
   );
+  const thumbnailWarmup = useThumbnailWarmup(currentItems.map((item) => item.id));
 
   useEffect(() => {
     const nextViewScope = searchParams.get("view_scope");
@@ -640,6 +669,9 @@ export function MediaLibraryFeature() {
             <AssetIconGrid
               ariaLabel={t("features.media.table.ariaLabel")}
               items={iconItems}
+              getThumbnailRefreshToken={(item) => thumbnailWarmup.getRefreshToken(item.id)}
+              isThumbnailDisabled={(item) => thumbnailWarmup.isThumbnailDisabled(item.id)}
+              onThumbnailLoaded={(item) => thumbnailWarmup.markLoaded(item.id)}
               onSelect={(item) => {
                 if (isBatchMode) {
                   toggleSelection(item.id);
@@ -682,6 +714,9 @@ export function MediaLibraryFeature() {
                   rating={item.rating}
                   selected={isBatchMode ? isSelected(item.id) : selectedItemId === String(item.id)}
                   sizeBytes={item.size_bytes}
+                  thumbnailDisabled={thumbnailWarmup.isThumbnailDisabled(item.id)}
+                  thumbnailRefreshToken={thumbnailWarmup.getRefreshToken(item.id)}
+                  onThumbnailLoaded={() => thumbnailWarmup.markLoaded(item.id)}
                   onSelect={() => {
                     if (isBatchMode) {
                       toggleSelection(item.id);

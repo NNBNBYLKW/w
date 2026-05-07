@@ -18,11 +18,6 @@ export function SettingsPage() {
 
   return (
     <section className="page-card">
-      <header className="page-header">
-        <span className="page-header__eyebrow">{t("pages.settings.eyebrow")}</span>
-        <h3>{t("pages.settings.title")}</h3>
-        <p>{t("pages.settings.description")}</p>
-      </header>
       <section className="feature-shell">
         <div className="feature-header">
           <span className="page-header__eyebrow">{t("settings.appearance.eyebrow")}</span>

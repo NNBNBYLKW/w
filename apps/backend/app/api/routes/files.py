@@ -15,6 +15,8 @@ from app.api.schemas.file import (
     FileListSortBy,
     FileStatusResponse,
     FileStatusUpdateRequest,
+    ThumbnailWarmupRequest,
+    ThumbnailWarmupResponse,
     FileUserMetaPatchRequest,
     FileUserMetaResponse,
     FileVideoPreviewResponse,
@@ -88,6 +90,27 @@ def get_file_details(
     db: Session = Depends(get_db),
 ) -> FileDetailResponse:
     return details_service.get_file_details(db, file_id)
+
+
+@router.post("/files/thumbnails/warmup", response_model=ThumbnailWarmupResponse)
+def warmup_file_thumbnails(
+    payload: ThumbnailWarmupRequest,
+    db: Session = Depends(get_db),
+) -> ThumbnailWarmupResponse:
+    return ThumbnailWarmupResponse(**thumbnail_service.warmup_thumbnails(db, payload.file_ids).__dict__)
+
+
+@router.get("/debug/thumbnails/warmup")
+def thumbnail_warmup_diagnostics() -> dict:
+    return thumbnail_service.get_warmup_debug_snapshot()
+
+
+@router.get("/debug/thumbnails/warmup/{file_id}")
+def thumbnail_warmup_file_diagnostics(
+    file_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+) -> dict:
+    return thumbnail_service.get_warmup_debug_for_file(db, file_id)
 
 
 @router.get("/files/{file_id}/thumbnail")

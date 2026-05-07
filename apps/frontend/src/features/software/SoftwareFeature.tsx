@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useUIStore } from "../../app/providers/uiStore";
 import { t, useLocale } from "../../shared/text";
 import { AssetIconGrid, ViewModeToggle, useViewMode, type AssetIconCardItem } from "../../shared/ui/view-mode";
+import { useRetryingThumbnail, useThumbnailWarmup } from "../../shared/ui/thumbnail";
 import { BatchActionBar } from "../batch-organize/BatchActionBar";
 import { useBatchOrganizeActions } from "../batch-organize/useBatchOrganizeActions";
 import { useBatchSelection } from "../batch-organize/useBatchSelection";
@@ -97,6 +98,9 @@ function SoftwareLibraryRow({
   sizeBytes,
   softwareFormat,
   onSelect,
+  onThumbnailLoaded,
+  thumbnailDisabled,
+  thumbnailRefreshToken,
 }: {
   displayTitle: string;
   fileId: number;
@@ -109,12 +113,20 @@ function SoftwareLibraryRow({
   sizeBytes: number | null;
   softwareFormat: SoftwareFormat;
   onSelect: () => void;
+  onThumbnailLoaded?: () => void;
+  thumbnailDisabled?: boolean;
+  thumbnailRefreshToken?: number;
 }) {
-  const [thumbnailFailed, setThumbnailFailed] = useState(false);
   const hasDesktopOpenActions = hasDesktopOpenActionsBridge();
   const entryLabel = buildSoftwareEntryLabel(softwareFormat);
   const formatCopy = buildSoftwareFormatCopy(softwareFormat);
-  const shouldLoadThumbnail = softwareFormat === "exe" && !thumbnailFailed;
+  const shouldLoadThumbnail = softwareFormat === "exe";
+  const thumbnail = useRetryingThumbnail<HTMLSpanElement>({
+    enabled: shouldLoadThumbnail && !thumbnailDisabled,
+    onLoad: onThumbnailLoaded,
+    refreshToken: thumbnailRefreshToken,
+    thumbnailUrl: shouldLoadThumbnail ? getFileThumbnailUrl(fileId) : undefined,
+  });
 
   const handleDoubleClick = async () => {
     if (!hasDesktopOpenActions) {
@@ -142,13 +154,18 @@ function SoftwareLibraryRow({
       }}
     >
       <span className="software-table__name-cell">
-        <span className={`software-table__format-mark software-table__format-mark--${softwareFormat}`} aria-hidden="true">
-          {shouldLoadThumbnail ? (
+        <span
+          className={`software-table__format-mark software-table__format-mark--${softwareFormat}`}
+          aria-hidden="true"
+          ref={thumbnail.ref}
+        >
+          {thumbnail.shouldRenderImage ? (
             <img
               className="software-table__format-icon"
-              src={getFileThumbnailUrl(fileId)}
+              src={thumbnail.imageSrc}
               alt=""
-              onError={() => setThumbnailFailed(true)}
+              onError={thumbnail.onError}
+              onLoad={thumbnail.onLoad}
             />
           ) : (
             <span>
@@ -325,6 +342,7 @@ export function SoftwareFeature() {
       })),
     [currentItems, isBatchMode, isSelected, selectedItemId],
   );
+  const thumbnailWarmup = useThumbnailWarmup(iconItems.filter((item) => item.thumbnailUrl).map((item) => item.id));
 
   useEffect(() => {
     const nextTagId = searchParams.get("tag_id");
@@ -590,6 +608,9 @@ export function SoftwareFeature() {
             <AssetIconGrid
               ariaLabel={t("features.software.table.ariaLabel")}
               items={iconItems}
+              getThumbnailRefreshToken={(item) => thumbnailWarmup.getRefreshToken(item.id)}
+              isThumbnailDisabled={(item) => thumbnailWarmup.isThumbnailDisabled(item.id)}
+              onThumbnailLoaded={(item) => thumbnailWarmup.markLoaded(item.id)}
               onSelect={(item) => {
                 if (isBatchMode) {
                   toggleSelection(item.id);
@@ -632,6 +653,9 @@ export function SoftwareFeature() {
                   selected={isBatchMode ? isSelected(item.id) : selectedItemId === String(item.id)}
                   sizeBytes={item.size_bytes}
                   softwareFormat={item.software_format}
+                  thumbnailDisabled={thumbnailWarmup.isThumbnailDisabled(item.id)}
+                  thumbnailRefreshToken={thumbnailWarmup.getRefreshToken(item.id)}
+                  onThumbnailLoaded={() => thumbnailWarmup.markLoaded(item.id)}
                   onSelect={() => {
                     if (isBatchMode) {
                       toggleSelection(item.id);

@@ -5,12 +5,14 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useUIStore } from "../../app/providers/uiStore";
 import { t, useLocale } from "../../shared/text";
 import { AssetIconGrid, ViewModeToggle, useViewMode, type AssetIconCardItem } from "../../shared/ui/view-mode";
+import { useThumbnailWarmup } from "../../shared/ui/thumbnail";
 import { BatchActionBar } from "../batch-organize/BatchActionBar";
 import { useBatchOrganizeActions } from "../batch-organize/useBatchOrganizeActions";
 import { useBatchSelection } from "../batch-organize/useBatchSelection";
 import type { ColorTagValue, FileListSortBy, FileListSortOrder } from "../../entities/file/types";
 import type { BookFormat } from "../../entities/book/types";
 import { listBooks } from "../../services/api/booksApi";
+import { getFileThumbnailUrl } from "../../services/api/fileDetailsApi";
 import { listTags } from "../../services/api/tagsApi";
 import {
   hasDesktopOpenActionsBridge,
@@ -275,6 +277,9 @@ export function BooksFeature() {
         meta: `${buildBookEntryLabel(item.book_format)} · ${formatBytes(item.size_bytes)}`,
         mark: item.book_format.toUpperCase(),
         markTone: "document",
+        thumbnailUrl: item.book_format === "pdf" ? getFileThumbnailUrl(item.id) : undefined,
+        thumbnailAlt: item.book_format === "pdf" ? item.display_title : undefined,
+        thumbnailFit: item.book_format === "pdf" ? "contain" : undefined,
         selected: isBatchMode ? isSelected(item.id) : selectedItemId === String(item.id),
         signals: [
           item.is_favorite ? t("common.favorites.favorite") : null,
@@ -284,6 +289,7 @@ export function BooksFeature() {
       })),
     [currentItems, isBatchMode, isSelected, selectedItemId],
   );
+  const thumbnailWarmup = useThumbnailWarmup(iconItems.filter((item) => item.thumbnailUrl).map((item) => item.id));
 
   useEffect(() => {
     const nextTagId = searchParams.get("tag_id");
@@ -546,6 +552,9 @@ export function BooksFeature() {
             <AssetIconGrid
               ariaLabel={t("features.books.table.ariaLabel")}
               items={iconItems}
+              getThumbnailRefreshToken={(item) => thumbnailWarmup.getRefreshToken(item.id)}
+              isThumbnailDisabled={(item) => thumbnailWarmup.isThumbnailDisabled(item.id)}
+              onThumbnailLoaded={(item) => thumbnailWarmup.markLoaded(item.id)}
               onSelect={(item) => {
                 if (isBatchMode) {
                   toggleSelection(item.id);

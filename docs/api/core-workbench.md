@@ -16,14 +16,14 @@
 - 当前有独立的 source management contract
 - 当前有通用 search 与 files browse contract
 - `GET /files/{file_id}` 是 shared details 的统一详情合同
-- `GET /files/{file_id}/thumbnail` 当前支持 image / video thumbnails，以及 Windows `.exe` 图标缩略图
+- `GET /files/{file_id}/thumbnail` 当前支持 image / video thumbnails、Windows `.exe` 图标缩略图，以及 `.pdf` 第一页缩略图
 
 ## Not currently supported
 
 - 没有后端 HTTP 的 open file / open containing folder 接口
 - 没有文件树或 breadcrumb browse API
 - 没有复杂 query DSL、聚合统计或多维 faceting
-- 没有对所有文件类型提供统一 thumbnail 合同；当前只覆盖 image / video / `.exe`
+- 没有对所有文件类型提供统一 thumbnail 合同；当前只覆盖 image / video / `.exe` / `.pdf`
 
 ## GET /health
 
@@ -387,25 +387,50 @@ sort_order?: asc | desc
 - Path: `/files/{file_id}/thumbnail`
 - Purpose: 返回当前受支持文件的派生 thumbnail
 - Used by:
-  - `DetailsPanelFeature` 的 image / video preview 与 `.exe` software icon preview
+  - `DetailsPanelFeature` 的 image / video preview、`.exe` software icon preview 与 `.pdf` document preview
   - Software 列表中的 `.exe` 图标提示
+  - Files / Search / Books 的 icon 或 row thumbnail surface
 - Query params:
   - `file_id` path param，正整数
 - Request body: 无
 - Response shape:
   - 不是 JSON
   - image / video 返回 `image/jpeg`
-  - `.exe` 图标返回 `image/png`
+  - `.exe` 图标与 `.pdf` 第一页缩略图返回 `image/png`
   - 带 `Cache-Control: no-store`
 - Common error / failure behavior:
   - `404 FILE_NOT_FOUND`
+  - `404 THUMBNAIL_PENDING`
   - `404 THUMBNAIL_NOT_AVAILABLE`
   - `500 INTERNAL_ERROR` 仅用于未预期异常
 - Notes / constraints / caveats:
-  - 当前只对 image、video、Windows `.exe` 图标有 contract
-  - 若缓存不存在，服务会尝试即时生成
+  - 当前只对 image、video、Windows `.exe` 图标、`.pdf` 第一页有 contract
+  - image / video cache miss 仍可按现有路径即时生成
+  - `.exe` / `.pdf` 这类较重 thumbnail 在 cache miss 时会进入后台 warmup queue；此时 `GET` 可返回 `THUMBNAIL_PENDING`
   - `.exe` 图标使用 Windows Shell API 按需提取；非 Windows 或提取失败时返回 `THUMBNAIL_NOT_AVAILABLE`
-  - document / archive / other 当前不在这个 endpoint 的支持范围内
+  - `.pdf` 缩略图使用 `pypdfium2` / PDFium 按需渲染第一页；加密、损坏、空页、缺依赖或渲染失败时返回 `THUMBNAIL_NOT_AVAILABLE`
+  - 这不是 PDF 阅读器、OCR、多页预览或 PDF 元数据平台
+  - 非 PDF 的 document / archive / other 当前不在这个 endpoint 的支持范围内
+
+## POST /files/thumbnails/warmup
+
+- Method: `POST`
+- Path: `/files/thumbnails/warmup`
+- Purpose: 将当前页或可见范围内的 thumbnail 预热到后台队列，避免大量 `<img>` 请求同步触发生成
+- Request body:
+  - `file_ids`: `number[]`，1 到 100 个 file id
+- Response shape:
+  - `cached`: 已有 cache 的 file ids
+  - `queued`: 本次加入后台队列的 file ids
+  - `in_progress`: 已在队列或生成中的 file ids
+  - `unsupported`: 当前不支持 thumbnail 的 file ids
+  - `missing`: DB 中不存在、已删除或源文件不存在的 file ids
+  - `failed`: 短 TTL 内刚生成失败的 file ids
+- Notes / constraints / caveats:
+  - 不新增数据库任务表；当前是 local-first beta 的进程内 warmup queue
+  - 同一 cache key 会去重，避免重复生成
+  - PDF 生成并发上限为 2，`.exe` 图标生成并发上限为 4
+  - 失败状态是短 TTL，后续 warmup 可再次尝试
 
 ## Open actions boundary
 
