@@ -1,46 +1,45 @@
-param(
-    [switch]$StartDesktop
+﻿param(
+    [switch]$StartDesktop,
+    [switch]$NoKillPorts,
+    [switch]$SkipChecks
 )
 
 $ErrorActionPreference = "Stop"
 
-# ===============================
-# 一键启动脚本（Windows / PowerShell）
-# 默认启动：
-#   1) apps/backend
-#   2) apps/frontend
-# 可选启动：
-#   3) apps/desktop   （传 -StartDesktop）
-#
-# 使用方式：
-#   - 直接双击同目录下的 start-dev.bat
-#   - 或 PowerShell 中执行：
-#       .\start-dev.ps1
-#       .\start-dev.ps1 -StartDesktop
-#
-# 如果你的实际启动命令和这里不一致，只需要改下面这 3 个变量。
-# ===============================
-
-$RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-
-$BackendDir  = Join-Path $RepoRoot "apps\backend"
+$RepoRoot = $PSScriptRoot
+$BackendDir = Join-Path $RepoRoot "apps\backend"
 $FrontendDir = Join-Path $RepoRoot "apps\frontend"
-$DesktopDir  = Join-Path $RepoRoot "apps\desktop"
+$DesktopDir = Join-Path $RepoRoot "apps\desktop"
 
-# ====== 按你的项目实际情况修改这几行 ======
-$BackendCommand  = "python -m uvicorn app.main:app --reload"
-$FrontendCommand = "npm run dev"
-$DesktopCommand  = "npm run dev"
-# ========================================
+$BackendPython = Join-Path $RepoRoot ".venv\Scripts\python.exe"
 
-function Assert-DirExists {
+$BackendUrl = "http://127.0.0.1:8000"
+$FrontendUrl = "http://127.0.0.1:5173"
+
+function Stop-Port {
     param(
-        [string]$PathToCheck,
-        [string]$DisplayName
+        [int]$Port,
+        [string]$Name
     )
 
-    if (-not (Test-Path $PathToCheck)) {
-        throw "未找到 $DisplayName 目录：$PathToCheck"
+    $connections = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue
+    if (-not $connections) {
+        Write-Host "OK: Port $Port ($Name) is free" -ForegroundColor Green
+        return
+    }
+
+    $pids = $connections |
+        Select-Object -ExpandProperty OwningProcess -Unique |
+        Where-Object { $_ -and $_ -gt 0 }
+
+    foreach ($pidToStop in $pids) {
+        try {
+            $proc = Get-Process -Id $pidToStop -ErrorAction Stop
+            Write-Host "Stopping old $Name process: PID=${pidToStop}, Process=$($proc.ProcessName)" -ForegroundColor Yellow
+            Stop-Process -Id $pidToStop -Force -ErrorAction Stop
+        } catch {
+            Write-Host "Could not stop PID=${pidToStop}: $($_.Exception.Message)" -ForegroundColor Red
+        }
     }
 }
 
@@ -48,52 +47,175 @@ function Start-DevWindow {
     param(
         [string]$Title,
         [string]$WorkingDir,
-        [string]$CommandText
+        [string]$Command
     )
 
-    $escapedDir = $WorkingDir.Replace("'", "''")
-    $escapedTitle = $Title.Replace("'", "''")
+    $wd = $WorkingDir.Replace("'", "''")
+    $titleEscaped = $Title.Replace("'", "''")
 
-    $psCommand = @"
-Set-Location '$escapedDir'
-`$Host.UI.RawUI.WindowTitle = '$escapedTitle'
+    $script = @"
+Set-Location -LiteralPath '$wd'
+`$Host.UI.RawUI.WindowTitle = '$titleEscaped'
 Write-Host '==> $Title' -ForegroundColor Cyan
-Write-Host '工作目录: $WorkingDir' -ForegroundColor DarkGray
-Write-Host '执行命令: $CommandText' -ForegroundColor DarkGray
+Write-Host 'Working dir: $WorkingDir' -ForegroundColor DarkGray
+Write-Host 'Command: $Command' -ForegroundColor DarkGray
 Write-Host ''
-$CommandText
+$Command
 "@
 
     Start-Process powershell -ArgumentList @(
         "-NoExit",
+        "-NoProfile",
         "-ExecutionPolicy", "Bypass",
-        "-Command", $psCommand
+        "-Command", $script
     ) | Out-Null
 }
 
-Assert-DirExists -PathToCheck $BackendDir  -DisplayName "backend"
-Assert-DirExists -PathToCheck $FrontendDir -DisplayName "frontend"
+function Wait-Json {
+    param(
+        [string]$Url,
+        [int]$TimeoutSeconds = 45
+    )
 
-Write-Host "仓库根目录：$RepoRoot" -ForegroundColor Green
-Write-Host "开始启动开发环境..." -ForegroundColor Green
-Write-Host ""
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 
-Start-DevWindow -Title "Backend Dev"  -WorkingDir $BackendDir  -CommandText $BackendCommand
-Start-DevWindow -Title "Frontend Dev" -WorkingDir $FrontendDir -CommandText $FrontendCommand
+    while ((Get-Date) -lt $deadline) {
+        try {
+            return Invoke-RestMethod $Url -TimeoutSec 3
+        } catch {
+            Start-Sleep -Seconds 1
+        }
+    }
 
-if ($StartDesktop) {
-    Assert-DirExists -PathToCheck $DesktopDir -DisplayName "desktop"
-    Start-DevWindow -Title "Desktop Dev" -WorkingDir $DesktopDir -CommandText $DesktopCommand
+    throw "Timeout waiting for $Url"
 }
 
-Write-Host "已发起启动：" -ForegroundColor Yellow
-Write-Host "  - Backend" -ForegroundColor Yellow
-Write-Host "  - Frontend" -ForegroundColor Yellow
-if ($StartDesktop) {
-    Write-Host "  - Desktop" -ForegroundColor Yellow
+function Normalize-Path {
+    param([string]$PathText)
+
+    if (-not $PathText) {
+        return ""
+    }
+
+    return [System.IO.Path]::GetFullPath($PathText).TrimEnd("\").ToLowerInvariant()
 }
+
+function Run-Checks {
+    Write-Host ""
+    Write-Host "Running backend checks..." -ForegroundColor Cyan
+
+    $runtime = Wait-Json "$BackendUrl/debug/runtime" 45
+    $runtimeJson = $runtime | ConvertTo-Json -Depth 8
+
+    Write-Host ""
+    Write-Host "Runtime:" -ForegroundColor Cyan
+    Write-Host $runtimeJson
+
+    $expectedPython = Normalize-Path $BackendPython
+    $actualPython = Normalize-Path $runtime.sys_executable
+
+    if ($actualPython -eq $expectedPython) {
+        Write-Host "OK: backend uses .venv Python" -ForegroundColor Green
+    } else {
+        Write-Host "WARNING: backend Python mismatch" -ForegroundColor Red
+        Write-Host "Expected: $BackendPython"
+        Write-Host "Actual:   $($runtime.sys_executable)"
+    }
+
+    if ($runtime.PSObject.Properties.Name -contains "process_id") {
+        Write-Host "OK: process_id = $($runtime.process_id)" -ForegroundColor Green
+    } else {
+        Write-Host "WARNING: process_id missing. Backend may be old code." -ForegroundColor Red
+    }
+
+    if ($runtime.PSObject.Properties.Name -contains "process_start_time") {
+        Write-Host "OK: process_start_time = $($runtime.process_start_time)" -ForegroundColor Green
+    } else {
+        Write-Host "WARNING: process_start_time missing. Backend may be old code." -ForegroundColor Red
+    }
+
+    $warmup = Wait-Json "$BackendUrl/debug/thumbnails/warmup" 20
+    $warmupJson = $warmup | ConvertTo-Json -Depth 8
+
+    Write-Host ""
+    Write-Host "Thumbnail warmup:" -ForegroundColor Cyan
+    Write-Host $warmupJson
+
+    if ($warmupJson -match "subprocess-v1") {
+        Write-Host "OK: PDF thumbnail render mode is subprocess-v1" -ForegroundColor Green
+    } else {
+        Write-Host "WARNING: pdf_render_mode=subprocess-v1 missing. Backend may be old code." -ForegroundColor Red
+    }
+
+    Write-Host ""
+    Write-Host "Checks done." -ForegroundColor Cyan
+}
+
+if (-not (Test-Path $BackendDir)) {
+    throw "Backend dir not found: $BackendDir"
+}
+
+if (-not (Test-Path $FrontendDir)) {
+    throw "Frontend dir not found: $FrontendDir"
+}
+
+if (-not (Test-Path $BackendPython)) {
+    throw "Backend Python not found: $BackendPython"
+}
+
+$pythonVersion = & $BackendPython --version
+
+Write-Host "==================================================" -ForegroundColor Cyan
+Write-Host "Workbench dev startup" -ForegroundColor Cyan
+Write-Host "==================================================" -ForegroundColor Cyan
+Write-Host "Repo root:       $RepoRoot"
+Write-Host "Backend dir:     $BackendDir"
+Write-Host "Frontend dir:    $FrontendDir"
+Write-Host "Backend Python:  $BackendPython"
+Write-Host "Python version:  $pythonVersion"
 Write-Host ""
-Write-Host "提示：" -ForegroundColor Cyan
-Write-Host "1. 若命令报错，请先检查各目录下依赖是否已安装（npm install / pip install 等）。"
-Write-Host "2. 若你的实际启动命令不同，直接修改脚本顶部的 *_Command 变量。"
-Write-Host "3. 关闭各自弹出的 PowerShell 窗口即可停止对应服务。"
+
+if (-not $NoKillPorts) {
+    Write-Host "Cleaning old ports..." -ForegroundColor Cyan
+    Stop-Port -Port 8000 -Name "Backend"
+    Stop-Port -Port 5173 -Name "Frontend"
+    Write-Host ""
+}
+
+$BackendCommand = "& '$BackendPython' -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload"
+$FrontendCommand = "npm run dev -- --host 127.0.0.1 --port 5173"
+$DesktopCommand = "npm run dev"
+
+Write-Host "Starting backend..." -ForegroundColor Green
+Start-DevWindow -Title "Backend Dev" -WorkingDir $BackendDir -Command $BackendCommand
+
+Write-Host "Starting frontend..." -ForegroundColor Green
+Start-DevWindow -Title "Frontend Dev" -WorkingDir $FrontendDir -Command $FrontendCommand
+
+if ($StartDesktop) {
+    if (-not (Test-Path $DesktopDir)) {
+        throw "Desktop dir not found: $DesktopDir"
+    }
+
+    Write-Host "Starting desktop..." -ForegroundColor Green
+    Start-DevWindow -Title "Desktop Dev" -WorkingDir $DesktopDir -Command $DesktopCommand
+}
+
+Write-Host ""
+Write-Host "Started:" -ForegroundColor Yellow
+Write-Host "Backend:  $BackendUrl"
+Write-Host "Frontend: $FrontendUrl"
+if ($StartDesktop) {
+    Write-Host "Desktop:  started"
+}
+
+if (-not $SkipChecks) {
+    try {
+        Run-Checks
+    } catch {
+        Write-Host ""
+        Write-Host "Post-start checks failed:" -ForegroundColor Red
+        Write-Host $_.Exception.Message -ForegroundColor Red
+        Write-Host "Check the Backend Dev window." -ForegroundColor Yellow
+    }
+}

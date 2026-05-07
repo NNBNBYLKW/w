@@ -1,1 +1,2 @@
 pyinstaller==6.19.0
+pypdfium2==4.30.0

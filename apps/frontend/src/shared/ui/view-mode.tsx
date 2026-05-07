@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { t } from "../text";
+import { useRetryingThumbnail } from "./thumbnail";
 
 export type ViewMode = "details" | "icons";
 export type ViewModeScope = "search" | "books" | "software" | "media" | "games";
@@ -137,13 +138,28 @@ export type AssetIconCardItem = {
   selected: boolean;
 };
 
-function AssetIconCard({ item, onOpen, onSelect }: {
+function AssetIconCard({
+  item,
+  onThumbnailLoaded,
+  onOpen,
+  onSelect,
+  thumbnailDisabled = false,
+  thumbnailRefreshToken = 0,
+}: {
   item: AssetIconCardItem;
+  onThumbnailLoaded?: () => void;
   onOpen?: () => void;
   onSelect: () => void;
+  thumbnailDisabled?: boolean;
+  thumbnailRefreshToken?: number;
 }) {
-  const [thumbnailFailed, setThumbnailFailed] = useState(false);
-  const showThumbnail = item.thumbnailUrl && !thumbnailFailed;
+  const thumbnail = useRetryingThumbnail<HTMLSpanElement>({
+    enabled: !thumbnailDisabled,
+    onLoad: onThumbnailLoaded,
+    refreshToken: thumbnailRefreshToken,
+    thumbnailUrl: item.thumbnailUrl,
+    visibleOnly: true,
+  });
 
   return (
     <button
@@ -154,14 +170,15 @@ function AssetIconCard({ item, onOpen, onSelect }: {
         onOpen?.();
       }}
     >
-      <span className="asset-icon-card__preview">
-        {showThumbnail ? (
+      <span className="asset-icon-card__preview" ref={thumbnail.ref}>
+        {thumbnail.shouldRenderImage ? (
           <img
             className={`asset-icon-card__thumbnail asset-icon-card__thumbnail--${item.thumbnailFit ?? "cover"}`}
-            src={item.thumbnailUrl}
+            src={thumbnail.imageSrc}
             alt={item.thumbnailAlt ?? item.title}
             loading="lazy"
-            onError={() => setThumbnailFailed(true)}
+            onError={thumbnail.onError}
+            onLoad={thumbnail.onLoad}
           />
         ) : (
           <span className={`asset-icon-card__mark${item.markTone ? ` asset-icon-card__mark--${item.markTone}` : ""}`}>
@@ -187,14 +204,20 @@ function AssetIconCard({ item, onOpen, onSelect }: {
 
 export function AssetIconGrid({
   ariaLabel,
+  getThumbnailRefreshToken,
   items,
+  onThumbnailLoaded,
   onOpen,
   onSelect,
+  isThumbnailDisabled,
 }: {
   ariaLabel: string;
+  getThumbnailRefreshToken?: (item: AssetIconCardItem) => number;
   items: AssetIconCardItem[];
+  onThumbnailLoaded?: (item: AssetIconCardItem) => void;
   onOpen?: (item: AssetIconCardItem) => void;
   onSelect: (item: AssetIconCardItem) => void;
+  isThumbnailDisabled?: (item: AssetIconCardItem) => boolean;
 }) {
   const stableItems = useMemo(() => items, [items]);
 
@@ -204,8 +227,11 @@ export function AssetIconGrid({
         <AssetIconCard
           key={item.id}
           item={item}
+          onThumbnailLoaded={onThumbnailLoaded ? () => onThumbnailLoaded(item) : undefined}
           onOpen={onOpen ? () => onOpen(item) : undefined}
           onSelect={() => onSelect(item)}
+          thumbnailDisabled={isThumbnailDisabled?.(item) ?? false}
+          thumbnailRefreshToken={getThumbnailRefreshToken?.(item) ?? 0}
         />
       ))}
     </div>

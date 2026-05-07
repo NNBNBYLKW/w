@@ -75,6 +75,7 @@ export const details = {
     noMetadata: "No extracted metadata available yet.",
     imagePreviewUnavailable: "Preview is unavailable for this image right now.",
     videoPreviewUnavailable: "Preview is not available for this video yet.",
+    pdfPreviewUnavailable: "Preview is unavailable for this PDF right now.",
     softwareIconUnavailable: "Executable icon is not available for this file yet.",
     noTags: "No normal tags are attached to this file yet.",
   },

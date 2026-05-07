@@ -2,6 +2,7 @@ import logging
 import os
 from multiprocessing import freeze_support
 from pathlib import Path
+import sys
 
 import uvicorn
 
@@ -38,4 +39,8 @@ def main() -> None:
 
 if __name__ == "__main__":
     freeze_support()
+    if len(sys.argv) > 1 and sys.argv[1] == "--pdf-render-worker":
+        from app.workers.thumbnails.pdf_render_cli import main as pdf_render_main
+
+        raise SystemExit(pdf_render_main(sys.argv[2:]))
     main()

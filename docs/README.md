@@ -23,6 +23,7 @@ Document boundary:
 - [测试版验证准备](<测试版验证准备.md>)
   - Validation goals
   - Suggested walkthroughs
+  - 开发启动、后端指纹检查、PDF thumbnail warmup 后端验收
   - Observation template
   - Feedback priority rules
 - [测试版发布准备](<测试版发布准备.md>)
@@ -70,6 +71,11 @@ If you are working on frontend UI refactors or need the current backend contract
 如果你这次主要在做前端 UI 文案、locale 切换、`Settings` 语言 / 主题入口或继续补齐页面接入，优先再看：
 
 - [前端文本层与语言切换](<前端文本层与语言切换.md>)
+
+如果你这次主要在做开发启动、backend runtime、thumbnail warmup、PDF 缩略图验收或“为什么手动验收像旧代码”这类问题，优先看：
+
+- [../README.md](../README.md) 的“启动方式”
+- [测试版验证准备](<测试版验证准备.md>) 的开发模式启动验收与 PDF thumbnail warmup 验收
 
 If you are specifically touching frontend contract work, continue with:
 

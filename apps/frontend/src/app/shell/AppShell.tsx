@@ -5,7 +5,7 @@ import { hasDesktopWindowControlsBridge } from "../../services/desktop/windowCon
 import { useUIStore } from "../providers/uiStore";
 import { AppSidebar } from "./AppSidebar";
 import { DesktopTitleBar } from "./DesktopTitleBar";
-import { AppTopBar } from "./AppTopBar";
+import { PageContentHeader } from "./PageContentHeader";
 import { RightPanelContainer } from "./RightPanelContainer";
 
 
@@ -64,7 +64,6 @@ export function AppShell() {
     <div className={`app-shell${isSidebarCollapsed ? " app-shell--sidebar-collapsed" : ""}`}>
       <AppSidebar />
       <div className="app-shell__main">
-        <AppTopBar />
         <div
           className={`app-shell__content${
             isDetailsPanelOpen ? " app-shell__content--details-open" : " app-shell__content--details-hidden"
@@ -75,6 +74,7 @@ export function AppShell() {
             data-show-top-fade={showTopFade ? "true" : "false"}
             data-show-bottom-fade={showBottomFade ? "true" : "false"}
           >
+            <PageContentHeader />
             <div className="page-content" ref={pageContentRef}>
               <Outlet />
             </div>

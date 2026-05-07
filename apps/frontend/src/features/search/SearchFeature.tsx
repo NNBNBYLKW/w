@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useUIStore } from "../../app/providers/uiStore";
 import { t } from "../../shared/text";
 import { AssetIconGrid, ViewModeToggle, useViewMode, type AssetIconCardItem } from "../../shared/ui/view-mode";
+import { useThumbnailWarmup } from "../../shared/ui/thumbnail";
 import type { ColorTagValue, FileType, SearchSortBy, SearchSortOrder } from "../../entities/file/types";
 import { getFileThumbnailUrl } from "../../services/api/fileDetailsApi";
 import { searchFiles } from "../../services/api/searchApi";
@@ -112,11 +113,15 @@ export function SearchFeature() {
       meta: formatSearchModifiedAt(item.modified_at),
       mark: getSearchTypeMark(item.file_type),
       markTone: item.file_type,
-      thumbnailUrl: item.file_type === "image" || item.file_type === "video" ? getFileThumbnailUrl(item.id) : undefined,
+      thumbnailUrl:
+        item.file_type === "image" || item.file_type === "video" || item.file_type === "document"
+          ? getFileThumbnailUrl(item.id)
+          : undefined,
       thumbnailAlt: item.name,
       selected: selectedItemId === String(item.id),
     }),
   );
+  const thumbnailWarmup = useThumbnailWarmup(iconItems.filter((item) => item.thumbnailUrl).map((item) => item.id));
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -266,6 +271,9 @@ export function SearchFeature() {
             <AssetIconGrid
               ariaLabel={t("features.search.title")}
               items={iconItems}
+              getThumbnailRefreshToken={(item) => thumbnailWarmup.getRefreshToken(item.id)}
+              isThumbnailDisabled={(item) => thumbnailWarmup.isThumbnailDisabled(item.id)}
+              onThumbnailLoaded={(item) => thumbnailWarmup.markLoaded(item.id)}
               onSelect={(item) => selectItem(String(item.id))}
               onOpen={(iconItem) => {
                 const matchedItem = searchQuery.data.items.find((item) => item.id === iconItem.id);

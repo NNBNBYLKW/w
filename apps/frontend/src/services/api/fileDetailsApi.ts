@@ -9,6 +9,15 @@ export type FileVideoPreviewResponseVM = {
   };
 };
 
+export type ThumbnailWarmupResponseVM = {
+  cached: number[];
+  queued: number[];
+  in_progress: number[];
+  unsupported: number[];
+  missing: number[];
+  failed: number[];
+};
+
 
 function getApiBaseUrl() {
   const desktopApi = (
@@ -44,6 +53,17 @@ async function parseResponse<T>(response: Response): Promise<T> {
 export async function getFileDetails(fileId: number): Promise<FileDetailResponseVM> {
   const response = await fetch(`${getApiBaseUrl()}/files/${fileId}`);
   return parseResponse<FileDetailResponseVM>(response);
+}
+
+export async function warmupFileThumbnails(fileIds: number[]): Promise<ThumbnailWarmupResponseVM> {
+  const response = await fetch(`${getApiBaseUrl()}/files/thumbnails/warmup`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ file_ids: fileIds }),
+  });
+  return parseResponse<ThumbnailWarmupResponseVM>(response);
 }
 
 export async function getFileVideoPreview(fileId: number): Promise<FileVideoPreviewResponseVM> {

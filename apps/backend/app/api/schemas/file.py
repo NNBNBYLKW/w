@@ -108,6 +108,19 @@ class FileVideoPreviewResponse(BaseModel):
     item: FileVideoPreviewItemResponse
 
 
+class ThumbnailWarmupRequest(BaseModel):
+    file_ids: list[int] = Field(min_length=1, max_length=100)
+
+
+class ThumbnailWarmupResponse(BaseModel):
+    cached: list[int]
+    queued: list[int]
+    in_progress: list[int]
+    unsupported: list[int]
+    missing: list[int]
+    failed: list[int]
+
+
 class ColorTagUpdateRequest(BaseModel):
     color_tag: str | None
 

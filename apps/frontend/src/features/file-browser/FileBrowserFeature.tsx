@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t } from "../../shared/text";
+import { useRetryingThumbnail, useThumbnailWarmup } from "../../shared/ui/thumbnail";
 import type { ColorTagValue, FileListSortBy, FileListSortOrder, FileType } from "../../entities/file/types";
 import { getFileThumbnailUrl } from "../../services/api/fileDetailsApi";
 import { listIndexedFiles } from "../../services/api/filesApi";
@@ -15,18 +16,36 @@ function formatBytes(value: number | null): string {
   return value === null ? t("common.states.unavailable") : `${value.toLocaleString()} bytes`;
 }
 
-function FileRowThumbnail({ fileId, fileType }: { fileId: number; fileType: FileType }) {
-  const [thumbnailFailed, setThumbnailFailed] = useState(false);
-  const canLoadThumbnail = (fileType === "image" || fileType === "video") && !thumbnailFailed;
+function FileRowThumbnail({
+  fileId,
+  fileType,
+  onThumbnailLoaded,
+  thumbnailDisabled,
+  thumbnailRefreshToken,
+}: {
+  fileId: number;
+  fileType: FileType;
+  onThumbnailLoaded?: () => void;
+  thumbnailDisabled?: boolean;
+  thumbnailRefreshToken?: number;
+}) {
+  const canLoadThumbnail = fileType === "image" || fileType === "video" || fileType === "document";
+  const thumbnail = useRetryingThumbnail<HTMLSpanElement>({
+    enabled: canLoadThumbnail && !thumbnailDisabled,
+    onLoad: onThumbnailLoaded,
+    refreshToken: thumbnailRefreshToken,
+    thumbnailUrl: canLoadThumbnail ? getFileThumbnailUrl(fileId) : undefined,
+  });
 
   return (
-    <span className={`files-list-row__thumbnail files-list-row__thumbnail--${fileType}`} aria-hidden="true">
-      {canLoadThumbnail ? (
+    <span className={`files-list-row__thumbnail files-list-row__thumbnail--${fileType}`} aria-hidden="true" ref={thumbnail.ref}>
+      {thumbnail.shouldRenderImage ? (
         <img
-          src={getFileThumbnailUrl(fileId)}
+          src={thumbnail.imageSrc}
           alt=""
           loading="lazy"
-          onError={() => setThumbnailFailed(true)}
+          onError={thumbnail.onError}
+          onLoad={thumbnail.onLoad}
         />
       ) : (
         <span>{fileType === "video" ? "VID" : fileType.toUpperCase().slice(0, 3)}</span>
@@ -135,6 +154,11 @@ export function FileBrowserFeature() {
   });
 
   const totalPages = filesQuery.data ? Math.max(1, Math.ceil(filesQuery.data.total / filesQuery.data.page_size)) : 1;
+  const thumbnailWarmup = useThumbnailWarmup(
+    (filesQuery.data?.items ?? [])
+      .filter((item) => item.file_type === "image" || item.file_type === "video" || item.file_type === "document")
+      .map((item) => item.id),
+  );
 
   const isAtSourceRoot =
     selectedSourceRoot !== null &&
@@ -402,7 +426,13 @@ export function FileBrowserFeature() {
                 type="button"
                 onClick={() => selectItem(String(item.id))}
               >
-                <FileRowThumbnail fileId={item.id} fileType={item.file_type} />
+                  <FileRowThumbnail
+                    fileId={item.id}
+                    fileType={item.file_type}
+                    thumbnailDisabled={thumbnailWarmup.isThumbnailDisabled(item.id)}
+                    thumbnailRefreshToken={thumbnailWarmup.getRefreshToken(item.id)}
+                    onThumbnailLoaded={() => thumbnailWarmup.markLoaded(item.id)}
+                  />
                 <div className="files-list-row__meta">
                   <strong>{item.name}</strong>
                   <p>{item.path}</p>

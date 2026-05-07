@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t } from "../../shared/text";
+import { useRetryingThumbnail, useThumbnailWarmup } from "../../shared/ui/thumbnail";
 import type { ColorTagValue, FileDetailResponseVM, FileRatingValue, FileStatusValue } from "../../entities/file/types";
 import { updateFileColorTag } from "../../services/api/colorTagsApi";
 import {
@@ -237,6 +238,13 @@ export function DetailsPanelFeature() {
     currentItem?.file_type === "video" &&
     !videoPreviewPlaybackFailed &&
     videoPreviewFrameIndexes.length === 6;
+  const detailThumbnailWarmup = useThumbnailWarmup(currentItem ? [currentItem.id] : []);
+  const previewThumbnail = useRetryingThumbnail<HTMLDivElement>({
+    enabled: currentItem !== undefined && !isVideoPreviewActive && !detailThumbnailWarmup.isThumbnailDisabled(currentItem.id),
+    onLoad: currentItem !== undefined ? () => detailThumbnailWarmup.markLoaded(currentItem.id) : undefined,
+    refreshToken: currentItem !== undefined ? detailThumbnailWarmup.getRefreshToken(currentItem.id) : 0,
+    thumbnailUrl: currentItem !== undefined ? getFileThumbnailUrl(currentItem.id) : undefined,
+  });
 
   useEffect(() => {
     if (!isVideoPreviewActive) {
@@ -510,13 +518,14 @@ export function DetailsPanelFeature() {
     const isGameContext = isGamesRoute || inferredGameEntry || item.status !== null;
     const isSoftwareContext = !isGameContext && (isSoftwareRoute || inferredSoftwareFormat !== null);
     const isExeSoftwareFile = isSoftwareContext && inferredSoftwareFormat === "exe";
+    const isPdfBookFile = isBookContext && inferredBookFormat === "pdf";
     const metadata = item.metadata;
     const firstTag = item.tags[0] ?? null;
     const activeVideoPreviewFrameIndex = videoPreviewFrameIndexes[videoPreviewFrameIndex] ?? videoPreviewFrameIndexes[0];
     const previewImageSrc =
       isVideoPreviewActive && activeVideoPreviewFrameIndex !== undefined
         ? getFileVideoPreviewFrameUrl(item.id, activeVideoPreviewFrameIndex)
-        : getFileThumbnailUrl(item.id);
+        : previewThumbnail.imageSrc;
     content = (
       <>
         <span className="placeholder-pill">{t("details.placeholders.indexedFile")}</span>
@@ -661,16 +670,17 @@ export function DetailsPanelFeature() {
             </dl>
           )}
         </section>
-        {isImageFile || isVideoFile || isExeSoftwareFile ? (
+        {isImageFile || isVideoFile || isExeSoftwareFile || isPdfBookFile ? (
           <section className="details-preview-section">
             <div className="details-preview-section__header">
               <h4>{t("details.sections.preview")}</h4>
             </div>
-            {!previewLoadFailed ? (
+            {!previewLoadFailed && (isVideoPreviewActive || previewThumbnail.shouldRenderImage) && previewImageSrc ? (
               <div
                 className={`details-preview-frame${isVideoPreviewActive ? " details-preview-frame--looping" : ""}${
                   isExeSoftwareFile ? " details-preview-frame--software-icon" : ""
                 }`}
+                ref={previewThumbnail.ref}
               >
                 <img
                   className={`details-preview-image${isExeSoftwareFile ? " details-preview-image--software-icon" : ""}`}
@@ -681,11 +691,12 @@ export function DetailsPanelFeature() {
                       setVideoPreviewPlaybackFailed(true);
                       return;
                     }
-                    setPreviewLoadFailed(true);
+                    previewThumbnail.onError();
                   }}
                   onLoad={() => {
                     if (!isVideoPreviewActive) {
                       setSinglePreviewLoaded(true);
+                      previewThumbnail.onLoad();
                     }
                   }}
                 />
@@ -697,7 +708,9 @@ export function DetailsPanelFeature() {
                     ? t("details.notes.imagePreviewUnavailable")
                     : isVideoFile
                       ? t("details.notes.videoPreviewUnavailable")
-                      : t("details.notes.softwareIconUnavailable")}
+                      : isPdfBookFile
+                        ? t("details.notes.pdfPreviewUnavailable")
+                        : t("details.notes.softwareIconUnavailable")}
                 </p>
               </div>
             )}
