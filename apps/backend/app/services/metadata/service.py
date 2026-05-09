@@ -29,7 +29,12 @@ class MetadataService:
             if metadata is None:
                 continue
 
-            if not self._has_any_active_value(metadata.width, metadata.height):
+            if not self._has_any_active_value(
+                metadata.width,
+                metadata.height,
+                metadata.duration_ms,
+                metadata.page_count,
+            ):
                 continue
 
             try:
@@ -46,5 +51,11 @@ class MetadataService:
             except SQLAlchemyError:
                 continue
 
-    def _has_any_active_value(self, width: int | None, height: int | None) -> bool:
-        return width is not None or height is not None
+    def _has_any_active_value(
+        self,
+        width: int | None,
+        height: int | None,
+        duration_ms: int | None,
+        page_count: int | None,
+    ) -> bool:
+        return width is not None or height is not None or duration_ms is not None or page_count is not None

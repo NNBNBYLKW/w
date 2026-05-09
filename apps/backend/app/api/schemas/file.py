@@ -7,6 +7,20 @@ from app.api.schemas.tag import TagItemResponse
 
 
 FileTypeValue = Literal["image", "video", "document", "archive", "other"]
+FileKindValue = Literal[
+    "image",
+    "video",
+    "audio",
+    "document",
+    "ebook",
+    "archive",
+    "executable",
+    "installer",
+    "shortcut",
+    "other",
+]
+PlacementValue = Literal["media", "books", "games", "software", "files_only", "none"]
+ManualPlacementValue = Literal["media", "books", "games", "software", "files_only"]
 ColorTagValue = Literal["red", "yellow", "green", "blue", "purple"]
 FileStatusValue = Literal["playing", "completed", "shelved"]
 FileRatingValue = Literal[1, 2, 3, 4, 5]
@@ -31,6 +45,7 @@ def normalize_directory_path(value: str | None) -> str | None:
 class FileListQueryParams(BaseModel):
     source_id: int | None = Field(default=None, ge=1)
     parent_path: str | None = None
+    file_kind: FileKindValue | None = None
     tag_id: int | None = Field(default=None, ge=1)
     color_tag: str | None = None
     page: int = Field(default=1, ge=1)
@@ -56,6 +71,10 @@ class FileListItemResponse(BaseModel):
     name: str
     path: str
     file_type: FileTypeValue
+    file_kind: FileKindValue
+    auto_placement: PlacementValue
+    manual_placement: ManualPlacementValue | None
+    effective_placement: PlacementValue
     modified_at: datetime
     size_bytes: int | None
 
@@ -79,6 +98,10 @@ class FileDetailItemResponse(BaseModel):
     name: str
     path: str
     file_type: FileTypeValue
+    file_kind: FileKindValue
+    auto_placement: PlacementValue
+    manual_placement: ManualPlacementValue | None
+    effective_placement: PlacementValue
     size_bytes: int | None
     created_at_fs: datetime | None
     modified_at_fs: datetime | None
@@ -145,6 +168,33 @@ class BatchColorTagUpdateResponse(BaseModel):
     updated_file_ids: list[int]
     updated_count: int
     color_tag: ColorTagValue | None
+
+
+class FilePlacementUpdateRequest(BaseModel):
+    manual_placement: ManualPlacementValue | None
+
+
+class FilePlacementItemResponse(BaseModel):
+    id: int
+    file_kind: FileKindValue
+    auto_placement: PlacementValue
+    manual_placement: ManualPlacementValue | None
+    effective_placement: PlacementValue
+
+
+class FilePlacementResponse(BaseModel):
+    item: FilePlacementItemResponse
+
+
+class BatchPlacementUpdateRequest(BaseModel):
+    file_ids: list[int] = Field(min_length=1)
+    manual_placement: ManualPlacementValue | None
+
+
+class BatchPlacementUpdateResponse(BaseModel):
+    updated_file_ids: list[int]
+    updated_count: int
+    manual_placement: ManualPlacementValue | None
 
 
 class FileColorTagItemResponse(BaseModel):

@@ -4,7 +4,7 @@ export const navigation = {
     onboarding: "引导",
     search: "搜索",
     files: "文件",
-    books: "图书",
+    books: "文档",
     software: "软件",
     media: "媒体",
     games: "游戏",

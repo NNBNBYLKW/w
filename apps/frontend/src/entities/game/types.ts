@@ -1,7 +1,7 @@
-import type { ColorTagValue, FileListSortBy, FileListSortOrder, FileRatingValue, FileStatusValue } from "../file/types";
+import type { ColorTagValue, FileKind, FileListSortBy, FileListSortOrder, FileRatingValue, FileStatusValue, ManualPlacementValue, PlacementValue } from "../file/types";
 
 
-export type GameFormat = "exe" | "lnk";
+export type GameFormat = string;
 
 export type GamesListQueryInput = {
   status?: FileStatusValue;
@@ -17,6 +17,10 @@ export type GameListItemVM = {
   id: number;
   display_title: string;
   game_format: GameFormat;
+  file_kind: FileKind;
+  auto_placement: PlacementValue;
+  manual_placement: ManualPlacementValue | null;
+  effective_placement: PlacementValue;
   path: string;
   modified_at: string;
   size_bytes: number | null;

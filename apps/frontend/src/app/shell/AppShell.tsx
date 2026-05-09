@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 
 import { hasDesktopWindowControlsBridge } from "../../services/desktop/windowControls";
+import { useLocale } from "../../shared/text";
 import { useUIStore } from "../providers/uiStore";
 import { AppSidebar } from "./AppSidebar";
 import { DesktopTitleBar } from "./DesktopTitleBar";
@@ -11,6 +12,7 @@ import { RightPanelContainer } from "./RightPanelContainer";
 
 export function AppShell() {
   const location = useLocation();
+  const { locale } = useLocale();
   const isDetailsPanelOpen = useUIStore((state) => state.isDetailsPanelOpen);
   const isSidebarCollapsed = useUIStore((state) => state.isSidebarCollapsed);
   const isDesktopShell = hasDesktopWindowControlsBridge();
@@ -58,7 +60,7 @@ export function AppShell() {
       element.removeEventListener("scroll", updateFadeState);
       resizeObserver.disconnect();
     };
-  }, [location.pathname, isDetailsPanelOpen]);
+  }, [location.pathname, isDetailsPanelOpen, locale]);
 
   const shell = (
     <div className={`app-shell${isSidebarCollapsed ? " app-shell--sidebar-collapsed" : ""}`}>

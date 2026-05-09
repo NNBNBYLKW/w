@@ -2,10 +2,11 @@ from datetime import datetime
 from itertools import islice
 from typing import Iterable
 
-from sqlalchemy import and_, func, or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session, aliased
 
+from app.core.classification import classify_file
 from app.db.models.file import File
 from app.db.models.file_tag import FileTag
 from app.db.models.file_user_meta import FileUserMeta
@@ -71,6 +72,8 @@ class FileRepository:
                     "stem": record.stem,
                     "extension": record.extension,
                     "file_type": record.file_type,
+                    "file_kind": record.file_kind,
+                    "auto_placement": record.auto_placement,
                     "mime_type": record.mime_type,
                     "size_bytes": record.size_bytes,
                     "created_at_fs": record.created_at_fs,
@@ -93,6 +96,8 @@ class FileRepository:
                     "stem": insert_statement.excluded.stem,
                     "extension": insert_statement.excluded.extension,
                     "file_type": insert_statement.excluded.file_type,
+                    "file_kind": insert_statement.excluded.file_kind,
+                    "auto_placement": insert_statement.excluded.auto_placement,
                     "mime_type": insert_statement.excluded.mime_type,
                     "size_bytes": insert_statement.excluded.size_bytes,
                     "created_at_fs": insert_statement.excluded.created_at_fs,
@@ -126,6 +131,7 @@ class FileRepository:
         session: Session,
         *,
         file_type: str | None = None,
+        file_kind: str | None,
         source_id: int | None,
         parent_path: str | None,
         tag_id: int | None,
@@ -138,6 +144,8 @@ class FileRepository:
         filters = [File.is_deleted.is_(False)]
         if file_type is not None:
             filters.append(File.file_type == file_type)
+        if file_kind is not None:
+            filters.append(File.file_kind == file_kind)
         if source_id is not None:
             filters.append(File.source_id == source_id)
         if parent_path is not None:
@@ -174,6 +182,7 @@ class FileRepository:
         *,
         query: str | None,
         file_type: str | None,
+        file_kind: str | None,
         tag_id: int | None,
         color_tag: str | None,
         page: int,
@@ -192,6 +201,8 @@ class FileRepository:
             )
         if file_type is not None:
             filters.append(File.file_type == file_type)
+        if file_kind is not None:
+            filters.append(File.file_kind == file_kind)
         if tag_id is not None:
             filters.append(
                 select(1)
@@ -230,14 +241,15 @@ class FileRepository:
         page_size: int,
         sort_by: str,
         sort_order: str,
-    ) -> tuple[list[tuple[File, bool, int | None]], int]:
+    ) -> tuple[list[tuple[File, bool, int | None, str | None]], int]:
         color_meta = aliased(FileUserMeta)
+        placement_expr = self._effective_placement_expr()
         filters = [
             File.is_deleted.is_(False),
-            File.file_type.in_(("image", "video")),
+            placement_expr == "media",
         ]
         if view_scope != "all":
-            filters.append(File.file_type == view_scope)
+            filters.append(File.file_kind == view_scope)
         if tag_id is not None:
             filters.append(
                 select(1)
@@ -275,11 +287,11 @@ class FileRepository:
         page_size: int,
         sort_by: str,
         sort_order: str,
-    ) -> tuple[list[tuple[File, bool, int | None]], int]:
+    ) -> tuple[list[tuple[File, bool, int | None, str | None]], int]:
         color_meta = aliased(FileUserMeta)
         filters = [
             File.is_deleted.is_(False),
-            func.lower(File.extension).in_(("epub", "pdf")),
+            self._effective_placement_expr() == "books",
         ]
         if tag_id is not None:
             filters.append(
@@ -318,12 +330,11 @@ class FileRepository:
         page_size: int,
         sort_by: str,
         sort_order: str,
-    ) -> tuple[list[tuple[File, bool, int | None]], int]:
+    ) -> tuple[list[tuple[File, bool, int | None, str | None]], int]:
         color_meta = aliased(FileUserMeta)
-        normalized_extension = func.ltrim(func.lower(func.coalesce(File.extension, "")), ".")
         filters = [
             File.is_deleted.is_(False),
-            normalized_extension.in_(("exe", "msi", "zip")),
+            self._effective_placement_expr() == "software",
         ]
         if tag_id is not None:
             filters.append(
@@ -363,59 +374,13 @@ class FileRepository:
         page_size: int,
         sort_by: str,
         sort_order: str,
-    ) -> tuple[list[tuple[File, str | None, bool, int | None]], int]:
-        normalized_extension = func.ltrim(func.lower(func.coalesce(File.extension, "")), ".")
-        lowered_path = func.lower(func.coalesce(File.path, ""))
-        lowered_name = func.lower(func.coalesce(File.name, ""))
-        lowered_stem = func.lower(func.coalesce(File.stem, ""))
+    ) -> tuple[list[tuple[File, str | None, bool, int | None, str | None]], int]:
         status_meta = aliased(FileUserMeta)
         color_meta = aliased(FileUserMeta)
 
-        game_path_hints = (
-            "\\games\\",
-            "\\game\\",
-            "\\steam\\",
-            "\\steamapps\\",
-            "\\gog\\",
-            "\\epic games\\",
-            "\\itch\\",
-            "\\riot games\\",
-            "\\blizzard\\",
-            "\\battle.net\\",
-            "\\ubisoft\\",
-            "\\rockstar games\\",
-            "\\ea games\\",
-        )
-        excluded_name_hints = (
-            "setup",
-            "install",
-            "installer",
-            "unins",
-            "uninstall",
-            "update",
-            "updater",
-            "patch",
-            "redist",
-        )
-
-        game_path_filter = or_(*[lowered_path.like(f"%{hint}%") for hint in game_path_hints])
-        excluded_name_filter = or_(
-            *[
-                or_(lowered_name.like(f"%{hint}%"), lowered_stem.like(f"%{hint}%"))
-                for hint in excluded_name_hints
-            ]
-        )
-
         filters = [
             File.is_deleted.is_(False),
-            or_(
-                normalized_extension == "lnk",
-                and_(
-                    normalized_extension == "exe",
-                    game_path_filter,
-                    ~excluded_name_filter,
-                ),
-            ),
+            self._effective_placement_expr() == "games",
         ]
         if status is not None:
             filters.append(
@@ -459,6 +424,7 @@ class FileRepository:
                 FileUserMeta.status,
                 func.coalesce(FileUserMeta.is_favorite, False),
                 FileUserMeta.rating,
+                FileUserMeta.manual_placement,
             )
             .outerjoin(FileUserMeta, FileUserMeta.file_id == File.id)
             .where(*filters)
@@ -466,9 +432,14 @@ class FileRepository:
             .offset(offset)
             .limit(page_size)
         )
-        items = [(row[0], row[1], bool(row[2]), row[3]) for row in session.execute(statement).all()]
+        items = [(row[0], row[1], bool(row[2]), row[3], row[4]) for row in session.execute(statement).all()]
 
-        total_statement = select(func.count()).select_from(File).where(*filters)
+        total_statement = (
+            select(func.count())
+            .select_from(File)
+            .outerjoin(FileUserMeta, FileUserMeta.file_id == File.id)
+            .where(*filters)
+        )
         total = int(session.scalar(total_statement) or 0)
         return items, total
 
@@ -637,6 +608,9 @@ class FileRepository:
         total = int(session.scalar(total_statement) or 0)
         return items, total
 
+    def _effective_placement_expr(self):
+        return func.coalesce(FileUserMeta.manual_placement, File.auto_placement)
+
     def _select_files_with_user_meta(
         self,
         session: Session,
@@ -646,7 +620,7 @@ class FileRepository:
         page_size: int,
         sort_by: str,
         sort_order: str,
-    ) -> tuple[list[tuple[File, bool, int | None]], int]:
+    ) -> tuple[list[tuple[File, bool, int | None, str | None]], int]:
         modified_expr = func.coalesce(File.modified_at_fs, File.discovered_at)
         if sort_by == "name":
             primary_order = func.lower(File.name)
@@ -659,16 +633,17 @@ class FileRepository:
         offset = (page - 1) * page_size
 
         statement = (
-            select(File, func.coalesce(FileUserMeta.is_favorite, False), FileUserMeta.rating)
+            select(File, func.coalesce(FileUserMeta.is_favorite, False), FileUserMeta.rating, FileUserMeta.manual_placement)
             .outerjoin(FileUserMeta, FileUserMeta.file_id == File.id)
             .where(*filters)
             .order_by(ordered_primary, File.path.asc(), File.id.asc())
             .offset(offset)
             .limit(page_size)
         )
-        items = [(row[0], bool(row[1]), row[2]) for row in session.execute(statement).all()]
+        items = [(row[0], bool(row[1]), row[2], row[3]) for row in session.execute(statement).all()]
 
         total_statement = select(func.count()).select_from(File).where(*filters)
+        total_statement = total_statement.outerjoin(FileUserMeta, FileUserMeta.file_id == File.id)
         total = int(session.scalar(total_statement) or 0)
         return items, total
 

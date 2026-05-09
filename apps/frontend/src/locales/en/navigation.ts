@@ -4,7 +4,7 @@ export const navigation = {
     onboarding: "Onboarding",
     search: "Search",
     files: "Files",
-    books: "Books",
+    books: "Documents",
     software: "Software",
     media: "Media",
     games: "Games",

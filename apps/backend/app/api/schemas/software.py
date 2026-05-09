@@ -1,12 +1,10 @@
 from datetime import datetime
-from typing import Literal
-
 from pydantic import BaseModel, Field
 
-from app.api.schemas.file import ColorTagValue, FileListSortBy, FileRatingValue, SortOrder
+from app.api.schemas.file import ColorTagValue, FileKindValue, FileListSortBy, FileRatingValue, ManualPlacementValue, PlacementValue, SortOrder
 
 
-SoftwareFormatValue = Literal["exe", "msi", "zip"]
+SoftwareFormatValue = str
 
 
 class SoftwareListQueryParams(BaseModel):
@@ -22,6 +20,10 @@ class SoftwareListItemResponse(BaseModel):
     id: int
     display_title: str
     software_format: SoftwareFormatValue
+    file_kind: FileKindValue
+    auto_placement: PlacementValue
+    manual_placement: ManualPlacementValue | None
+    effective_placement: PlacementValue
     path: str
     modified_at: datetime
     size_bytes: int | None

@@ -3,10 +3,10 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.api.schemas.file import ColorTagValue, FileListSortBy, FileRatingValue, SortOrder
+from app.api.schemas.file import ColorTagValue, FileKindValue, FileListSortBy, FileRatingValue, ManualPlacementValue, PlacementValue, SortOrder
 
 
-MediaViewScope = Literal["all", "image", "video"]
+MediaViewScope = Literal["all", "image", "video", "audio"]
 
 
 class MediaListQueryParams(BaseModel):
@@ -23,7 +23,11 @@ class MediaListItemResponse(BaseModel):
     id: int
     name: str
     path: str
-    file_type: Literal["image", "video"]
+    file_type: str
+    file_kind: FileKindValue
+    auto_placement: PlacementValue
+    manual_placement: ManualPlacementValue | None
+    effective_placement: PlacementValue
     modified_at: datetime
     size_bytes: int | None
     is_favorite: bool

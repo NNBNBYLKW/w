@@ -11,10 +11,12 @@ from app.api.schemas.collection import (
 )
 from app.api.schemas.common import MessageResponse
 from app.api.schemas.file import FileListItemResponse, FileListResponse
+from app.core.classification import effective_placement
 from app.core.errors.exceptions import BadRequestError, NotFoundError
 from app.db.models.collection import Collection
 from app.repositories.collection.repository import CollectionRepository
 from app.repositories.file.repository import FileRepository
+from app.repositories.file_user_meta.repository import FileUserMetaRepository
 from app.repositories.source.repository import SourceRepository
 from app.repositories.tag.repository import TagRepository
 
@@ -30,6 +32,7 @@ class CollectionsService:
     def __init__(self) -> None:
         self.collection_repository = CollectionRepository()
         self.file_repository = FileRepository()
+        self.file_user_meta_repository = FileUserMetaRepository()
         self.source_repository = SourceRepository()
         self.tag_repository = TagRepository()
 
@@ -138,19 +141,29 @@ class CollectionsService:
             sort_by=params.sort_by,
             sort_order=params.sort_order,
             file_type=collection.file_type,
+            file_kind=None,
         )
         items = [
-            FileListItemResponse(
-                id=file.id,
-                name=file.name,
-                path=file.path,
-                file_type=file.file_type,
-                modified_at=file.modified_at_fs or file.discovered_at,
-                size_bytes=file.size_bytes,
-            )
+            self._to_list_item(session, file)
             for file in files
         ]
         return FileListResponse(items=items, page=params.page, page_size=params.page_size, total=total)
+
+    def _to_list_item(self, session: Session, file) -> FileListItemResponse:
+        file_user_meta = self.file_user_meta_repository.get_by_file_id(session, file.id)
+        manual_placement = file_user_meta.manual_placement if file_user_meta is not None else None
+        return FileListItemResponse(
+            id=file.id,
+            name=file.name,
+            path=file.path,
+            file_type=file.file_type,
+            file_kind=file.file_kind,
+            auto_placement=file.auto_placement,
+            manual_placement=manual_placement,
+            effective_placement=effective_placement(file.auto_placement, manual_placement),
+            modified_at=file.modified_at_fs or file.discovered_at,
+            size_bytes=file.size_bytes,
+        )
 
     def _normalize_color_tag(self, raw_color_tag: str | None) -> str | None:
         if raw_color_tag is None:

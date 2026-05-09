@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.api.schemas.file import FileDetailItemResponse, FileDetailResponse
+from app.core.classification import effective_placement
 from app.core.errors.exceptions import NotFoundError
 from app.repositories.file.repository import FileRepository
 from app.repositories.file_metadata.repository import FileMetadataRepository
@@ -29,6 +30,13 @@ class DetailsService:
                 name=file.name,
                 path=file.path,
                 file_type=file.file_type,
+                file_kind=file.file_kind,
+                auto_placement=file.auto_placement,
+                manual_placement=file_user_meta.manual_placement if file_user_meta is not None else None,
+                effective_placement=effective_placement(
+                    file.auto_placement,
+                    file_user_meta.manual_placement if file_user_meta is not None else None,
+                ),
                 size_bytes=file.size_bytes,
                 created_at_fs=file.created_at_fs,
                 modified_at_fs=file.modified_at_fs,

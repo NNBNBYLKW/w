@@ -30,8 +30,28 @@ function formatModifiedAt(value: string): string {
   return new Date(value).toLocaleString();
 }
 
-function countByMediaType(items: Array<{ file_type: "image" | "video" }>, fileType: "image" | "video"): number {
+function countByMediaType(items: Array<{ file_type: string }>, fileType: "image" | "video"): number {
   return items.filter((item) => item.file_type === fileType).length;
+}
+
+function getMediaTypeLabel(fileType: string): string {
+  if (fileType === "image") {
+    return t("features.media.types.image");
+  }
+  if (fileType === "video") {
+    return t("features.media.types.video");
+  }
+  return fileType.toUpperCase();
+}
+
+function getMediaTypeMark(fileType: string): string {
+  if (fileType === "image") {
+    return t("features.media.types.imageShort");
+  }
+  if (fileType === "video") {
+    return t("features.media.types.videoShort");
+  }
+  return fileType.toUpperCase().slice(0, 3);
 }
 
 function getColorTagLabel(value: ColorTagValue | "all"): string {
@@ -90,7 +110,7 @@ function MediaInlinePreview({
   thumbnailRefreshToken,
 }: {
   fileId: number;
-  fileType: "image" | "video";
+  fileType: string;
   name: string;
   onThumbnailLoaded?: () => void;
   thumbnailDisabled?: boolean;
@@ -107,7 +127,7 @@ function MediaInlinePreview({
   if (!thumbnail.shouldRenderImage) {
     return (
       <span className={`compact-library-table__format-mark compact-library-table__format-mark--media-${fileType}`} aria-hidden="true">
-        <span>{fileType === "image" ? t("features.media.types.imageShort") : t("features.media.types.videoShort")}</span>
+        <span>{getMediaTypeMark(fileType)}</span>
       </span>
     );
   }
@@ -160,7 +180,7 @@ function MediaLibraryRow({
   thumbnailRefreshToken,
 }: {
   fileId: number;
-  fileType: "image" | "video";
+  fileType: string;
   isFavorite: boolean;
   isBatchMode: boolean;
   modifiedAt: string;
@@ -280,7 +300,7 @@ export function MediaLibraryFeature() {
     pageLabel: t("shell.topbar.pages.media"),
     resetDeps: [viewScope, selectedTagId, selectedColorTag, sortBy, sortOrder, page],
   });
-  const { applyColorTag, applyTag, isApplyingColorTag, isApplyingTag } = useBatchOrganizeActions({
+  const { applyColorTag, applyPlacement, applyTag, isApplyingColorTag, isApplyingPlacement, isApplyingTag } = useBatchOrganizeActions({
     onSuccess: clearSelection,
   });
   const entry = searchParams.get("entry");
@@ -386,9 +406,9 @@ export function MediaLibraryFeature() {
         id: item.id,
         title: item.name,
         path: item.path,
-        typeLabel: item.file_type === "image" ? t("features.media.types.image") : t("features.media.types.video"),
+        typeLabel: getMediaTypeLabel(item.file_type),
         meta: `${formatModifiedAt(item.modified_at)} · ${formatBytes(item.size_bytes)}`,
-        mark: item.file_type === "image" ? t("features.media.types.imageShort") : t("features.media.types.videoShort"),
+        mark: getMediaTypeMark(item.file_type),
         markTone: item.file_type,
         thumbnailUrl: getFileThumbnailUrl(item.id),
         thumbnailAlt: t("features.media.thumbnailAlt", { name: item.name }),
@@ -614,8 +634,10 @@ export function MediaLibraryFeature() {
         <div className="subset-batch-block">
           <BatchActionBar
             isApplyingColorTag={isApplyingColorTag}
+            isApplyingPlacement={isApplyingPlacement}
             isApplyingTag={isApplyingTag}
             onApplyColorTag={(colorTag) => applyColorTag(selectedIds, colorTag)}
+            onApplyPlacement={(manualPlacement) => applyPlacement(selectedIds, manualPlacement)}
             onApplyTag={(name) => applyTag(selectedIds, name)}
             onClearSelection={clearSelection}
             onExitBatchMode={exitBatchMode}

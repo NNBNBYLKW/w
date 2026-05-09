@@ -2,6 +2,19 @@ import type { TagItemVM } from "../tag/types";
 
 
 export type FileType = "image" | "video" | "document" | "archive" | "other";
+export type FileKind =
+  | "image"
+  | "video"
+  | "audio"
+  | "document"
+  | "ebook"
+  | "archive"
+  | "executable"
+  | "installer"
+  | "shortcut"
+  | "other";
+export type PlacementValue = "media" | "books" | "games" | "software" | "files_only" | "none";
+export type ManualPlacementValue = "media" | "books" | "games" | "software" | "files_only";
 export type ColorTagValue = "red" | "yellow" | "green" | "blue" | "purple";
 export type FileStatusValue = "playing" | "completed" | "shelved";
 export type FileRatingValue = 1 | 2 | 3 | 4 | 5;
@@ -14,6 +27,7 @@ export type FileListSortOrder = "asc" | "desc";
 export type FilesListQueryInput = {
   source_id?: number;
   parent_path?: string;
+  file_kind?: FileKind;
   tag_id?: number;
   color_tag?: ColorTagValue;
   page: number;
@@ -27,6 +41,10 @@ export type FilesListItemVM = {
   name: string;
   path: string;
   file_type: FileType;
+  file_kind: FileKind;
+  auto_placement: PlacementValue;
+  manual_placement: ManualPlacementValue | null;
+  effective_placement: PlacementValue;
   modified_at: string;
   size_bytes: number | null;
 };
@@ -54,6 +72,10 @@ export type SearchResultItemVM = {
   name: string;
   path: string;
   file_type: FileType;
+  file_kind: FileKind;
+  auto_placement: PlacementValue;
+  manual_placement: ManualPlacementValue | null;
+  effective_placement: PlacementValue;
   modified_at: string;
 };
 
@@ -69,6 +91,10 @@ export type FileDetailItemVM = {
   name: string;
   path: string;
   file_type: FileType;
+  file_kind: FileKind;
+  auto_placement: PlacementValue;
+  manual_placement: ManualPlacementValue | null;
+  effective_placement: PlacementValue;
   size_bytes: number | null;
   created_at_fs: string | null;
   modified_at_fs: string | null;
@@ -121,4 +147,20 @@ export type FileUserMetaResponseVM = {
     is_favorite: boolean;
     rating: FileRatingValue | null;
   };
+};
+
+export type FilePlacementResponseVM = {
+  item: {
+    id: number;
+    file_kind: FileKind;
+    auto_placement: PlacementValue;
+    manual_placement: ManualPlacementValue | null;
+    effective_placement: PlacementValue;
+  };
+};
+
+export type BatchPlacementUpdateResponseVM = {
+  updated_file_ids: number[];
+  updated_count: number;
+  manual_placement: ManualPlacementValue | null;
 };

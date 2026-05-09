@@ -118,6 +118,7 @@ export function FileBrowserFeature() {
   const [browseError, setBrowseError] = useState<string | null>(null);
   const [selectedTagId, setSelectedTagId] = useState("all");
   const [selectedColorTag, setSelectedColorTag] = useState<ColorTagValue | "all">("all");
+  const [kindQuickFilter, setKindQuickFilter] = useState<"all" | "archives">("all");
   const [sortBy, setSortBy] = useState<FileListSortBy>("modified_at");
   const [sortOrder, setSortOrder] = useState<FileListSortOrder>("desc");
   const [page, setPage] = useState(1);
@@ -140,6 +141,7 @@ export function FileBrowserFeature() {
   const queryParams = {
     source_id: selectedSource?.id,
     parent_path: currentDirectoryPath ?? undefined,
+    file_kind: kindQuickFilter === "archives" ? "archive" : undefined,
     tag_id: selectedTagId === "all" ? undefined : Number(selectedTagId),
     color_tag: selectedColorTag === "all" ? undefined : selectedColorTag,
     page,
@@ -287,6 +289,20 @@ export function FileBrowserFeature() {
             <option value="discovered_at">{t("common.sortBy.discovered")}</option>
             </select>
           </label>
+        <label className="field-stack files-toolbar__field">
+          <span>{t("features.files.quickFilterLabel")}</span>
+          <select
+            className="select-input"
+            value={kindQuickFilter}
+            onChange={(event) => {
+              setKindQuickFilter(event.target.value as "all" | "archives");
+              setPage(1);
+            }}
+          >
+            <option value="all">{t("features.files.quickFilters.all")}</option>
+            <option value="archives">{t("features.files.quickFilters.archives")}</option>
+          </select>
+        </label>
         <label className="field-stack files-toolbar__field">
           <span>{t("common.labels.tag")}</span>
           <select

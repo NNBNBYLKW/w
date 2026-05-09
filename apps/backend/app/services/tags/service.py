@@ -6,9 +6,11 @@ from sqlalchemy.orm import Session
 from app.api.schemas.file import FileListItemResponse, FileListResponse
 from app.api.schemas.file import BatchTagAttachRequest, BatchTagAttachResponse
 from app.api.schemas.tag import TagCreateRequest, TagFileListQueryParams, TagItemResponse, TagListResponse, TagResponse
+from app.core.classification import effective_placement
 from app.core.errors.exceptions import BadRequestError, NotFoundError
 from app.db.models.tag import Tag
 from app.repositories.file.repository import FileRepository
+from app.repositories.file_user_meta.repository import FileUserMetaRepository
 from app.repositories.file_tag.repository import FileTagRepository
 from app.repositories.tag.repository import TagRepository
 
@@ -23,6 +25,7 @@ def _utcnow() -> datetime:
 class TagsService:
     def __init__(self) -> None:
         self.file_repository = FileRepository()
+        self.file_user_meta_repository = FileUserMetaRepository()
         self.file_tag_repository = FileTagRepository()
         self.tag_repository = TagRepository()
 
@@ -116,14 +119,7 @@ class TagsService:
             sort_order=params.sort_order,
         )
         items = [
-            FileListItemResponse(
-                id=file.id,
-                name=file.name,
-                path=file.path,
-                file_type=file.file_type,
-                modified_at=file.modified_at_fs or file.discovered_at,
-                size_bytes=file.size_bytes,
-            )
+            self._to_list_item(session, file)
             for file in files
         ]
         return FileListResponse(
@@ -131,6 +127,22 @@ class TagsService:
             page=params.page,
             page_size=params.page_size,
             total=total,
+        )
+
+    def _to_list_item(self, session: Session, file) -> FileListItemResponse:
+        file_user_meta = self.file_user_meta_repository.get_by_file_id(session, file.id)
+        manual_placement = file_user_meta.manual_placement if file_user_meta is not None else None
+        return FileListItemResponse(
+            id=file.id,
+            name=file.name,
+            path=file.path,
+            file_type=file.file_type,
+            file_kind=file.file_kind,
+            auto_placement=file.auto_placement,
+            manual_placement=manual_placement,
+            effective_placement=effective_placement(file.auto_placement, manual_placement),
+            modified_at=file.modified_at_fs or file.discovered_at,
+            size_bytes=file.size_bytes,
         )
 
     def remove_tag_from_file(self, session: Session, file_id: int, tag_id: int) -> TagListResponse:

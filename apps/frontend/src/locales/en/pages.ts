@@ -22,9 +22,9 @@ export const pages = {
   },
   books: {
     eyebrow: "Library subset surface",
-    title: "Books",
+    title: "Documents",
     description:
-      "Browse recognized ebook files in a focused subset surface. Selection continues into shared details and the existing open actions.",
+      "Browse recognized document files in a focused subset surface. Selection continues into shared details and the existing open actions.",
   },
   media: {
     eyebrow: "Visual subset surface",

@@ -26,7 +26,7 @@ class Phase3ABooksLibraryTestCase(unittest.TestCase):
         self._reset_database()
         engine.dispose()
 
-    def test_returns_active_epub_and_pdf_files_only(self) -> None:
+    def test_returns_active_document_files(self) -> None:
         self._seed_sources_and_files()
 
         with TestClient(app) as client:
@@ -34,7 +34,7 @@ class Phase3ABooksLibraryTestCase(unittest.TestCase):
 
         self.assertEqual(200, response.status_code)
         payload = response.json()
-        self.assertEqual(6, payload["total"])
+        self.assertEqual(7, payload["total"])
         self.assertEqual(
             [
                 "Zeta Notes",
@@ -42,6 +42,7 @@ class Phase3ABooksLibraryTestCase(unittest.TestCase):
                 "Alpha Guide",
                 "Gamma Notes.pdf",
                 "Deep Space Vol. 1",
+                "Notes",
                 "Space Opera Draft.pdf",
             ],
             [item["display_title"] for item in payload["items"]],
@@ -56,7 +57,7 @@ class Phase3ABooksLibraryTestCase(unittest.TestCase):
         titles = [item["display_title"] for item in response.json()["items"]]
         self.assertNotIn("deleted-book", titles)
         self.assertNotIn("Cover", titles)
-        self.assertNotIn("Notes", titles)
+        self.assertIn("Notes", titles)
 
     def test_maps_display_title_book_format_and_modified_at_fallback(self) -> None:
         self._seed_sources_and_files()
@@ -67,6 +68,7 @@ class Phase3ABooksLibraryTestCase(unittest.TestCase):
         by_title = {item["display_title"]: item for item in response.json()["items"]}
         self.assertEqual("epub", by_title["Alpha Guide"]["book_format"])
         self.assertEqual("pdf", by_title["Beta Manual"]["book_format"])
+        self.assertEqual("docx", by_title["Notes"]["book_format"])
         self.assertEqual("2026-04-18T12:00:00", by_title["Beta Manual"]["modified_at"])
         self.assertEqual("Gamma Notes.pdf", by_title["Gamma Notes.pdf"]["display_title"])
         self.assertEqual("Deep Space Vol. 1", by_title["Deep Space Vol. 1"]["display_title"])
@@ -97,6 +99,7 @@ class Phase3ABooksLibraryTestCase(unittest.TestCase):
                 "Beta Manual",
                 "Deep Space Vol. 1",
                 "Gamma Notes.pdf",
+                "Notes",
                 "Zeta Notes",
             ],
             [item["display_title"] for item in name_response.json()["items"]],
@@ -107,6 +110,7 @@ class Phase3ABooksLibraryTestCase(unittest.TestCase):
                 "Gamma Notes.pdf",
                 "Deep Space Vol. 1",
                 "Space Opera Draft.pdf",
+                "Notes",
                 "Beta Manual",
                 "Zeta Notes",
             ],
@@ -119,11 +123,11 @@ class Phase3ABooksLibraryTestCase(unittest.TestCase):
         with TestClient(app) as client:
             first_response = client.get(
                 "/library/books",
-                params={"sort_by": "modified_at", "sort_order": "desc", "page": 1, "page_size": 6},
+                params={"sort_by": "modified_at", "sort_order": "desc", "page": 1, "page_size": 7},
             )
             repeated_response = client.get(
                 "/library/books",
-                params={"sort_by": "modified_at", "sort_order": "desc", "page": 1, "page_size": 6},
+                params={"sort_by": "modified_at", "sort_order": "desc", "page": 1, "page_size": 7},
             )
             page_one = client.get(
                 "/library/books",
@@ -144,6 +148,7 @@ class Phase3ABooksLibraryTestCase(unittest.TestCase):
                 "Alpha Guide",
                 "Gamma Notes.pdf",
                 "Deep Space Vol. 1",
+                "Notes",
                 "Space Opera Draft.pdf",
             ],
             [item["display_title"] for item in first_items],
@@ -153,7 +158,7 @@ class Phase3ABooksLibraryTestCase(unittest.TestCase):
             [item["display_title"] for item in page_one.json()["items"]],
         )
         self.assertEqual(
-            ["Gamma Notes.pdf", "Deep Space Vol. 1", "Space Opera Draft.pdf"],
+            ["Gamma Notes.pdf", "Deep Space Vol. 1", "Notes"],
             [item["display_title"] for item in page_two.json()["items"]],
         )
 
@@ -179,8 +184,8 @@ class Phase3ABooksLibraryTestCase(unittest.TestCase):
 
         self.assertEqual(200, response.status_code)
         payload = response.json()
-        self.assertEqual(2, payload["total"])
-        self.assertEqual(["Gamma Notes.pdf", "Zeta Notes"], [item["display_title"] for item in payload["items"]])
+        self.assertEqual(3, payload["total"])
+        self.assertEqual(["Gamma Notes.pdf", "Notes", "Zeta Notes"], [item["display_title"] for item in payload["items"]])
 
     def test_supports_combined_tag_and_color_filtering(self) -> None:
         seeded = self._seed_sources_and_files()

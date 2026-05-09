@@ -2,7 +2,14 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
-from app.api.schemas.file import FileUserMetaPatchRequest, FileUserMetaResponse
+from app.api.schemas.file import (
+    BatchPlacementUpdateRequest,
+    BatchPlacementUpdateResponse,
+    FilePlacementResponse,
+    FileUserMetaPatchRequest,
+    FileUserMetaResponse,
+)
+from app.core.classification import MANUAL_PLACEMENT_VALUES, effective_placement
 from app.core.errors.exceptions import BadRequestError, NotFoundError
 from app.repositories.file.repository import FileRepository
 from app.repositories.file_user_meta.repository import FileUserMetaRepository
@@ -59,6 +66,68 @@ class FileUserMetaService:
                 "rating": persisted.rating if persisted is not None else None,
             }
         )
+
+    def update_file_placement(
+        self,
+        session: Session,
+        file_id: int,
+        manual_placement: str | None,
+    ) -> FilePlacementResponse:
+        file = self.file_repository.get_by_id(session, file_id)
+        if file is None:
+            raise NotFoundError("FILE_NOT_FOUND", "File not found.")
+        self._ensure_valid_manual_placement(manual_placement)
+
+        updated_at = _utcnow()
+        self.file_user_meta_repository.upsert_manual_placement(
+            session,
+            file_id,
+            manual_placement,
+            updated_at,
+        )
+        session.commit()
+
+        persisted = self.file_user_meta_repository.get_by_file_id(session, file_id)
+        persisted_manual_placement = persisted.manual_placement if persisted is not None else None
+        return FilePlacementResponse(
+            item={
+                "id": file_id,
+                "file_kind": file.file_kind,
+                "auto_placement": file.auto_placement,
+                "manual_placement": persisted_manual_placement,
+                "effective_placement": effective_placement(file.auto_placement, persisted_manual_placement),
+            }
+        )
+
+    def update_files_placement(
+        self,
+        session: Session,
+        payload: BatchPlacementUpdateRequest,
+    ) -> BatchPlacementUpdateResponse:
+        self._ensure_valid_manual_placement(payload.manual_placement)
+        deduped_file_ids = list(dict.fromkeys(payload.file_ids))
+        files = self.file_repository.list_active_files_by_ids(session, deduped_file_ids)
+        found_ids = {file.id for file in files}
+        if len(found_ids) != len(deduped_file_ids):
+            raise BadRequestError("BATCH_FILE_SELECTION_INVALID", "All selected files must exist and be active.")
+
+        updated_at = _utcnow()
+        self.file_user_meta_repository.upsert_manual_placement_for_files(
+            session,
+            deduped_file_ids,
+            payload.manual_placement,
+            updated_at,
+        )
+        session.commit()
+        return BatchPlacementUpdateResponse(
+            updated_file_ids=deduped_file_ids,
+            updated_count=len(deduped_file_ids),
+            manual_placement=payload.manual_placement,
+        )
+
+    def _ensure_valid_manual_placement(self, value: str | None) -> None:
+        if value is not None and value not in MANUAL_PLACEMENT_VALUES:
+            raise BadRequestError("FILE_PLACEMENT_INVALID", "Library placement is invalid.")
 
     def _is_valid_rating(self, value: object) -> bool:
         if value is None:

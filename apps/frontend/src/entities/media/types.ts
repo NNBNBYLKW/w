@@ -1,7 +1,7 @@
-import type { ColorTagValue, FileListSortBy, FileListSortOrder, FileRatingValue } from "../file/types";
+import type { ColorTagValue, FileKind, FileListSortBy, FileListSortOrder, FileRatingValue, ManualPlacementValue, PlacementValue } from "../file/types";
 
 
-export type MediaViewScope = "all" | "image" | "video";
+export type MediaViewScope = "all" | "image" | "video" | "audio";
 
 export type MediaListQueryInput = {
   view_scope: MediaViewScope;
@@ -17,7 +17,11 @@ export type MediaListItemVM = {
   id: number;
   name: string;
   path: string;
-  file_type: "image" | "video";
+  file_type: string;
+  file_kind: FileKind;
+  auto_placement: PlacementValue;
+  manual_placement: ManualPlacementValue | null;
+  effective_placement: PlacementValue;
   modified_at: string;
   size_bytes: number | null;
   is_favorite: boolean;

@@ -242,6 +242,15 @@ class Phase7BFileUserMetaTestCase(unittest.TestCase):
                         is_favorite=True,
                         updated_at=_dt(11, 2),
                     ),
+                    FileUserMeta(
+                        file_id=software_file.id,
+                        color_tag=None,
+                        status=None,
+                        rating=None,
+                        is_favorite=False,
+                        manual_placement="software",
+                        updated_at=_dt(11, 3),
+                    ),
                 ]
             )
             session.commit()
@@ -251,6 +260,65 @@ class Phase7BFileUserMetaTestCase(unittest.TestCase):
                 "book_id": int(book_file.id),
                 "software_id": int(software_file.id),
             }
+
+    def test_updates_single_file_manual_placement_and_restores_auto(self) -> None:
+        seeded = self._seed_files()
+
+        with TestClient(app) as client:
+            games_response = client.patch(
+                f"/files/{seeded['software_id']}/placement",
+                json={"manual_placement": "games"},
+            )
+            games_library = client.get("/library/games", params={"sort_by": "name", "sort_order": "asc"})
+            files_only_response = client.patch(
+                f"/files/{seeded['software_id']}/placement",
+                json={"manual_placement": "files_only"},
+            )
+            software_library_after_files_only = client.get("/library/software")
+            auto_response = client.patch(
+                f"/files/{seeded['software_id']}/placement",
+                json={"manual_placement": None},
+            )
+            software_library_after_auto = client.get("/library/software")
+
+        self.assertEqual(200, games_response.status_code)
+        self.assertEqual("games", games_response.json()["item"]["manual_placement"])
+        self.assertEqual("games", games_response.json()["item"]["effective_placement"])
+        self.assertIn("Utility Pack", [item["display_title"] for item in games_library.json()["items"]])
+
+        self.assertEqual(200, files_only_response.status_code)
+        self.assertEqual("files_only", files_only_response.json()["item"]["manual_placement"])
+        self.assertEqual("files_only", files_only_response.json()["item"]["effective_placement"])
+        self.assertEqual([], software_library_after_files_only.json()["items"])
+
+        self.assertEqual(200, auto_response.status_code)
+        self.assertIsNone(auto_response.json()["item"]["manual_placement"])
+        self.assertEqual("none", auto_response.json()["item"]["auto_placement"])
+        self.assertEqual("none", auto_response.json()["item"]["effective_placement"])
+        self.assertEqual([], software_library_after_auto.json()["items"])
+
+    def test_batch_updates_manual_placement_for_archives(self) -> None:
+        seeded = self._seed_files()
+
+        with TestClient(app) as client:
+            games_response = client.patch(
+                "/files/batch/placement",
+                json={"file_ids": [seeded["software_id"]], "manual_placement": "games"},
+            )
+            games_library = client.get("/library/games", params={"sort_by": "name", "sort_order": "asc"})
+            auto_response = client.patch(
+                "/files/batch/placement",
+                json={"file_ids": [seeded["software_id"]], "manual_placement": None},
+            )
+            games_after_auto = client.get("/library/games", params={"sort_by": "name", "sort_order": "asc"})
+
+        self.assertEqual(200, games_response.status_code)
+        self.assertEqual(1, games_response.json()["updated_count"])
+        self.assertIn("Utility Pack", [item["display_title"] for item in games_library.json()["items"]])
+
+        self.assertEqual(200, auto_response.status_code)
+        self.assertEqual(1, auto_response.json()["updated_count"])
+        self.assertNotIn("Utility Pack", [item["display_title"] for item in games_after_auto.json()["items"]])
 
     def _reset_database(self) -> None:
         with SessionLocal() as session:

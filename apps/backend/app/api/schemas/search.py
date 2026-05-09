@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.api.schemas.file import FileKindValue, ManualPlacementValue, PlacementValue
+
 
 FileTypeFilter = Literal["image", "video", "document", "archive", "other"]
 SearchSortBy = Literal["modified_at", "name", "discovered_at"]
@@ -40,6 +42,10 @@ class SearchResultItemResponse(BaseModel):
     name: str
     path: str
     file_type: FileTypeFilter
+    file_kind: FileKindValue
+    auto_placement: PlacementValue
+    manual_placement: ManualPlacementValue | None
+    effective_placement: PlacementValue
     modified_at: datetime
 
 

@@ -974,7 +974,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(247, 251, 255, 0.86);
+  background: var(--control-bg-soft);
   color: var(--text-muted);
   text-align: center;
 }
@@ -1432,9 +1432,16 @@ button {
   padding: 12px 14px;
   border: 1px solid var(--border-soft);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--control-bg-soft);
   color: var(--text-strong);
   text-align: left;
+}
+
+.search-result-row:hover,
+.files-list-row:hover,
+.recent-row:hover {
+  border-color: var(--border-strong);
+  background: var(--control-bg-hover);
 }
 
 .files-list-row {
@@ -1445,8 +1452,9 @@ button {
 .search-result-row--selected,
 .files-list-row--selected,
 .recent-row--selected {
-  border-color: #8cbef6;
-  box-shadow: 0 0 0 1px rgba(78, 158, 255, 0.16) inset;
+  border-color: var(--selected-border);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 1px var(--selected-ring) inset;
 }
 
 .search-result-row__meta,
@@ -1464,7 +1472,7 @@ button {
   overflow: hidden;
   border: 1px solid var(--border-soft);
   border-radius: 8px;
-  background: rgba(236, 245, 255, 0.96);
+  background: var(--control-bg);
   color: var(--text-muted);
   font-size: 11px;
   font-weight: 700;
@@ -1479,7 +1487,7 @@ button {
 .files-list-row__thumbnail--video {
   background:
     radial-gradient(circle at top, rgba(114, 182, 255, 0.18), transparent 58%),
-    rgba(236, 245, 255, 0.96);
+    var(--control-bg);
 }
 
 .search-result-row__meta p,
@@ -1544,7 +1552,7 @@ button {
 
 .recent-range-button:hover {
   border-color: transparent;
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--segmented-hover-bg);
   color: var(--text-strong);
 }
 
@@ -2371,6 +2379,11 @@ button {
   object-fit: cover;
   opacity: 0;
   transition: opacity 0.16s ease;
+}
+
+.compact-library-table__thumb-image--contain {
+  object-fit: contain;
+  padding: 5px;
 }
 
 .compact-library-table__thumb-image--ready {
@@ -3691,7 +3704,7 @@ button {
   padding: 6px 8px;
   border: 1px solid var(--border-soft);
   border-radius: 999px;
-  background: rgba(248, 251, 255, 0.96);
+  background: var(--control-bg-soft);
 }
 
 .tag-chip__remove {

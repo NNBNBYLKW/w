@@ -12,6 +12,8 @@ class FileUserMeta(Base):
     file_id: Mapped[int] = mapped_column(ForeignKey("files.id", ondelete="CASCADE"), primary_key=True)
     color_tag: Mapped[str | None] = mapped_column(String, nullable=True)
     status: Mapped[str | None] = mapped_column(String, nullable=True)
+    manual_placement: Mapped[str | None] = mapped_column(String, nullable=True)
     rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
     is_favorite: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    placement_updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)

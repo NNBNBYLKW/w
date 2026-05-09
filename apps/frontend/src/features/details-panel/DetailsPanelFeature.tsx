@@ -3,9 +3,16 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
-import { t } from "../../shared/text";
+import { t, useLocale } from "../../shared/text";
 import { useRetryingThumbnail, useThumbnailWarmup } from "../../shared/ui/thumbnail";
-import type { ColorTagValue, FileDetailResponseVM, FileRatingValue, FileStatusValue } from "../../entities/file/types";
+import type {
+  ColorTagValue,
+  FileDetailResponseVM,
+  FileRatingValue,
+  FileStatusValue,
+  ManualPlacementValue,
+  PlacementValue,
+} from "../../entities/file/types";
 import { updateFileColorTag } from "../../services/api/colorTagsApi";
 import {
   getFileThumbnailUrl,
@@ -22,7 +29,7 @@ import { getFileDetails } from "../../services/api/fileDetailsApi";
 import { queryKeys } from "../../services/query/queryKeys";
 import { updateFileStatus } from "../../services/api/statusApi";
 import { attachTagToFile, removeTagFromFile } from "../../services/api/tagsApi";
-import { updateFileUserMeta } from "../../services/api/userMetaApi";
+import { updateFilePlacement, updateFileUserMeta } from "../../services/api/userMetaApi";
 
 
 function formatTimestamp(value: string | null): string {
@@ -42,6 +49,28 @@ function formatMetadataValue(value: number | null, suffix?: string): string {
   return suffix ? `${value.toLocaleString()} ${suffix}` : value.toLocaleString();
 }
 
+function formatDurationMs(value: number | null | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return "—";
+  }
+
+  const totalSeconds = Math.round(value / 1000);
+  if (totalSeconds <= 0) {
+    return "—";
+  }
+
+  if (totalSeconds < 60) {
+    return `${totalSeconds}秒`;
+  }
+
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  if (totalMinutes < 60) {
+    return `${totalMinutes}分钟${totalSeconds % 60}秒`;
+  }
+
+  return `${Math.floor(totalMinutes / 60)}小时${totalMinutes % 60}分`;
+}
+
 function formatDimensions(width: number | null, height: number | null): string {
   if (width === null && height === null) {
     return t("details.values.unavailable");
@@ -55,29 +84,34 @@ function formatDimensions(width: number | null, height: number | null): string {
 
 const COLOR_TAG_OPTIONS: ColorTagValue[] = ["red", "yellow", "green", "blue", "purple"];
 const GAME_STATUS_OPTIONS: FileStatusValue[] = ["playing", "completed", "shelved"];
+const PLACEMENT_OPTIONS = [
+  { labelKey: "details.placement.options.auto", value: "auto" },
+  { labelKey: "details.placement.options.media", value: "media" },
+  { labelKey: "details.placement.options.books", value: "books" },
+  { labelKey: "details.placement.options.games", value: "games" },
+  { labelKey: "details.placement.options.software", value: "software" },
+  { labelKey: "details.placement.options.filesOnly", value: "files_only" },
+] as const satisfies ReadonlyArray<{ labelKey: Parameters<typeof t>[0]; value: ManualPlacementValue | "auto" }>;
 
 function formatStatusLabel(value: FileStatusValue): string {
   return value === "playing" ? "Playing" : value === "completed" ? "Completed" : "Shelved";
 }
 
-function inferBookFormat(name: string, path: string): "epub" | "pdf" | null {
+const DOCUMENT_DETAIL_EXTENSIONS = ["azw3", "csv", "doc", "docx", "epub", "md", "mobi", "odp", "ods", "odt", "pdf", "ppt", "pptx", "rtf", "txt", "xls", "xlsx"] as const;
+
+function inferBookFormat(name: string, path: string): string | null {
   const candidate = `${name} ${path}`.toLowerCase();
-  if (candidate.includes(".epub")) {
-    return "epub";
-  }
-  if (candidate.includes(".pdf")) {
-    return "pdf";
-  }
-  return null;
+  const matchedExtension = DOCUMENT_DETAIL_EXTENSIONS.find((extension) => candidate.includes(`.${extension}`));
+  return matchedExtension ?? null;
 }
 
 function buildBookDisplayTitle(name: string): string {
-  const withoutExtension = name.replace(/\.(epub|pdf)$/i, "");
+  const withoutExtension = name.replace(/\.(azw3|csv|doc|docx|epub|md|mobi|odp|ods|odt|pdf|ppt|pptx|rtf|txt|xls|xlsx)$/i, "");
   const normalized = withoutExtension.replace(/_/g, " ").replace(/\s+/g, " ").trim();
   return normalized || name;
 }
 
-function formatBookFormatLabel(value: "epub" | "pdf"): string {
+function formatBookFormatLabel(value: string): string {
   return value.toUpperCase();
 }
 
@@ -148,8 +182,31 @@ function formatRatingLabel(value: FileRatingValue | null): string {
   return value === null ? t("details.values.none") : `${value} / 5`;
 }
 
+function formatPlacementLabel(value: PlacementValue | ManualPlacementValue | null): string {
+  if (value === null) {
+    return t("details.placement.options.auto");
+  }
+  if (value === "media") {
+    return t("details.placement.options.media");
+  }
+  if (value === "books") {
+    return t("details.placement.options.books");
+  }
+  if (value === "games") {
+    return t("details.placement.options.games");
+  }
+  if (value === "software") {
+    return t("details.placement.options.software");
+  }
+  if (value === "files_only") {
+    return t("details.placement.options.filesOnly");
+  }
+  return t("details.placement.options.none");
+}
+
 
 export function DetailsPanelFeature() {
+  useLocale();
   const selectedItemId = useUIStore((state) => state.selectedItemId);
   const batchSelectionSummary = useUIStore((state) => state.batchSelectionSummary);
   const queryClient = useQueryClient();
@@ -160,6 +217,7 @@ export function DetailsPanelFeature() {
   const [colorTagMutationError, setColorTagMutationError] = useState<string | null>(null);
   const [statusMutationError, setStatusMutationError] = useState<string | null>(null);
   const [userMetaMutationError, setUserMetaMutationError] = useState<string | null>(null);
+  const [placementMutationError, setPlacementMutationError] = useState<string | null>(null);
   const [openActionError, setOpenActionError] = useState<string | null>(null);
   const [pendingOpenAction, setPendingOpenAction] = useState<"file" | "folder" | null>(null);
   const [previewLoadFailed, setPreviewLoadFailed] = useState(false);
@@ -170,6 +228,7 @@ export function DetailsPanelFeature() {
     | { kind: "tag"; message: string }
     | { kind: "color"; message: string }
     | { kind: "status"; message: string }
+    | { kind: "placement"; message: string }
     | null
   >(null);
   const parsedFileId = selectedItemId !== null ? Number(selectedItemId) : null;
@@ -417,12 +476,45 @@ export function DetailsPanelFeature() {
     },
   });
 
+  const placementMutation = useMutation({
+    mutationFn: (manualPlacement: ManualPlacementValue | null) => updateFilePlacement(parsedFileId as number, manualPlacement),
+    onMutate: () => setPlacementMutationError(null),
+    onSuccess: (response) => {
+      queryClient.setQueryData<FileDetailResponseVM | undefined>(
+        queryKeys.fileDetail(parsedFileId as number),
+        (current) => {
+          if (!current || current.item.id !== response.item.id) {
+            return current;
+          }
+          return {
+            item: {
+              ...current.item,
+              file_kind: response.item.file_kind,
+              auto_placement: response.item.auto_placement,
+              manual_placement: response.item.manual_placement,
+              effective_placement: response.item.effective_placement,
+            },
+          };
+        },
+      );
+      void invalidateRetrievalQueries();
+      setRetrievalHint({
+        kind: "placement",
+        message: t("details.placement.updatedHint"),
+      });
+    },
+    onError: (error) => {
+      setPlacementMutationError(error instanceof Error ? error.message : t("details.errors.updatePlacementFailed"));
+    },
+  });
+
   useEffect(() => {
     setTagInput("");
     setTagMutationError(null);
     setColorTagMutationError(null);
     setStatusMutationError(null);
     setUserMetaMutationError(null);
+    setPlacementMutationError(null);
     setOpenActionError(null);
     setPendingOpenAction(null);
     setPreviewLoadFailed(false);
@@ -507,6 +599,7 @@ export function DetailsPanelFeature() {
     const isColorTagMutationPending = colorTagMutation.isPending;
     const isStatusMutationPending = statusMutation.isPending;
     const isUserMetaMutationPending = userMetaMutation.isPending;
+    const isPlacementMutationPending = placementMutation.isPending;
     const isOpenActionPending = pendingOpenAction !== null;
     const isImageFile = item.file_type === "image";
     const isVideoFile = item.file_type === "video";
@@ -576,6 +669,38 @@ export function DetailsPanelFeature() {
             <dd>{item.is_deleted ? t("details.values.yes") : t("details.values.no")}</dd>
           </div>
         </dl>
+        <section className="details-placement-section">
+          <div className="details-placement-section__header">
+            <h4>{t("details.sections.libraryPlacement")}</h4>
+            {isPlacementMutationPending ? <span className="status-pill">{t("details.actions.updating")}</span> : null}
+          </div>
+          <label className="field-stack">
+            <span>{t("details.fields.libraryPlacement")}</span>
+            <select
+              className="select-input"
+              value={item.manual_placement ?? "auto"}
+              onChange={(event) => {
+                const value = event.target.value;
+                placementMutation.mutate(value === "auto" ? null : (value as ManualPlacementValue));
+              }}
+              disabled={isPlacementMutationPending}
+            >
+              {PLACEMENT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {t(option.labelKey)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="details-placement-section__note">
+            {t("details.placement.summary", {
+              kind: item.file_kind,
+              auto: formatPlacementLabel(item.auto_placement),
+              effective: formatPlacementLabel(item.effective_placement),
+            })}
+          </p>
+          {placementMutationError ? <p className="color-tag-section__error">{placementMutationError}</p> : null}
+        </section>
         {isBookContext && inferredBookFormat ? (
           <section className="details-book-info-section">
             <div className="details-book-info-section__header">
@@ -639,7 +764,7 @@ export function DetailsPanelFeature() {
               {isVideoFile ? (
                 <div className="details-list__row">
                   <dt>{t("details.fields.duration")}</dt>
-                  <dd>{formatMetadataValue(metadata?.duration_ms ?? null, "ms")}</dd>
+                  <dd>{formatDurationMs(metadata?.duration_ms)}</dd>
                 </div>
               ) : null}
             </dl>
@@ -665,7 +790,7 @@ export function DetailsPanelFeature() {
               )}
               <div className="details-list__row">
                 <dt>{t("details.fields.duration")}</dt>
-                <dd>{formatMetadataValue(item.metadata.duration_ms, "ms")}</dd>
+                <dd>{formatDurationMs(item.metadata.duration_ms)}</dd>
               </div>
             </dl>
           )}

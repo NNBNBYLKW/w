@@ -1,12 +1,10 @@
 from datetime import datetime
-from typing import Literal
-
 from pydantic import BaseModel, Field
 
-from app.api.schemas.file import ColorTagValue, FileListSortBy, FileRatingValue, SortOrder
+from app.api.schemas.file import ColorTagValue, FileKindValue, FileListSortBy, FileRatingValue, ManualPlacementValue, PlacementValue, SortOrder
 
 
-BookFormatValue = Literal["epub", "pdf"]
+BookFormatValue = str
 
 
 class BooksListQueryParams(BaseModel):
@@ -22,6 +20,10 @@ class BookListItemResponse(BaseModel):
     id: int
     display_title: str
     book_format: BookFormatValue
+    file_kind: FileKindValue
+    auto_placement: PlacementValue
+    manual_placement: ManualPlacementValue | None
+    effective_placement: PlacementValue
     path: str
     modified_at: datetime
     size_bytes: int | None

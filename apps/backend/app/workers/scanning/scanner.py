@@ -3,13 +3,17 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from app.core.classification import (
+    ARCHIVE_EXTENSIONS,
+    DOCUMENT_EXTENSIONS,
+    EBOOK_EXTENSIONS,
+    IMAGE_EXTENSIONS,
+    VIDEO_EXTENSIONS,
+    classify_file,
+)
+
 
 REPARSE_POINT_ATTRIBUTE = 0x0400
-
-IMAGE_EXTENSIONS = {"bmp", "gif", "jpeg", "jpg", "png", "svg", "tif", "tiff", "webp"}
-VIDEO_EXTENSIONS = {"avi", "m4v", "mkv", "mov", "mp4", "mpeg", "mpg", "webm", "wmv"}
-DOCUMENT_EXTENSIONS = {"csv", "doc", "docx", "md", "pdf", "ppt", "pptx", "rtf", "txt", "xls", "xlsx"}
-ARCHIVE_EXTENSIONS = {"7z", "gz", "rar", "tar", "zip"}
 
 
 @dataclass(slots=True)
@@ -20,6 +24,8 @@ class DiscoveredFileRecord:
     stem: str | None
     extension: str | None
     file_type: str
+    file_kind: str
+    auto_placement: str
     mime_type: str | None
     size_bytes: int | None
     created_at_fs: datetime | None
@@ -67,6 +73,7 @@ class ScannerWorker:
     def _build_record(self, entry_path: str, stat_result: os.stat_result) -> DiscoveredFileRecord:
         file_path = Path(entry_path).resolve(strict=False)
         extension = file_path.suffix.lower().removeprefix(".") or None
+        classification = classify_file(extension, str(file_path))
         return DiscoveredFileRecord(
             path=str(file_path),
             parent_path=str(file_path.parent),
@@ -74,6 +81,8 @@ class ScannerWorker:
             stem=file_path.stem or None,
             extension=extension,
             file_type=self._classify_file_type(extension),
+            file_kind=classification.file_kind,
+            auto_placement=classification.auto_placement,
             mime_type=None,
             size_bytes=stat_result.st_size,
             created_at_fs=self._from_timestamp(stat_result.st_ctime),
@@ -103,7 +112,7 @@ class ScannerWorker:
             return "image"
         if extension in VIDEO_EXTENSIONS:
             return "video"
-        if extension in DOCUMENT_EXTENSIONS:
+        if extension in DOCUMENT_EXTENSIONS or extension in EBOOK_EXTENSIONS:
             return "document"
         if extension in ARCHIVE_EXTENSIONS:
             return "archive"

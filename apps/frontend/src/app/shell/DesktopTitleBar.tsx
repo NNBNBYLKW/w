@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { t } from "../../shared/text";
+import { t, useLocale } from "../../shared/text";
 import { SidebarIcon } from "../../shared/ui/icons";
 import {
   closeDesktopWindow,
@@ -13,6 +13,7 @@ import {
 
 
 export function DesktopTitleBar() {
+  useLocale();
   const [isMaximized, setIsMaximized] = useState(false);
   const isDesktopShell = hasDesktopWindowControlsBridge();
 

@@ -1,12 +1,14 @@
 import { useState } from "react";
 
 import { t } from "../../shared/text";
-import type { ColorTagValue } from "../../entities/file/types";
+import type { ColorTagValue, ManualPlacementValue } from "../../entities/file/types";
 
 type BatchActionBarProps = {
   isApplyingColorTag: boolean;
+  isApplyingPlacement: boolean;
   isApplyingTag: boolean;
   onApplyColorTag: (colorTag: ColorTagValue | null) => void;
+  onApplyPlacement: (manualPlacement: ManualPlacementValue | null) => void;
   onApplyTag: (name: string) => void;
   onClearSelection: () => void;
   onExitBatchMode: () => void;
@@ -15,8 +17,10 @@ type BatchActionBarProps = {
 
 export function BatchActionBar({
   isApplyingColorTag,
+  isApplyingPlacement,
   isApplyingTag,
   onApplyColorTag,
+  onApplyPlacement,
   onApplyTag,
   onClearSelection,
   onExitBatchMode,
@@ -24,13 +28,21 @@ export function BatchActionBar({
 }: BatchActionBarProps) {
   const [tagInput, setTagInput] = useState("");
   const hasSelection = selectedCount > 0;
-  const isBusy = isApplyingTag || isApplyingColorTag;
+  const isBusy = isApplyingTag || isApplyingColorTag || isApplyingPlacement;
   const colorTagOptions: Array<{ label: string; value: ColorTagValue }> = [
     { label: t("common.colors.red"), value: "red" },
     { label: t("common.colors.yellow"), value: "yellow" },
     { label: t("common.colors.green"), value: "green" },
     { label: t("common.colors.blue"), value: "blue" },
     { label: t("common.colors.purple"), value: "purple" },
+  ];
+  const placementOptions: Array<{ label: string; value: ManualPlacementValue | "auto" }> = [
+    { label: t("features.batch.placementOptions.auto"), value: "auto" },
+    { label: t("features.batch.placementOptions.media"), value: "media" },
+    { label: t("features.batch.placementOptions.books"), value: "books" },
+    { label: t("features.batch.placementOptions.games"), value: "games" },
+    { label: t("features.batch.placementOptions.software"), value: "software" },
+    { label: t("features.batch.placementOptions.filesOnly"), value: "files_only" },
   ];
 
   return (
@@ -84,6 +96,29 @@ export function BatchActionBar({
             {t("features.batch.clearColorTag")}
           </button>
         </div>
+        <label className="field-stack">
+          <span>{t("features.batch.placementLabel")}</span>
+          <select
+            className="select-input"
+            defaultValue=""
+            disabled={!hasSelection || isBusy}
+            onChange={(event) => {
+              const value = event.target.value;
+              if (!value) {
+                return;
+              }
+              onApplyPlacement(value === "auto" ? null : (value as ManualPlacementValue));
+              event.currentTarget.value = "";
+            }}
+          >
+            <option value="">{t("features.batch.placementPlaceholder")}</option>
+            {placementOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
       <div className="batch-action-bar__actions">
         <button className="ghost-button" type="button" onClick={onClearSelection} disabled={!hasSelection || isBusy}>

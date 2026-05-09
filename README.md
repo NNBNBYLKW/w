@@ -20,7 +20,7 @@ Workbench 是一个建立在 **Windows 本地文件系统** 之上的 local-firs
 它不是试图替代真实文件系统，而是在真实文件之上补一层**索引、详情、组织和再找回**能力，让本地资产更容易被浏览、轻量整理和重新找到。当前产品的核心形态是：
 
 - `Search` / `Files` 作为通用 indexed-files surface
-- `Media` / `Games` / `Books` / `Software` 作为受控 subset surfaces
+- `Media` / `Documents` / `Games` / `Software` 作为受控 subset surfaces
 - `Recent` / `Tags` / `Collections` 作为组织与再找回 surfaces
 - `DetailsPanelFeature` 作为统一详情中心
 
@@ -32,7 +32,7 @@ Workbench 是一个建立在 **Windows 本地文件系统** 之上的 local-firs
 
 - `Media` 媒体库
 - `Games` 游戏库
-- `Books` 电子书库
+- `Documents` 文档库
 - `Software` 软件库
 - 组织层与库体验补齐
 - 测试版范围冻结
@@ -76,16 +76,20 @@ Workbench 是一个建立在 **Windows 本地文件系统** 之上的 local-firs
   - 图片与视频缩略图使用统一 thumbnail 语义；一体化桌面包随包携带 `ffmpeg`，开发模式仍可回退到系统 `PATH`
   - 视频在 shared details 中支持 6 帧静态循环预览；该预览只在 details 中出现，不扩展到列表动态预览
   - 与 shared details、tags、collections、recent 的回流闭环
-- `Books / documents`
-  - PDF 文件可通过统一 thumbnail endpoint 按需生成第一页 PNG 缩略图，用于 Books / Search / Files / DetailsPanel 的轻量 inspect
+- `Documents`
+  - 用户侧 `Books / 图书` 已调整为 `Documents / 文档`
+  - 内部 route / placement 仍保留 `/library/books` 与 `books` 兼容命名，避免旧数据和调用链断裂
+  - PDF / EPUB / MOBI / AZW3 仍进入 Documents
+  - DOC / DOCX / PPT / PPTX / XLS / XLSX / CSV / TXT / MD / RTF / ODT / ODS / ODP 等常见文档格式也会进入 Documents
+  - PDF 文件可通过统一 thumbnail endpoint 按需生成第一页 PNG 缩略图，用于 Documents / Search / Files / DetailsPanel 的轻量 inspect
   - PDF 缩略图使用 `pypdfium2` / PDFium；这不是阅读器、OCR 或多页预览能力
 - `Games`
+  - `effective_placement=games` 的 smart view
   - 游戏入口文件识别与库式浏览
   - 轻量状态表达
+  - 复用统一 thumbnail pipeline：`.exe` 显示现有 exe icon，image / video / PDF 尽量显示缩略图
+  - archive / rom / iso / shortcut 等无真实缩略图的文件显示稳定 fallback
   - 与 shared details、组织层、open actions 的回流闭环
-- `Books`
-  - 电子书入口与信息表达增强
-  - 与 shared details、tags、collections、recent 的回流闭环
 - `Software`
   - 软件相关文件识别与信息表达
   - 与 shared details、tags、collections、recent 的回流闭环
@@ -104,8 +108,30 @@ Workbench 是一个建立在 **Windows 本地文件系统** 之上的 local-firs
   - 作为全局轻量 user meta 使用
 - `shared details`
   - 当前唯一统一详情中心
+  - 支持单文件设置 library placement：Auto / Documents / Media / Games / Software / Files only
 - `refind` / `open actions`
   - 让用户可以从 details、tags、collections、recent 回到对应 subset surface，或直接打开文件 / 所在目录
+
+### 分类与手动归类
+
+当前分类层已经持久化并通过验收：
+
+- `file_kind` 表示文件物理类型
+- `auto_placement` 表示系统自动推荐库位置
+- `manual_placement` 表示用户手动指定库位置
+- `effective_placement = manual_placement ?? auto_placement`，不单独落库
+- `manual_placement` 永远优先；scan / backfill / auto classification 不覆盖用户手动设置
+
+普通 `.zip` / `.rar` / `.7z` 等 archive 默认 `file_kind=archive`、`auto_placement=none`，不会自动进入 Games 或 Software。用户可以通过 DetailsPanel 或 Batch organize 手动设置为 Games / Software / Documents / Media，也可以设置为 Files only。项目不新增 Archives 独立页面；压缩包通过 Files 页面 Archives quick filter 查找。
+
+### 近期体验收口
+
+近期已完成并通过验收的体验修复包括：
+
+- 视频 DetailsPanel 预览保持 6 帧，但采样点基于 ffprobe duration 均匀分布在视频内部，cache version 已更新为 `v2`
+- ffprobe / ffmpeg subprocess 输出在 Windows 下使用安全 UTF-8 decode，避免 GBK locale 导致 `UnicodeDecodeError`
+- Settings 切换语言后，Sidebar、Shell、当前页面与 DetailsPanel 文案即时刷新
+- Home / Search / Files / Recent 的深色模式颜色残留已修复，列表、卡片、hover 与 selected 状态走 theme tokens
 
 ### 共通交互与体验边界
 
@@ -135,9 +161,12 @@ Workbench 是一个建立在 **Windows 本地文件系统** 之上的 local-firs
 
 - 不做新的平台化扩张，不新增新的垂类库线
 - 不做 AI 自动标签、OCR、语义检索、推荐系统或自动规则
-- 不把 `Games` 做成游戏平台或启动器体系
-- 不把 `Books` 做成阅读器
+- 不把 `Games` 做成游戏平台、启动器体系或联网封面抓取系统
+- 不把 `Documents` 做成阅读器、Office 编辑器或文档管理平台
 - 不把 `Software` 做成安装管理平台
+- 不新增 Archives 独立页面
+- 不引入 AI 主分类；如果未来引入 AI，也只能做 suggestion，不直接写最终分类
+- 不做完整 archive 解压入库；后续如做 archive 内容探测，也应保持轻量
 - 不把 `Collections` 做成 smart rules platform
 - 不做复杂统一对象中台或新一轮大架构重写
 
@@ -172,7 +201,7 @@ Workbench 是一个建立在 **Windows 本地文件系统** 之上的 local-firs
 当前实现的核心思路不是“每条垂类库各自独立长成一个产品”，而是：
 
 - 先有统一的 indexed files 主语义
-- 再在其上暴露 `Media / Games / Books / Software` 这些 subset surfaces
+- 再在其上暴露 `Media / Documents / Games / Software` 这些 subset surfaces
 - 再通过 `shared details`、`tags`、`color tags`、`collections`、`recent family` 完成轻量组织和再找回
 
 浏览器模式可以运行当前大部分浏览、检索和组织流程；Electron 桌面壳则补上与本地桌面环境强相关的动作。

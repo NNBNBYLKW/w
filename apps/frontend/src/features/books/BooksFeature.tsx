@@ -39,15 +39,33 @@ function countByFormat(items: Array<{ book_format: BookFormat }>, format: BookFo
 }
 
 function buildBookEntryLabel(value: BookFormat): string {
-  return value === "epub" ? t("features.books.ebookEntry") : t("features.books.documentEdition");
+  if (value === "epub") {
+    return t("features.books.ebookEntry");
+  }
+  if (value === "pdf") {
+    return t("features.books.documentEdition");
+  }
+  return t("features.books.genericEntry");
 }
 
 function buildBookFormatCopy(value: BookFormat): string {
-  return value === "epub" ? t("features.books.epubCopy") : t("features.books.pdfCopy");
+  if (value === "epub") {
+    return t("features.books.epubCopy");
+  }
+  if (value === "pdf") {
+    return t("features.books.pdfCopy");
+  }
+  return t("features.books.genericCopy", { format: formatBookFormat(value) });
 }
 
 function buildBookFormatHint(value: BookFormat): string {
-  return value === "epub" ? t("features.books.epubHint") : t("features.books.pdfHint");
+  if (value === "epub") {
+    return t("features.books.epubHint");
+  }
+  if (value === "pdf") {
+    return t("features.books.pdfHint");
+  }
+  return t("features.books.genericHint", { format: formatBookFormat(value) });
 }
 
 function formatColorTagLabel(value: ColorTagValue): string {
@@ -120,7 +138,7 @@ function BooksLibraryRow({
     >
       <span className="compact-library-table__name-cell">
         <span className={`compact-library-table__format-mark compact-library-table__format-mark--book-${bookFormat}`} aria-hidden="true">
-          <span>{bookFormat === "epub" ? "EPUB" : "PDF"}</span>
+          <span>{formatBookFormat(bookFormat)}</span>
         </span>
         <span className="compact-library-table__name-copy">
           <strong title={displayTitle}>{displayTitle}</strong>
@@ -207,7 +225,7 @@ export function BooksFeature() {
     pageLabel: t("pages.books.title"),
     resetDeps: [tagFilter, colorTagFilter, sortBy, sortOrder, page],
   });
-  const { applyColorTag, applyTag, isApplyingColorTag, isApplyingTag } = useBatchOrganizeActions({
+  const { applyColorTag, applyPlacement, applyTag, isApplyingColorTag, isApplyingPlacement, isApplyingTag } = useBatchOrganizeActions({
     onSuccess: clearSelection,
   });
 
@@ -275,7 +293,7 @@ export function BooksFeature() {
         path: item.path,
         typeLabel: formatBookFormat(item.book_format),
         meta: `${buildBookEntryLabel(item.book_format)} · ${formatBytes(item.size_bytes)}`,
-        mark: item.book_format.toUpperCase(),
+        mark: formatBookFormat(item.book_format),
         markTone: "document",
         thumbnailUrl: item.book_format === "pdf" ? getFileThumbnailUrl(item.id) : undefined,
         thumbnailAlt: item.book_format === "pdf" ? item.display_title : undefined,
@@ -508,8 +526,10 @@ export function BooksFeature() {
         <div className="subset-batch-block">
           <BatchActionBar
             isApplyingColorTag={isApplyingColorTag}
+            isApplyingPlacement={isApplyingPlacement}
             isApplyingTag={isApplyingTag}
             onApplyColorTag={(colorTag) => applyColorTag(selectedIds, colorTag)}
+            onApplyPlacement={(manualPlacement) => applyPlacement(selectedIds, manualPlacement)}
             onApplyTag={(name) => applyTag(selectedIds, name)}
             onClearSelection={clearSelection}
             onExitBatchMode={exitBatchMode}

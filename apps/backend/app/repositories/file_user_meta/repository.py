@@ -127,6 +127,45 @@ class FileUserMetaRepository:
         session.flush()
         return int(result.rowcount or 0)
 
+    def upsert_manual_placement(
+        self,
+        session: Session,
+        file_id: int,
+        manual_placement: str | None,
+        updated_at: datetime,
+    ) -> None:
+        current = self.get_by_file_id(session, file_id)
+        insert_statement = sqlite_insert(FileUserMeta).values(
+            file_id=file_id,
+            color_tag=current.color_tag if current is not None else None,
+            status=current.status if current is not None else None,
+            manual_placement=manual_placement,
+            rating=current.rating if current is not None else None,
+            is_favorite=current.is_favorite if current is not None else False,
+            placement_updated_at=updated_at,
+            updated_at=updated_at,
+        )
+        upsert_statement = insert_statement.on_conflict_do_update(
+            index_elements=[FileUserMeta.file_id],
+            set_={
+                "manual_placement": insert_statement.excluded.manual_placement,
+                "placement_updated_at": insert_statement.excluded.placement_updated_at,
+                "updated_at": insert_statement.excluded.updated_at,
+            },
+        )
+        session.execute(upsert_statement)
+        session.flush()
+
+    def upsert_manual_placement_for_files(
+        self,
+        session: Session,
+        file_ids: list[int],
+        manual_placement: str | None,
+        updated_at: datetime,
+    ) -> None:
+        for file_id in file_ids:
+            self.upsert_manual_placement(session, file_id, manual_placement, updated_at)
+
     def update_user_meta(
         self,
         session: Session,
