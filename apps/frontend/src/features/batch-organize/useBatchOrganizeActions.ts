@@ -2,9 +2,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t } from "../../shared/text";
-import type { ColorTagValue } from "../../entities/file/types";
+import type { ColorTagValue, ManualPlacementValue } from "../../entities/file/types";
 import { updateFilesColorTagBatch } from "../../services/api/colorTagsApi";
 import { attachTagToFilesBatch } from "../../services/api/tagsApi";
+import { updateFilesPlacementBatch } from "../../services/api/userMetaApi";
 import { queryKeys } from "../../services/query/queryKeys";
 
 
@@ -57,10 +58,27 @@ export function useBatchOrganizeActions({ onSuccess }: UseBatchOrganizeActionsOp
     },
   });
 
+  const placementMutation = useMutation({
+    mutationFn: ({ fileIds, manualPlacement }: { fileIds: number[]; manualPlacement: ManualPlacementValue | null }) =>
+      updateFilesPlacementBatch(fileIds, manualPlacement),
+    onSuccess: async (response) => {
+      await invalidateQueries();
+      pushToast(
+        response.manual_placement
+          ? t("features.toasts.placementApplied", { count: response.updated_count })
+          : t("features.toasts.placementAuto", { count: response.updated_count }),
+      );
+      onSuccess();
+    },
+  });
+
   return {
     applyColorTag: (fileIds: number[], colorTag: ColorTagValue | null) => colorTagMutation.mutate({ colorTag, fileIds }),
+    applyPlacement: (fileIds: number[], manualPlacement: ManualPlacementValue | null) =>
+      placementMutation.mutate({ fileIds, manualPlacement }),
     applyTag: (fileIds: number[], name: string) => addTagMutation.mutate({ fileIds, name }),
     isApplyingColorTag: colorTagMutation.isPending,
+    isApplyingPlacement: placementMutation.isPending,
     isApplyingTag: addTagMutation.isPending,
   };
 }

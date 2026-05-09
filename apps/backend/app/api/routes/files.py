@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from app.api.schemas.file import (
     BatchColorTagUpdateRequest,
     BatchColorTagUpdateResponse,
+    BatchPlacementUpdateRequest,
+    BatchPlacementUpdateResponse,
     BatchTagAttachRequest,
     BatchTagAttachResponse,
     ColorTagUpdateRequest,
@@ -13,6 +15,8 @@ from app.api.schemas.file import (
     FileListQueryParams,
     FileListResponse,
     FileListSortBy,
+    FilePlacementResponse,
+    FilePlacementUpdateRequest,
     FileStatusResponse,
     FileStatusUpdateRequest,
     ThumbnailWarmupRequest,
@@ -59,10 +63,19 @@ def update_color_tag_batch(
     return color_tags_service.update_color_tag_for_files(db, payload.file_ids, payload.color_tag)
 
 
+@router.patch("/files/batch/placement", response_model=BatchPlacementUpdateResponse)
+def update_placement_batch(
+    payload: BatchPlacementUpdateRequest,
+    db: Session = Depends(get_db),
+) -> BatchPlacementUpdateResponse:
+    return file_user_meta_service.update_files_placement(db, payload)
+
+
 @router.get("/files", response_model=FileListResponse)
 def list_files(
     source_id: int | None = Query(default=None, ge=1),
     parent_path: str | None = Query(default=None),
+    file_kind: str | None = Query(default=None),
     tag_id: int | None = Query(default=None, ge=1),
     color_tag: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
@@ -74,6 +87,7 @@ def list_files(
     params = FileListQueryParams(
         source_id=source_id,
         parent_path=parent_path,
+        file_kind=file_kind,
         tag_id=tag_id,
         color_tag=color_tag,
         page=page,
@@ -191,3 +205,12 @@ def update_file_user_meta(
     db: Session = Depends(get_db),
 ) -> FileUserMetaResponse:
     return file_user_meta_service.update_user_meta(db, file_id, payload)
+
+
+@router.patch("/files/{file_id}/placement", response_model=FilePlacementResponse)
+def update_file_placement(
+    payload: FilePlacementUpdateRequest,
+    file_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+) -> FilePlacementResponse:
+    return file_user_meta_service.update_file_placement(db, file_id, payload.manual_placement)

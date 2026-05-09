@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS files (
     stem TEXT NULL,
     extension TEXT NULL,
     file_type TEXT NOT NULL,
+    file_kind TEXT NOT NULL DEFAULT 'other',
+    auto_placement TEXT NOT NULL DEFAULT 'none',
     mime_type TEXT NULL,
     size_bytes INTEGER NULL,
     created_at_fs DATETIME NULL,
@@ -78,8 +80,10 @@ CREATE TABLE IF NOT EXISTS file_user_meta (
     file_id INTEGER PRIMARY KEY,
     color_tag TEXT NULL,
     status TEXT NULL,
+    manual_placement TEXT NULL,
     rating INTEGER NULL,
     is_favorite INTEGER NOT NULL DEFAULT 0,
+    placement_updated_at DATETIME NULL,
     updated_at DATETIME NOT NULL,
     FOREIGN KEY(file_id) REFERENCES files(id) ON DELETE CASCADE
 );

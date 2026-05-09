@@ -45,7 +45,10 @@ function buildSoftwareEntryLabel(value: SoftwareFormat): string {
   if (value === "msi") {
     return t("features.software.entryLabels.msi");
   }
-  return t("features.software.entryLabels.zip");
+  if (value === "zip") {
+    return t("features.software.entryLabels.zip");
+  }
+  return t("features.software.entryLabels.generic");
 }
 
 function buildSoftwareFormatHint(value: SoftwareFormat): string {
@@ -55,7 +58,10 @@ function buildSoftwareFormatHint(value: SoftwareFormat): string {
   if (value === "msi") {
     return t("features.software.hints.msi");
   }
-  return t("features.software.hints.zip");
+  if (value === "zip") {
+    return t("features.software.hints.zip");
+  }
+  return t("features.software.hints.generic");
 }
 
 function buildSoftwareFormatCopy(value: SoftwareFormat): string {
@@ -65,7 +71,10 @@ function buildSoftwareFormatCopy(value: SoftwareFormat): string {
   if (value === "msi") {
     return t("features.software.copies.msi");
   }
-  return t("features.software.copies.zip");
+  if (value === "zip") {
+    return t("features.software.copies.zip");
+  }
+  return t("features.software.copies.generic", { format: formatSoftwareFormat(value) });
 }
 
 function formatColorTagLabel(value: ColorTagValue): string {
@@ -241,7 +250,7 @@ export function SoftwareFeature() {
     pageLabel: t("pages.software.title"),
     resetDeps: [tagFilter, colorTagFilter, sortBy, sortOrder, page],
   });
-  const { applyColorTag, applyTag, isApplyingColorTag, isApplyingTag } = useBatchOrganizeActions({
+  const { applyColorTag, applyPlacement, applyTag, isApplyingColorTag, isApplyingPlacement, isApplyingTag } = useBatchOrganizeActions({
     onSuccess: clearSelection,
   });
 
@@ -564,8 +573,10 @@ export function SoftwareFeature() {
         <div className="subset-batch-block">
           <BatchActionBar
             isApplyingColorTag={isApplyingColorTag}
+            isApplyingPlacement={isApplyingPlacement}
             isApplyingTag={isApplyingTag}
             onApplyColorTag={(colorTag) => applyColorTag(selectedIds, colorTag)}
+            onApplyPlacement={(manualPlacement) => applyPlacement(selectedIds, manualPlacement)}
             onApplyTag={(name) => applyTag(selectedIds, name)}
             onClearSelection={clearSelection}
             onExitBatchMode={exitBatchMode}

@@ -1,4 +1,10 @@
-import type { FileRatingValue, FileUserMetaResponseVM } from "../../entities/file/types";
+import type {
+  BatchPlacementUpdateResponseVM,
+  FilePlacementResponseVM,
+  FileRatingValue,
+  FileUserMetaResponseVM,
+  ManualPlacementValue,
+} from "../../entities/file/types";
 
 
 function getApiBaseUrl() {
@@ -37,4 +43,28 @@ export async function updateFileUserMeta(
     body: JSON.stringify(payload),
   });
   return parseResponse<FileUserMetaResponseVM>(response);
+}
+
+export async function updateFilePlacement(
+  fileId: number,
+  manualPlacement: ManualPlacementValue | null,
+): Promise<FilePlacementResponseVM> {
+  const response = await fetch(`${getApiBaseUrl()}/files/${fileId}/placement`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ manual_placement: manualPlacement }),
+  });
+  return parseResponse<FilePlacementResponseVM>(response);
+}
+
+export async function updateFilesPlacementBatch(
+  fileIds: number[],
+  manualPlacement: ManualPlacementValue | null,
+): Promise<BatchPlacementUpdateResponseVM> {
+  const response = await fetch(`${getApiBaseUrl()}/files/batch/placement`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ file_ids: fileIds, manual_placement: manualPlacement }),
+  });
+  return parseResponse<BatchPlacementUpdateResponseVM>(response);
 }

@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.api.schemas.media import MediaListItemResponse, MediaListQueryParams, MediaListResponse
+from app.core.classification import effective_placement
 from app.repositories.file.repository import FileRepository
 
 
@@ -25,12 +26,16 @@ class MediaLibraryService:
                 name=file.name,
                 path=file.path,
                 file_type=file.file_type,
+                file_kind=file.file_kind,
+                auto_placement=file.auto_placement,
+                manual_placement=manual_placement,
+                effective_placement=effective_placement(file.auto_placement, manual_placement),
                 modified_at=file.modified_at_fs or file.discovered_at,
                 size_bytes=file.size_bytes,
                 is_favorite=is_favorite,
                 rating=rating,
             )
-            for file, is_favorite, rating in rows
+            for file, is_favorite, rating, manual_placement in rows
         ]
         return MediaListResponse(
             items=items,

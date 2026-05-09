@@ -7,6 +7,7 @@ from app.core.config.settings import settings
 
 
 logger = logging.getLogger(__name__)
+SUBPROCESS_STDERR_TAIL_CHARS = 4000
 
 
 class VideoThumbnailGenerationError(RuntimeError):
@@ -97,18 +98,23 @@ class VideoThumbnailGeneratorWorker:
         try:
             completed = subprocess.run(
                 command,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 check=False,
-                text=True,
+                text=False,
                 timeout=self.timeout_seconds,
             )
         except subprocess.TimeoutExpired as error:
-            raise VideoThumbnailGenerationError("ffmpeg timed out while generating thumbnail.") from error
+            stderr = self._tail_text(self._decode_subprocess_bytes(error.stderr), SUBPROCESS_STDERR_TAIL_CHARS)
+            message = "ffmpeg timed out while generating thumbnail."
+            if stderr:
+                message = f"{message} stderr_tail={stderr}"
+            raise VideoThumbnailGenerationError(message) from error
         except OSError as error:
             raise VideoThumbnailGenerationError("ffmpeg could not be executed.") from error
 
         if completed.returncode != 0:
-            stderr = completed.stderr.strip()
+            stderr = self._tail_text(self._decode_subprocess_bytes(completed.stderr).strip(), SUBPROCESS_STDERR_TAIL_CHARS)
             logger.info("ffmpeg thumbnail generation failed for %s: %s", source_path, stderr or completed.returncode)
             raise VideoThumbnailGenerationError(stderr or "ffmpeg failed while generating thumbnail.")
 
@@ -123,6 +129,16 @@ class VideoThumbnailGeneratorWorker:
             logger.info("Configured ffmpeg path does not exist: %s", configured_path)
 
         return shutil.which("ffmpeg")
+
+    def _decode_subprocess_bytes(self, value: bytes | str | None) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value
+        return value.decode("utf-8", errors="replace")
+
+    def _tail_text(self, value: str, limit: int) -> str:
+        return value[-limit:] if len(value) > limit else value
 
     def is_expected_generation_failure(self, error: Exception) -> bool:
         return isinstance(

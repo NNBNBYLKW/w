@@ -3,6 +3,7 @@ import re
 from sqlalchemy.orm import Session
 
 from app.api.schemas.games import GameListItemResponse, GamesListQueryParams, GamesListResponse
+from app.core.classification import effective_placement
 from app.repositories.file.repository import FileRepository
 
 
@@ -40,8 +41,12 @@ class GamesLibraryService:
                 status=status,
                 is_favorite=is_favorite,
                 rating=rating,
+                file_kind=file.file_kind,
+                auto_placement=file.auto_placement,
+                manual_placement=manual_placement,
+                effective_placement=effective_placement(file.auto_placement, manual_placement),
             )
-            for file, status, is_favorite, rating in rows
+            for file, status, is_favorite, rating, manual_placement in rows
         ]
         return GamesListResponse(
             items=items,

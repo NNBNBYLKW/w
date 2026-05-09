@@ -139,6 +139,7 @@
    - `GET /files/{file_id}`
    - `PATCH /files/{file_id}/color-tag`
    - `PATCH /files/{file_id}/user-meta`
+   - `PATCH /files/{file_id}/placement`
    - `PATCH /files/{file_id}/status`
    - `POST /files/{file_id}/tags`
    - `DELETE /files/{file_id}/tags/{tag_id}`
@@ -158,6 +159,7 @@
 4. batch organize
    - `/files/batch/tags`
    - `/files/batch/color-tag`
+   - `/files/batch/placement`
 5. general browse and query
    - `/search`
    - `/files`

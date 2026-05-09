@@ -1,7 +1,9 @@
+import subprocess
 import tempfile
 import unittest
 from datetime import UTC, datetime
 from pathlib import Path
+from subprocess import CompletedProcess, TimeoutExpired
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -17,6 +19,7 @@ from app.db.session.engine import engine
 from app.db.session.session import SessionLocal
 from app.main import app
 from app.repositories.file_metadata.repository import FileMetadataRepository
+from app.workers.metadata.extractor import MetadataExtractorWorker
 
 
 def _dt(hour: int, minute: int = 0) -> datetime:
@@ -53,6 +56,253 @@ class Phase2AMetadataExtractionTestCase(unittest.TestCase):
             latest_task = self._get_latest_task()
             self.assertIsNotNone(latest_task)
             self.assertEqual("succeeded", latest_task.status)
+
+        engine.dispose()
+
+    def test_extracts_video_metadata_from_ffprobe_stream_duration(self) -> None:
+        file_row = self._build_video_file(Path("C:/Video Library/clip.mp4"))
+        worker = MetadataExtractorWorker()
+        completed = CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=(
+                b'{"streams":[{"codec_type":"video","width":1920,"height":1080,"duration":"12.345"}],'
+                b'"format":{"duration":"99.000"}}'
+            ),
+            stderr=b"",
+        )
+
+        with patch.object(MetadataExtractorWorker, "_resolve_ffprobe_path", return_value="ffprobe"):
+            with patch("app.workers.metadata.extractor.subprocess.run", return_value=completed) as run_mock:
+                metadata = worker.extract_for_file(file_row)
+
+        self.assertIsNotNone(metadata)
+        assert metadata is not None
+        self.assertEqual(1920, metadata.width)
+        self.assertEqual(1080, metadata.height)
+        self.assertEqual(12345, metadata.duration_ms)
+        command = run_mock.call_args.args[0]
+        self.assertEqual("ffprobe", command[0])
+        self.assertEqual(str(file_row.path), command[-1])
+        self.assertIs(run_mock.call_args.kwargs["check"], False)
+        self.assertIs(run_mock.call_args.kwargs["text"], False)
+        self.assertEqual(subprocess.PIPE, run_mock.call_args.kwargs["stdout"])
+        self.assertEqual(subprocess.PIPE, run_mock.call_args.kwargs["stderr"])
+        self.assertEqual(10, run_mock.call_args.kwargs["timeout"])
+
+    def test_extracts_video_metadata_uses_format_duration_fallback(self) -> None:
+        file_row = self._build_video_file(Path("C:/Video Library/clip.mp4"))
+        worker = MetadataExtractorWorker()
+        completed = CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=b'{"streams":[{"codec_type":"video","width":1280,"height":720}],"format":{"duration":"42.500"}}',
+            stderr=b"",
+        )
+
+        with patch.object(MetadataExtractorWorker, "_resolve_ffprobe_path", return_value="ffprobe"):
+            with patch("app.workers.metadata.extractor.subprocess.run", return_value=completed):
+                metadata = worker.extract_for_file(file_row)
+
+        self.assertIsNotNone(metadata)
+        assert metadata is not None
+        self.assertEqual((1280, 720, 42500), (metadata.width, metadata.height, metadata.duration_ms))
+
+    def test_extracts_video_metadata_handles_missing_dimensions_and_invalid_duration(self) -> None:
+        file_row = self._build_video_file(Path("C:/Video Library/clip.mp4"))
+        worker = MetadataExtractorWorker()
+        completed = CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=b'{"streams":[{"codec_type":"video","duration":"not-a-number"}],"format":{"duration":"0"}}',
+            stderr=b"",
+        )
+
+        with patch.object(MetadataExtractorWorker, "_resolve_ffprobe_path", return_value="ffprobe"):
+            with patch("app.workers.metadata.extractor.subprocess.run", return_value=completed):
+                metadata = worker.extract_for_file(file_row)
+
+        self.assertIsNotNone(metadata)
+        assert metadata is not None
+        self.assertIsNone(metadata.width)
+        self.assertIsNone(metadata.height)
+        self.assertIsNone(metadata.duration_ms)
+
+    def test_video_metadata_expected_failures_do_not_escape_scan(self) -> None:
+        worker = MetadataExtractorWorker()
+        file_row = self._build_video_file(Path("C:/Video Library/clip.mp4"))
+
+        with patch.object(MetadataExtractorWorker, "_resolve_ffprobe_path", return_value="ffprobe"):
+            with patch(
+                "app.workers.metadata.extractor.subprocess.run",
+                side_effect=TimeoutExpired(cmd=["ffprobe"], timeout=10, stderr=b"\x80\x81"),
+            ):
+                with self.assertRaises(OSError) as captured:
+                    worker.extract_for_file(file_row)
+
+        self.assertTrue(worker.is_expected_extraction_failure(captured.exception))
+        self.assertIn("��", str(captured.exception))
+
+    def test_video_metadata_nonzero_ffprobe_exit_is_expected_failure(self) -> None:
+        worker = MetadataExtractorWorker()
+        file_row = self._build_video_file(Path("C:/Video Library/clip.mp4"))
+        completed = CompletedProcess(args=[], returncode=1, stdout=b"", stderr=b"invalid data \x80\x81")
+
+        with patch.object(MetadataExtractorWorker, "_resolve_ffprobe_path", return_value="ffprobe"):
+            with patch("app.workers.metadata.extractor.subprocess.run", return_value=completed):
+                with self.assertRaises(OSError) as captured:
+                    worker.extract_for_file(file_row)
+
+        self.assertTrue(worker.is_expected_extraction_failure(captured.exception))
+        self.assertIn("invalid data ��", str(captured.exception))
+
+    def test_video_metadata_nonzero_ffprobe_stderr_is_bounded(self) -> None:
+        worker = MetadataExtractorWorker()
+        file_row = self._build_video_file(Path("C:/Video Library/clip.mp4"))
+        completed = CompletedProcess(args=[], returncode=1, stdout=b"", stderr=(b"x" * 4100) + b"\x80\x81")
+
+        with patch.object(MetadataExtractorWorker, "_resolve_ffprobe_path", return_value="ffprobe"):
+            with patch("app.workers.metadata.extractor.subprocess.run", return_value=completed):
+                with self.assertRaises(OSError) as captured:
+                    worker.extract_for_file(file_row)
+
+        self.assertTrue(worker.is_expected_extraction_failure(captured.exception))
+        self.assertLessEqual(len(str(captured.exception)), 4000)
+        self.assertIn("��", str(captured.exception))
+
+    def test_video_metadata_invalid_json_is_expected_failure(self) -> None:
+        worker = MetadataExtractorWorker()
+        file_row = self._build_video_file(Path("C:/Video Library/clip.mp4"))
+        completed = CompletedProcess(args=[], returncode=0, stdout=b"not-json\x80", stderr=b"")
+
+        with patch.object(MetadataExtractorWorker, "_resolve_ffprobe_path", return_value="ffprobe"):
+            with patch("app.workers.metadata.extractor.subprocess.run", return_value=completed):
+                with self.assertRaises(ValueError) as captured:
+                    worker.extract_for_file(file_row)
+
+        self.assertTrue(worker.is_expected_extraction_failure(captured.exception))
+
+    def test_video_metadata_large_stdout_json_is_not_truncated_before_parse(self) -> None:
+        file_row = self._build_video_file(Path("C:/Video Library/clip.mp4"))
+        worker = MetadataExtractorWorker()
+        padding = ",".join(f'"tag_{index}":"value"' for index in range(700))
+        completed = CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=(
+                b'{"streams":[{"codec_type":"video","width":640,"height":360,"duration":"5"}],'
+                + f'"format":{{"duration":"5","tags":{{{padding}}}}}}}'.encode("utf-8")
+            ),
+            stderr=b"",
+        )
+
+        with patch.object(MetadataExtractorWorker, "_resolve_ffprobe_path", return_value="ffprobe"):
+            with patch("app.workers.metadata.extractor.subprocess.run", return_value=completed):
+                metadata = worker.extract_for_file(file_row)
+
+        self.assertIsNotNone(metadata)
+        assert metadata is not None
+        self.assertEqual((640, 360, 5000), (metadata.width, metadata.height, metadata.duration_ms))
+
+    def test_video_metadata_missing_ffprobe_is_expected_failure(self) -> None:
+        worker = MetadataExtractorWorker()
+        file_row = self._build_video_file(Path("C:/Video Library/clip.mp4"))
+
+        with patch.object(MetadataExtractorWorker, "_resolve_ffprobe_path", return_value=None):
+            with self.assertRaises(FileNotFoundError) as captured:
+                worker.extract_for_file(file_row)
+
+        self.assertTrue(worker.is_expected_extraction_failure(captured.exception))
+
+    def test_extracts_video_metadata_passes_windows_path_as_single_subprocess_arg(self) -> None:
+        file_path = Path("C:/视频 Clips/long sample.mp4")
+        file_row = self._build_video_file(file_path)
+        worker = MetadataExtractorWorker()
+        completed = CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=b'{"streams":[{"codec_type":"video","width":640,"height":360,"duration":"5"}],"format":{}}',
+            stderr=b"",
+        )
+
+        with patch.object(MetadataExtractorWorker, "_resolve_ffprobe_path", return_value="ffprobe"):
+            with patch("app.workers.metadata.extractor.subprocess.run", return_value=completed) as run_mock:
+                worker.extract_for_file(file_row)
+
+        command = run_mock.call_args.args[0]
+        self.assertEqual(str(file_path), command[-1])
+        self.assertNotIn("shell", run_mock.call_args.kwargs)
+
+    def test_resolves_ffprobe_from_configured_ffmpeg_sibling(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            ffmpeg_path = root / "ffmpeg.exe"
+            ffprobe_path = root / "ffprobe.exe"
+            ffmpeg_path.write_text("fake", encoding="utf-8")
+            ffprobe_path.write_text("fake", encoding="utf-8")
+
+            with patch("app.workers.metadata.extractor.settings.ffmpeg_path", ffmpeg_path):
+                with patch(
+                    "app.workers.metadata.extractor.shutil.which",
+                    side_effect=AssertionError("PATH lookup should not run when ffprobe sibling exists"),
+                ):
+                    resolved_path = MetadataExtractorWorker()._resolve_ffprobe_path()
+
+        self.assertEqual(str(ffprobe_path), resolved_path)
+
+    def test_extracts_video_metadata_and_persists_during_scan(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "clip.mp4").write_bytes(b"fake-video")
+            completed = CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout=b'{"streams":[{"codec_type":"video","width":1920,"height":1080,"duration":"123.456"}],"format":{}}',
+                stderr=b"",
+            )
+
+            with patch.object(MetadataExtractorWorker, "_resolve_ffprobe_path", return_value="ffprobe"):
+                with patch("app.workers.metadata.extractor.subprocess.run", return_value=completed):
+                    source_id = self._create_source(root)
+                    response = self._run_scan(source_id)
+
+            self.assertEqual(202, response.status_code)
+            self.assertEqual("succeeded", response.json()["status"])
+            file_row = self._get_file_by_name("clip.mp4")
+            self.assertIsNotNone(file_row)
+            metadata_row = self._get_metadata(file_row.id)
+            self.assertIsNotNone(metadata_row)
+            assert metadata_row is not None
+            self.assertEqual((1920, 1080, 123456), (metadata_row.width, metadata_row.height, metadata_row.duration_ms))
+
+        engine.dispose()
+
+    def test_extracts_duration_only_video_metadata_and_persists_during_scan(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "duration-only.mp4").write_bytes(b"fake-video")
+            completed = CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout=b'{"streams":[{"codec_type":"video","duration":"33.250"}],"format":{}}',
+                stderr=b"",
+            )
+
+            with patch.object(MetadataExtractorWorker, "_resolve_ffprobe_path", return_value="ffprobe"):
+                with patch("app.workers.metadata.extractor.subprocess.run", return_value=completed):
+                    source_id = self._create_source(root)
+                    response = self._run_scan(source_id)
+
+            self.assertEqual(202, response.status_code)
+            self.assertEqual("succeeded", response.json()["status"])
+            file_row = self._get_file_by_name("duration-only.mp4")
+            self.assertIsNotNone(file_row)
+            metadata_row = self._get_metadata(file_row.id)
+            self.assertIsNotNone(metadata_row)
+            assert metadata_row is not None
+            self.assertIsNone(metadata_row.width)
+            self.assertIsNone(metadata_row.height)
+            self.assertEqual(33250, metadata_row.duration_ms)
 
         engine.dispose()
 
@@ -179,6 +429,26 @@ class Phase2AMetadataExtractionTestCase(unittest.TestCase):
     def _create_image(self, path: Path, size: tuple[int, int]) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         Image.new("RGB", size, color=(12, 34, 56)).save(path)
+
+    def _build_video_file(self, path: Path) -> File:
+        return File(
+            source_id=1,
+            path=str(path),
+            parent_path=str(path.parent),
+            name=path.name,
+            stem=path.stem,
+            extension=path.suffix.lstrip("."),
+            file_type="video",
+            mime_type=None,
+            size_bytes=1024,
+            created_at_fs=None,
+            modified_at_fs=_dt(9),
+            discovered_at=_dt(9),
+            last_seen_at=_dt(9),
+            is_deleted=False,
+            checksum_hint=None,
+            updated_at=_dt(9),
+        )
 
     def _create_source(self, root: Path) -> int:
         with TestClient(app) as client:

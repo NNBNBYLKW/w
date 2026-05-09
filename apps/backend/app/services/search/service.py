@@ -1,8 +1,10 @@
 from sqlalchemy.orm import Session
 
+from app.core.classification import effective_placement
 from app.core.errors.exceptions import BadRequestError, NotFoundError
 from app.api.schemas.search import SearchQueryParams, SearchResponse, SearchResultItemResponse
 from app.repositories.file.repository import FileRepository
+from app.repositories.file_user_meta.repository import FileUserMetaRepository
 from app.repositories.tag.repository import TagRepository
 
 
@@ -12,6 +14,7 @@ ALLOWED_COLOR_TAGS = {"red", "yellow", "green", "blue", "purple"}
 class SearchService:
     def __init__(self) -> None:
         self.file_repository = FileRepository()
+        self.file_user_meta_repository = FileUserMetaRepository()
         self.tag_repository = TagRepository()
 
     def search_files(self, session: Session, params: SearchQueryParams) -> SearchResponse:
@@ -23,6 +26,7 @@ class SearchService:
             session,
             query=params.query,
             file_type=params.file_type,
+            file_kind=None,
             tag_id=params.tag_id,
             color_tag=normalized_color_tag,
             page=params.page,
@@ -31,13 +35,7 @@ class SearchService:
             sort_order=params.sort_order,
         )
         items = [
-            SearchResultItemResponse(
-                id=file.id,
-                name=file.name,
-                path=file.path,
-                file_type=file.file_type,
-                modified_at=file.modified_at_fs or file.discovered_at,
-            )
+            self._to_search_item(session, file)
             for file in files
         ]
         return SearchResponse(
@@ -45,6 +43,21 @@ class SearchService:
             page=params.page,
             page_size=params.page_size,
             total=total,
+        )
+
+    def _to_search_item(self, session: Session, file) -> SearchResultItemResponse:
+        file_user_meta = self.file_user_meta_repository.get_by_file_id(session, file.id)
+        manual_placement = file_user_meta.manual_placement if file_user_meta is not None else None
+        return SearchResultItemResponse(
+            id=file.id,
+            name=file.name,
+            path=file.path,
+            file_type=file.file_type,
+            file_kind=file.file_kind,
+            auto_placement=file.auto_placement,
+            manual_placement=manual_placement,
+            effective_placement=effective_placement(file.auto_placement, manual_placement),
+            modified_at=file.modified_at_fs or file.discovered_at,
         )
 
     def _normalize_color_tag(self, raw_color_tag: str | None) -> str | None:

@@ -32,6 +32,9 @@ export async function listIndexedFiles(input: FilesListQueryInput): Promise<File
   if (input.parent_path !== undefined) {
     params.set("parent_path", input.parent_path);
   }
+  if (input.file_kind !== undefined) {
+    params.set("file_kind", input.file_kind);
+  }
   if (input.tag_id !== undefined) {
     params.set("tag_id", String(input.tag_id));
   }

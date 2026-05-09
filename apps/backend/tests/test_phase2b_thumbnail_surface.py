@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 import contextlib
+from datetime import datetime
 import io
 import os
 import subprocess
@@ -16,10 +17,11 @@ from sqlalchemy import select, text
 
 from app.core.config.settings import Settings, settings
 from app.db.models.file import File
+from app.db.models.file_metadata import FileMetadata
 from app.db.session.engine import engine
 from app.db.session.session import SessionLocal
 from app.main import app
-from app.services.thumbnails.service import PdfRenderSubprocessError, ThumbnailService
+from app.services.thumbnails.service import PdfRenderSubprocessError, ThumbnailService, VIDEO_PREVIEW_FRAME_COUNT, VIDEO_PREVIEW_VERSION
 from app.workers.thumbnails.exe_icon_generator import ExeIconGenerationError, ExeIconGeneratorWorker
 from app.workers.thumbnails.generator import ThumbnailGeneratorWorker
 from app.workers.thumbnails.pdf_generator import PdfThumbnailGenerationError, PdfThumbnailGeneratorWorker
@@ -65,6 +67,173 @@ class Phase2BThumbnailSurfaceTestCase(unittest.TestCase):
                     resolved_path = worker._resolve_ffmpeg_path()
 
         self.assertEqual(str(ffmpeg_path), resolved_path)
+
+    def test_video_generator_captures_ffmpeg_output_as_bytes(self) -> None:
+        with tempfile.TemporaryDirectory() as data_dir:
+            root = Path(data_dir)
+            source_path = root / "clip.mp4"
+            output_path = root / "thumb.jpg"
+            source_path.write_bytes(b"fake-video")
+            worker = VideoThumbnailGeneratorWorker()
+
+            def complete_ffmpeg(command, **kwargs):
+                output_path.write_bytes(b"jpg")
+                return subprocess.CompletedProcess(args=command, returncode=0, stdout=b"", stderr=b"")
+
+            with patch.object(VideoThumbnailGeneratorWorker, "_resolve_ffmpeg_path", return_value="ffmpeg"):
+                with patch("app.workers.thumbnails.video_generator.subprocess.run", side_effect=complete_ffmpeg) as run_mock:
+                    worker._run_ffmpeg_frame_extract(source_path, output_path, seek_seconds=1, width=320)
+
+        self.assertEqual(subprocess.PIPE, run_mock.call_args.kwargs["stdout"])
+        self.assertEqual(subprocess.PIPE, run_mock.call_args.kwargs["stderr"])
+        self.assertIs(run_mock.call_args.kwargs["text"], False)
+        self.assertNotIn("shell", run_mock.call_args.kwargs)
+
+    def test_video_generator_decodes_invalid_stderr_bytes_on_failed_ffmpeg(self) -> None:
+        with tempfile.TemporaryDirectory() as data_dir:
+            root = Path(data_dir)
+            source_path = root / "clip.mp4"
+            output_path = root / "thumb.jpg"
+            source_path.write_bytes(b"fake-video")
+            completed = subprocess.CompletedProcess(args=[], returncode=1, stdout=b"", stderr=b"bad bytes \x80\x81")
+            worker = VideoThumbnailGeneratorWorker()
+
+            with patch.object(VideoThumbnailGeneratorWorker, "_resolve_ffmpeg_path", return_value="ffmpeg"):
+                with patch("app.workers.thumbnails.video_generator.subprocess.run", return_value=completed):
+                    with self.assertRaises(VideoThumbnailGenerationError) as captured:
+                        worker._run_ffmpeg_frame_extract(source_path, output_path, seek_seconds=1, width=320)
+
+        self.assertIn("bad bytes ��", str(captured.exception))
+
+    def test_video_generator_bounds_failed_ffmpeg_stderr(self) -> None:
+        with tempfile.TemporaryDirectory() as data_dir:
+            root = Path(data_dir)
+            source_path = root / "clip.mp4"
+            output_path = root / "thumb.jpg"
+            source_path.write_bytes(b"fake-video")
+            completed = subprocess.CompletedProcess(args=[], returncode=1, stdout=b"", stderr=(b"x" * 4100) + b"\x80\x81")
+            worker = VideoThumbnailGeneratorWorker()
+
+            with patch.object(VideoThumbnailGeneratorWorker, "_resolve_ffmpeg_path", return_value="ffmpeg"):
+                with patch("app.workers.thumbnails.video_generator.subprocess.run", return_value=completed):
+                    with self.assertRaises(VideoThumbnailGenerationError) as captured:
+                        worker._run_ffmpeg_frame_extract(source_path, output_path, seek_seconds=1, width=320)
+
+        self.assertLessEqual(len(str(captured.exception)), 4000)
+        self.assertIn("��", str(captured.exception))
+
+    def test_video_generator_decodes_invalid_stderr_bytes_on_timeout(self) -> None:
+        with tempfile.TemporaryDirectory() as data_dir:
+            root = Path(data_dir)
+            source_path = root / "clip.mp4"
+            output_path = root / "thumb.jpg"
+            source_path.write_bytes(b"fake-video")
+            timeout = subprocess.TimeoutExpired(cmd=["ffmpeg"], timeout=15, stderr=b"timeout bytes \x80\x81")
+            worker = VideoThumbnailGeneratorWorker()
+
+            with patch.object(VideoThumbnailGeneratorWorker, "_resolve_ffmpeg_path", return_value="ffmpeg"):
+                with patch("app.workers.thumbnails.video_generator.subprocess.run", side_effect=timeout):
+                    with self.assertRaises(VideoThumbnailGenerationError) as captured:
+                        worker._run_ffmpeg_frame_extract(source_path, output_path, seek_seconds=1, width=320)
+
+        self.assertIn("timeout bytes ��", str(captured.exception))
+
+    def test_video_generator_missing_ffmpeg_raises_generation_error(self) -> None:
+        with tempfile.TemporaryDirectory() as data_dir:
+            root = Path(data_dir)
+            source_path = root / "clip.mp4"
+            output_path = root / "thumb.jpg"
+            source_path.write_bytes(b"fake-video")
+            worker = VideoThumbnailGeneratorWorker()
+
+            with patch.object(VideoThumbnailGeneratorWorker, "_resolve_ffmpeg_path", return_value=None):
+                with self.assertRaises(VideoThumbnailGenerationError):
+                    worker._run_ffmpeg_frame_extract(source_path, output_path, seek_seconds=1, width=320)
+
+    def test_video_generator_failed_ffmpeg_is_not_success_even_if_output_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as data_dir:
+            root = Path(data_dir)
+            source_path = root / "clip.mp4"
+            output_path = root / "thumb.jpg"
+            source_path.write_bytes(b"fake-video")
+            output_path.write_bytes(b"existing-output")
+            completed = subprocess.CompletedProcess(args=[], returncode=1, stdout=b"", stderr=b"failed")
+            worker = VideoThumbnailGeneratorWorker()
+
+            with patch.object(VideoThumbnailGeneratorWorker, "_resolve_ffmpeg_path", return_value="ffmpeg"):
+                with patch("app.workers.thumbnails.video_generator.subprocess.run", return_value=completed):
+                    with self.assertRaises(VideoThumbnailGenerationError):
+                        worker._run_ffmpeg_frame_extract(source_path, output_path, seek_seconds=1, width=320)
+
+    def test_video_generator_success_requires_non_empty_output(self) -> None:
+        with tempfile.TemporaryDirectory() as data_dir:
+            root = Path(data_dir)
+            source_path = root / "clip.mp4"
+            output_path = root / "thumb.jpg"
+            source_path.write_bytes(b"fake-video")
+            completed = subprocess.CompletedProcess(args=[], returncode=0, stdout=b"", stderr=b"")
+            worker = VideoThumbnailGeneratorWorker()
+
+            with patch.object(VideoThumbnailGeneratorWorker, "_resolve_ffmpeg_path", return_value="ffmpeg"):
+                with patch("app.workers.thumbnails.video_generator.subprocess.run", return_value=completed):
+                    with self.assertRaises(VideoThumbnailGenerationError):
+                        worker._run_ffmpeg_frame_extract(source_path, output_path, seek_seconds=1, width=320)
+
+    def test_video_preview_seek_seconds_use_existing_fallback_for_invalid_duration(self) -> None:
+        service = ThumbnailService()
+        expected = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
+
+        self.assertEqual(expected, service._build_video_preview_seek_seconds(None))
+        self.assertEqual(expected, service._build_video_preview_seek_seconds(0))
+        self.assertEqual(expected, service._build_video_preview_seek_seconds(-1000))
+
+    def test_video_preview_seek_seconds_are_interior_for_short_duration(self) -> None:
+        service = ThumbnailService()
+        seeks = service._build_video_preview_seek_seconds(10_000)
+
+        self.assertEqual(VIDEO_PREVIEW_FRAME_COUNT, len(seeks))
+        self.assertEqual(sorted(seeks), seeks)
+        self.assertTrue(all(0 < seek < 10 for seek in seeks))
+        self.assertAlmostEqual(0.5 + 9 * (1 / 7), seeks[0])
+        self.assertAlmostEqual(0.5 + 9 * (6 / 7), seeks[-1])
+
+    def test_video_preview_seek_seconds_are_spread_for_medium_duration(self) -> None:
+        service = ThumbnailService()
+        seeks = service._build_video_preview_seek_seconds(60_000)
+
+        self.assertEqual(VIDEO_PREVIEW_FRAME_COUNT, len(seeks))
+        self.assertEqual(sorted(seeks), seeks)
+        self.assertTrue(all(0 < seek < 60 for seek in seeks))
+        self.assertLess(seeks[0], 10)
+        self.assertGreater(seeks[-1], 50)
+
+    def test_video_preview_seek_seconds_are_spread_for_long_duration(self) -> None:
+        service = ThumbnailService()
+        seeks = service._build_video_preview_seek_seconds(600_000)
+
+        self.assertEqual(VIDEO_PREVIEW_FRAME_COUNT, len(seeks))
+        self.assertEqual(sorted(seeks), seeks)
+        self.assertTrue(all(0 < seek < 600 for seek in seeks))
+        self.assertGreater(seeks[-1], 500)
+
+    def test_video_preview_cache_key_includes_version(self) -> None:
+        service = ThumbnailService()
+        file_row = File(
+            id=42,
+            name="clip.mp4",
+            path="C:\\media\\clip.mp4",
+            extension="mp4",
+            file_type="video",
+            size_bytes=1234,
+        )
+        file_row.discovered_at = datetime(2024, 1, 1)
+
+        current_path = service._build_video_preview_dir(file_row)
+        with patch("app.services.thumbnails.service.VIDEO_PREVIEW_VERSION", "v1"):
+            legacy_path = service._build_video_preview_dir(file_row)
+
+        self.assertEqual("v2", VIDEO_PREVIEW_VERSION)
+        self.assertNotEqual(legacy_path, current_path)
 
     def test_exe_icon_generator_gracefully_skips_non_windows_runtime(self) -> None:
         with tempfile.TemporaryDirectory() as data_dir:
@@ -1016,6 +1185,116 @@ class Phase2BThumbnailSurfaceTestCase(unittest.TestCase):
             response.json(),
         )
 
+    def test_video_warmup_expected_generation_failure_uses_warning_and_cleans_temp(self) -> None:
+        with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as data_dir:
+            root = Path(source_dir)
+            (root / "broken.mp4").write_bytes(b"not-a-real-video")
+            source_id = self._create_source(root)
+            self._run_scan(source_id)
+            file_row = self._get_file_by_name("broken.mp4")
+            self.assertIsNotNone(file_row)
+
+            service = ThumbnailService()
+            with self._patched_data_dir(Path(data_dir)):
+                with patch.object(
+                    VideoThumbnailGeneratorWorker,
+                    "generate_thumbnail",
+                    side_effect=VideoThumbnailGenerationError("moov atom not found; Invalid data found when processing input"),
+                ):
+                    with patch("app.services.thumbnails.service.logger.warning") as warning_mock:
+                        with patch("app.services.thumbnails.service.logger.exception") as exception_mock:
+                            self.assertEqual("queued", service._warmup_file(file_row))
+                            self._wait_for_condition(lambda: bool(service._warmup_failures_by_cache_key))
+
+            video_dir = Path(data_dir) / "thumbnails" / "video"
+            self.assertEqual([], list(video_dir.glob("video_*.jpg")))
+            self.assertEqual([], list(video_dir.glob(".*.tmp-*")))
+            warning_mock.assert_called()
+            exception_mock.assert_not_called()
+            warning_args = " ".join(str(argument) for argument in warning_mock.call_args.args)
+            self.assertIn("VideoThumbnailGenerationError", warning_args)
+            self.assertIn("moov atom not found", warning_args)
+
+    def test_video_warmup_warning_preserves_missing_ffmpeg_diagnostic(self) -> None:
+        with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as data_dir:
+            root = Path(source_dir)
+            (root / "missing-ffmpeg.mp4").write_bytes(b"fake-video")
+            source_id = self._create_source(root)
+            self._run_scan(source_id)
+            file_row = self._get_file_by_name("missing-ffmpeg.mp4")
+            self.assertIsNotNone(file_row)
+
+            service = ThumbnailService()
+            with self._patched_data_dir(Path(data_dir)):
+                with patch.object(
+                    VideoThumbnailGeneratorWorker,
+                    "generate_thumbnail",
+                    side_effect=VideoThumbnailGenerationError("ffmpeg was not found on PATH."),
+                ):
+                    with patch("app.services.thumbnails.service.logger.warning") as warning_mock:
+                        self.assertEqual("queued", service._warmup_file(file_row))
+                        self._wait_for_condition(lambda: bool(service._warmup_failures_by_cache_key))
+
+            warning_args = " ".join(str(argument) for argument in warning_mock.call_args.args)
+            self.assertIn("ffmpeg was not found on PATH", warning_args)
+            with service._warmup_guard:
+                failure = next(iter(service._warmup_failures_by_cache_key.values()))
+            self.assertIn("ffmpeg was not found on PATH", failure.reason)
+
+    def test_video_warmup_unexpected_failure_still_uses_exception_logging(self) -> None:
+        with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as data_dir:
+            root = Path(source_dir)
+            (root / "unexpected.mp4").write_bytes(b"fake-video")
+            source_id = self._create_source(root)
+            self._run_scan(source_id)
+            file_row = self._get_file_by_name("unexpected.mp4")
+            self.assertIsNotNone(file_row)
+
+            service = ThumbnailService()
+            with self._patched_data_dir(Path(data_dir)):
+                with patch.object(VideoThumbnailGeneratorWorker, "generate_thumbnail", side_effect=RuntimeError("boom")):
+                    with patch("app.services.thumbnails.service.logger.warning") as warning_mock:
+                        with patch("app.services.thumbnails.service.logger.exception") as exception_mock:
+                            self.assertEqual("queued", service._warmup_file(file_row))
+                            self._wait_for_condition(lambda: bool(service._warmup_failures_by_cache_key))
+
+            warning_mock.assert_not_called()
+            exception_mock.assert_called()
+
+    def test_video_warmup_failure_does_not_interrupt_following_job(self) -> None:
+        with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as data_dir:
+            root = Path(source_dir)
+            (root / "broken.mp4").write_bytes(b"not-a-real-video")
+            self._create_image(root / "cover.png", (320, 180))
+            source_id = self._create_source(root)
+            self._run_scan(source_id)
+            broken_file = self._get_file_by_name("broken.mp4")
+            image_file = self._get_file_by_name("cover.png")
+            self.assertIsNotNone(broken_file)
+            self.assertIsNotNone(image_file)
+
+            service = ThumbnailService()
+            with self._patched_data_dir(Path(data_dir)):
+                with patch.object(
+                    VideoThumbnailGeneratorWorker,
+                    "generate_thumbnail",
+                    side_effect=VideoThumbnailGenerationError("moov atom not found"),
+                ):
+                    self.assertEqual("queued", service._warmup_file(broken_file))
+                    self.assertEqual("queued", service._warmup_file(image_file))
+
+                    generated_paths: list[Path] = []
+
+                    def image_thumbnail_generated() -> bool:
+                        nonlocal generated_paths
+                        generated_paths = list((Path(data_dir) / "thumbnails").glob("*.jpg"))
+                        return len(generated_paths) == 1
+
+                    self._wait_for_condition(image_thumbnail_generated)
+
+            self.assertEqual(1, len(generated_paths))
+            self.assertEqual("jpg", generated_paths[0].suffix.lstrip("."))
+
     def test_generates_video_preview_frames_when_single_thumbnail_cache_exists(self) -> None:
         with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as data_dir:
             root = Path(source_dir)
@@ -1057,6 +1336,54 @@ class Phase2BThumbnailSurfaceTestCase(unittest.TestCase):
             )
             generated_frames = list((Path(data_dir) / "thumbnails" / "video_preview").glob("*/*.jpg"))
             self.assertEqual(6, len(generated_frames))
+
+    def test_video_preview_uses_persisted_duration_for_seek_seconds(self) -> None:
+        with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as data_dir:
+            root = Path(source_dir)
+            (root / "clip.mp4").write_bytes(b"fake-video")
+            source_id = self._create_source(root)
+            self._run_scan(source_id)
+            file_row = self._get_file_by_name("clip.mp4")
+            self.assertIsNotNone(file_row)
+
+            with SessionLocal() as session:
+                session.merge(
+                    FileMetadata(
+                        file_id=file_row.id,
+                        width=1920,
+                        height=1080,
+                        duration_ms=600_000,
+                        page_count=None,
+                        updated_at=datetime(2026, 4, 16, 9, 30),
+                    )
+                )
+                session.commit()
+
+            captured_seek_seconds: list[float] = []
+
+            def write_video_thumbnail(_, __, output_path: Path, *, width: int = 320) -> None:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                self._create_image(output_path, (width, 180))
+
+            def write_preview_frames(_, __, output_dir: Path, *, seek_seconds: list[float], width: int = 320) -> None:
+                captured_seek_seconds.extend(seek_seconds)
+                output_dir.mkdir(parents=True, exist_ok=True)
+                for index in range(1, 7):
+                    self._create_image(output_dir / f"{index:04d}.jpg", (width, 180))
+
+            with self._patched_data_dir(Path(data_dir)):
+                with TestClient(app) as client:
+                    with patch.object(VideoThumbnailGeneratorWorker, "generate_thumbnail", new=write_video_thumbnail):
+                        self.assertEqual(200, client.get(f"/files/{file_row.id}/thumbnail").status_code)
+
+                    with patch.object(VideoThumbnailGeneratorWorker, "generate_preview_frames", new=write_preview_frames):
+                        response = client.get(f"/files/{file_row.id}/video-preview")
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(6, len(captured_seek_seconds))
+        self.assertNotEqual([0.5, 1.0, 1.5, 2.0, 2.5, 3.0], captured_seek_seconds)
+        self.assertTrue(all(0 < seek < 600 for seek in captured_seek_seconds))
+        self.assertGreater(captured_seek_seconds[-1], 500)
 
     def test_reuses_cached_video_preview_frames_when_available(self) -> None:
         with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as data_dir:

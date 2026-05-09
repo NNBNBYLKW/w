@@ -16,6 +16,7 @@ Document boundary:
   - What the project currently is
   - What capability lines already exist
   - What the current product shape looks like
+  - Documents、classification/manual placement、Games preview、video preview、i18n、dark mode 当前状态
 - [测试版范围与边界](<测试版范围与边界.md>)
   - Current beta boundary
   - Must-have scope
@@ -24,6 +25,7 @@ Document boundary:
   - Validation goals
   - Suggested walkthroughs
   - 开发启动、后端指纹检查、PDF thumbnail warmup 后端验收
+  - 当前功能验收清单：Documents、classification、Games preview、video preview、i18n、dark mode
   - Observation template
   - Feedback priority rules
 - [测试版发布准备](<测试版发布准备.md>)
@@ -48,7 +50,7 @@ If you are working on frontend UI refactors or need the current backend contract
 - [api/core-workbench.md](api/core-workbench.md)
   - health, system status, sources, search, files, shared details, thumbnail, open-actions boundary
 - [api/library-subsets.md](api/library-subsets.md)
-  - media, books, games, software
+  - media, documents (`/library/books` compatibility route), games, software
 - [api/organization-and-retrieval.md](api/organization-and-retrieval.md)
   - tags, color tags, collections, recent family, batch organize, user meta, game status
 
@@ -60,7 +62,7 @@ If you are working on frontend UI refactors or need the current backend contract
 4. [测试版验证准备](<测试版验证准备.md>)
 5. [测试版发布准备](<测试版发布准备.md>)
 
-如果你这次主要在做前端 UI 协作、workbench shell 调整或 details / navigation 相关收口，当前界面现状应优先以：
+如果你这次主要在做前端 UI 协作、workbench shell 调整、details / navigation 相关收口，或确认 Documents / Games preview / dark mode / i18n 当前状态，应优先以：
 
 - `README.md`
 - [测试版当前状态总览](<测试版当前状态总览.md>)
@@ -76,6 +78,12 @@ If you are working on frontend UI refactors or need the current backend contract
 
 - [../README.md](../README.md) 的“启动方式”
 - [测试版验证准备](<测试版验证准备.md>) 的开发模式启动验收与 PDF thumbnail warmup 验收
+
+如果你这次主要在做分类、手动归类、Files Archives quick filter、Documents smart view 或 Games / Software archive 误入问题，优先看：
+
+- [测试版当前状态总览](<测试版当前状态总览.md>) 的当前完成状态
+- [测试版验证准备](<测试版验证准备.md>) 的当前功能验收清单
+- [api/core-workbench.md](api/core-workbench.md) 与 [api/library-subsets.md](api/library-subsets.md) 的当前 contract
 
 If you are specifically touching frontend contract work, continue with:
 

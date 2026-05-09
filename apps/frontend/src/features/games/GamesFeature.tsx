@@ -5,35 +5,165 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useUIStore } from "../../app/providers/uiStore";
 import { t, useLocale } from "../../shared/text";
 import { AssetIconGrid, ViewModeToggle, useViewMode, type AssetIconCardItem } from "../../shared/ui/view-mode";
+import { useRetryingThumbnail, useThumbnailWarmup } from "../../shared/ui/thumbnail";
 import { BatchActionBar } from "../batch-organize/BatchActionBar";
 import { useBatchOrganizeActions } from "../batch-organize/useBatchOrganizeActions";
 import { useBatchSelection } from "../batch-organize/useBatchSelection";
-import type { ColorTagValue, FileListSortBy, FileListSortOrder, FileStatusValue } from "../../entities/file/types";
+import type { ColorTagValue, FileKind, FileListSortBy, FileListSortOrder, FileStatusValue } from "../../entities/file/types";
 import {
   hasDesktopOpenActionsBridge,
   normalizeIndexedFilePath,
   openIndexedFile,
 } from "../../services/desktop/openActions";
+import { getFileThumbnailUrl } from "../../services/api/fileDetailsApi";
 import { listGames } from "../../services/api/gamesApi";
 import { listTags } from "../../services/api/tagsApi";
 import { queryKeys } from "../../services/query/queryKeys";
 import type { GameFormat } from "../../entities/game/types";
 
+const IMAGE_THUMBNAIL_EXTENSIONS = new Set(["avif", "gif", "jpeg", "jpg", "png", "webp"]);
+const VIDEO_THUMBNAIL_EXTENSIONS = new Set(["avi", "mkv", "mov", "mp4", "webm"]);
+const ARCHIVE_EXTENSIONS = new Set(["7z", "gz", "rar", "tar", "zip"]);
+const DISK_IMAGE_EXTENSIONS = new Set(["bin", "chd", "cue", "cso", "iso"]);
+const ROM_EXTENSIONS = new Set(["3ds", "gba", "gbc", "nds", "nes"]);
+const INSTALLER_EXTENSIONS = new Set(["appx", "msi", "msix"]);
+
+type GameDisplayInfo = {
+  entryLabel: string;
+  hint: string;
+  mark: string;
+  markTone: "game";
+  thumbnailCapable: boolean;
+  thumbnailFit?: "cover" | "contain";
+  typeLabel: string;
+};
+
+function normalizeGameExtension(value: string): string {
+  return value.trim().replace(/^\.+/, "").toLowerCase();
+}
+
+function getGameFormatModifier(value: string): string {
+  return normalizeGameExtension(value).replace(/[^a-z0-9_-]/g, "-") || "generic";
+}
 
 function formatBytes(value: number | null): string {
   return value === null ? t("common.states.sizeUnavailable") : `${value.toLocaleString()} bytes`;
-}
-
-function formatGameFormat(value: GameFormat): string {
-  return value.toUpperCase();
 }
 
 function formatModifiedAt(value: string): string {
   return new Date(value).toLocaleString();
 }
 
-function buildGameEntryLabel(value: GameFormat): string {
-  return value === "lnk" ? t("features.games.shortcutEntry") : t("features.games.executableEntry");
+function buildGameDisplayInfo({ fileKind, format }: { fileKind: FileKind; format: GameFormat }): GameDisplayInfo {
+  const extension = normalizeGameExtension(format);
+  const typeLabel = extension ? extension.toUpperCase() : "FILE";
+  const isImageThumbnail = fileKind === "image" && IMAGE_THUMBNAIL_EXTENSIONS.has(extension);
+  const isVideoThumbnail = fileKind === "video" && VIDEO_THUMBNAIL_EXTENSIONS.has(extension);
+  const isExeThumbnail = fileKind === "executable" && extension === "exe";
+  const isPdfThumbnail = (fileKind === "document" || fileKind === "ebook") && extension === "pdf";
+  const thumbnailCapable = isImageThumbnail || isVideoThumbnail || isExeThumbnail || isPdfThumbnail;
+
+  if (extension === "lnk" || fileKind === "shortcut") {
+    return {
+      entryLabel: t("features.games.shortcutEntry"),
+      hint: t("features.games.gameEntryFile", { format: typeLabel }),
+      mark: "LNK",
+      markTone: "game",
+      thumbnailCapable: false,
+      typeLabel,
+    };
+  }
+  if (isExeThumbnail) {
+    return {
+      entryLabel: t("features.games.executableEntry"),
+      hint: t("features.games.gameEntryFile", { format: typeLabel }),
+      mark: "EXE",
+      markTone: "game",
+      thumbnailCapable,
+      thumbnailFit: "contain",
+      typeLabel,
+    };
+  }
+  if (isPdfThumbnail) {
+    return {
+      entryLabel: t("features.games.genericEntry"),
+      hint: t("features.games.gameEntryFile", { format: typeLabel }),
+      mark: "PDF",
+      markTone: "game",
+      thumbnailCapable,
+      thumbnailFit: "contain",
+      typeLabel,
+    };
+  }
+  if (isImageThumbnail || isVideoThumbnail) {
+    return {
+      entryLabel: t("features.games.genericEntry"),
+      hint: t("features.games.gameEntryFile", { format: typeLabel }),
+      mark: isImageThumbnail ? "IMG" : "VID",
+      markTone: "game",
+      thumbnailCapable,
+      typeLabel,
+    };
+  }
+  if (fileKind === "archive" || ARCHIVE_EXTENSIONS.has(extension)) {
+    return {
+      entryLabel: t("features.games.genericEntry"),
+      hint: t("features.games.gameEntryFile", { format: typeLabel }),
+      mark: extension === "7z" ? "7Z" : typeLabel.slice(0, 3),
+      markTone: "game",
+      thumbnailCapable: false,
+      typeLabel,
+    };
+  }
+  if (DISK_IMAGE_EXTENSIONS.has(extension)) {
+    return {
+      entryLabel: t("features.games.genericEntry"),
+      hint: t("features.games.gameEntryFile", { format: typeLabel }),
+      mark: typeLabel.slice(0, 3),
+      markTone: "game",
+      thumbnailCapable: false,
+      typeLabel,
+    };
+  }
+  if (ROM_EXTENSIONS.has(extension)) {
+    return {
+      entryLabel: t("features.games.genericEntry"),
+      hint: t("features.games.gameEntryFile", { format: typeLabel }),
+      mark: typeLabel.slice(0, 3),
+      markTone: "game",
+      thumbnailCapable: false,
+      typeLabel,
+    };
+  }
+  if (fileKind === "installer" || INSTALLER_EXTENSIONS.has(extension)) {
+    return {
+      entryLabel: t("features.games.genericEntry"),
+      hint: t("features.games.gameEntryFile", { format: typeLabel }),
+      mark: typeLabel.slice(0, 4),
+      markTone: "game",
+      thumbnailCapable: false,
+      typeLabel,
+    };
+  }
+  if (fileKind === "document" || fileKind === "ebook") {
+    return {
+      entryLabel: t("features.games.genericEntry"),
+      hint: t("features.games.gameEntryFile", { format: typeLabel }),
+      mark: typeLabel.slice(0, 4),
+      markTone: "game",
+      thumbnailCapable: false,
+      typeLabel,
+    };
+  }
+
+  return {
+    entryLabel: t("features.games.genericEntry"),
+    hint: t("features.games.gameEntryFile", { format: typeLabel }),
+    mark: typeLabel.slice(0, 4),
+    markTone: "game",
+    thumbnailCapable: false,
+    typeLabel,
+  };
 }
 
 function formatStatusLabel(value: FileStatusValue): string {
@@ -69,7 +199,9 @@ function countWithStatus(items: Array<{ status: FileStatusValue | null }>): numb
 }
 
 function GamesLibraryRow({
+  displayInfo,
   displayTitle,
+  fileId,
   gameFormat,
   isFavorite,
   isBatchMode,
@@ -79,9 +211,14 @@ function GamesLibraryRow({
   selected,
   sizeBytes,
   status,
+  thumbnailDisabled,
+  thumbnailRefreshToken,
+  onThumbnailLoaded,
   onSelect,
 }: {
+  displayInfo: GameDisplayInfo;
   displayTitle: string;
+  fileId: number;
   gameFormat: GameFormat;
   isFavorite: boolean;
   isBatchMode: boolean;
@@ -91,9 +228,18 @@ function GamesLibraryRow({
   selected: boolean;
   sizeBytes: number | null;
   status: FileStatusValue | null;
+  thumbnailDisabled?: boolean;
+  thumbnailRefreshToken?: number;
+  onThumbnailLoaded?: () => void;
   onSelect: () => void;
 }) {
   const hasDesktopOpenActions = hasDesktopOpenActionsBridge();
+  const thumbnail = useRetryingThumbnail<HTMLSpanElement>({
+    enabled: displayInfo.thumbnailCapable && !thumbnailDisabled,
+    onLoad: onThumbnailLoaded,
+    refreshToken: thumbnailRefreshToken,
+    thumbnailUrl: displayInfo.thumbnailCapable ? getFileThumbnailUrl(fileId) : undefined,
+  });
 
   const handleDoubleClick = async () => {
     if (!hasDesktopOpenActions) {
@@ -121,8 +267,23 @@ function GamesLibraryRow({
       }}
     >
       <span className="compact-library-table__name-cell">
-        <span className={`compact-library-table__format-mark compact-library-table__format-mark--game-${gameFormat}`} aria-hidden="true">
-          <span>{formatGameFormat(gameFormat)}</span>
+        <span
+          className={`compact-library-table__format-mark compact-library-table__format-mark--game-${getGameFormatModifier(gameFormat)}`}
+          aria-hidden="true"
+          ref={thumbnail.ref}
+        >
+          {thumbnail.shouldRenderImage ? (
+            <img
+              className={`compact-library-table__thumb-image${displayInfo.thumbnailFit === "contain" ? " compact-library-table__thumb-image--contain" : ""} compact-library-table__thumb-image--ready`}
+              src={thumbnail.imageSrc}
+              alt=""
+              loading="lazy"
+              onError={thumbnail.onError}
+              onLoad={thumbnail.onLoad}
+            />
+          ) : (
+            <span>{displayInfo.mark}</span>
+          )}
         </span>
         <span className="compact-library-table__name-copy">
           <strong title={displayTitle}>{displayTitle}</strong>
@@ -130,11 +291,11 @@ function GamesLibraryRow({
         </span>
       </span>
       <span className="compact-library-table__type-cell">
-        <span className="status-pill">{formatGameFormat(gameFormat)}</span>
+        <span className="status-pill">{displayInfo.typeLabel}</span>
       </span>
-      <span className="compact-library-table__kind-cell" title={t("features.games.gameEntryFile", { format: formatGameFormat(gameFormat) })}>
-        <strong>{buildGameEntryLabel(gameFormat)}</strong>
-        <span>{t("features.games.gameEntryFile", { format: formatGameFormat(gameFormat) })}</span>
+      <span className="compact-library-table__kind-cell" title={displayInfo.hint}>
+        <strong>{displayInfo.entryLabel}</strong>
+        <span>{displayInfo.hint}</span>
       </span>
       <span className="compact-library-table__status-cell">
         {status ? <span className="status-pill games-card__status-pill">{formatStatusLabel(status)}</span> : <span className="compact-library-table__signals-empty">{t("common.states.none")}</span>}
@@ -202,7 +363,7 @@ export function GamesFeature() {
     pageLabel: t("pages.games.title"),
     resetDeps: [sortBy, sortOrder, statusFilter, tagFilter, colorTagFilter, page],
   });
-  const { applyColorTag, applyTag, isApplyingColorTag, isApplyingTag } = useBatchOrganizeActions({
+  const { applyColorTag, applyPlacement, applyTag, isApplyingColorTag, isApplyingPlacement, isApplyingTag } = useBatchOrganizeActions({
     onSuccess: clearSelection,
   });
 
@@ -292,24 +453,34 @@ export function GamesFeature() {
   }, [colorTagFilter, hasActiveStatusFilter, locale, selectedTagLabel, sortBy, sortOrder, statusFilter]);
   const iconItems = useMemo<AssetIconCardItem[]>(
     () =>
-      currentItems.map((item) => ({
-        id: item.id,
-        title: item.display_title,
-        path: item.path,
-        typeLabel: formatGameFormat(item.game_format),
-        meta: `${buildGameEntryLabel(item.game_format)} · ${formatBytes(item.size_bytes)}`,
-        mark: formatGameFormat(item.game_format),
-        markTone: "game",
-        selected: isBatchMode ? isSelected(item.id) : selectedItemId === String(item.id),
-        signals: [
-          item.status ? formatStatusLabel(item.status) : null,
-          item.is_favorite ? t("common.favorites.favorite") : null,
-          item.rating !== null ? `★ ${item.rating}` : null,
-          isBatchMode && isSelected(item.id) ? t("common.states.selected") : null,
-        ].filter((value): value is string => value !== null),
-      })),
+      currentItems.map((item) => {
+        const displayInfo = buildGameDisplayInfo({
+          fileKind: item.file_kind,
+          format: item.game_format,
+        });
+        return {
+          id: item.id,
+          title: item.display_title,
+          path: item.path,
+          typeLabel: displayInfo.typeLabel,
+          meta: `${displayInfo.entryLabel} · ${formatBytes(item.size_bytes)}`,
+          mark: displayInfo.mark,
+          markTone: displayInfo.markTone,
+          thumbnailAlt: item.display_title,
+          thumbnailFit: displayInfo.thumbnailFit,
+          thumbnailUrl: displayInfo.thumbnailCapable ? getFileThumbnailUrl(item.id) : undefined,
+          selected: isBatchMode ? isSelected(item.id) : selectedItemId === String(item.id),
+          signals: [
+            item.status ? formatStatusLabel(item.status) : null,
+            item.is_favorite ? t("common.favorites.favorite") : null,
+            item.rating !== null ? `★ ${item.rating}` : null,
+            isBatchMode && isSelected(item.id) ? t("common.states.selected") : null,
+          ].filter((value): value is string => value !== null),
+        };
+      }),
     [currentItems, isBatchMode, isSelected, selectedItemId],
   );
+  const thumbnailWarmup = useThumbnailWarmup(iconItems.filter((item) => item.thumbnailUrl).map((item) => item.id));
 
   useEffect(() => {
     const nextStatus = searchParams.get("status");
@@ -538,8 +709,10 @@ export function GamesFeature() {
         <div className="subset-batch-block">
           <BatchActionBar
             isApplyingColorTag={isApplyingColorTag}
+            isApplyingPlacement={isApplyingPlacement}
             isApplyingTag={isApplyingTag}
             onApplyColorTag={(colorTag) => applyColorTag(selectedIds, colorTag)}
+            onApplyPlacement={(manualPlacement) => applyPlacement(selectedIds, manualPlacement)}
             onApplyTag={(name) => applyTag(selectedIds, name)}
             onClearSelection={clearSelection}
             onExitBatchMode={exitBatchMode}
@@ -582,6 +755,9 @@ export function GamesFeature() {
             <AssetIconGrid
               ariaLabel={t("features.games.table.ariaLabel")}
               items={iconItems}
+              getThumbnailRefreshToken={(item) => thumbnailWarmup.getRefreshToken(item.id)}
+              isThumbnailDisabled={(item) => !item.thumbnailUrl || thumbnailWarmup.isThumbnailDisabled(item.id)}
+              onThumbnailLoaded={(item) => thumbnailWarmup.markLoaded(item.id)}
               onSelect={(item) => {
                 if (isBatchMode) {
                   toggleSelection(item.id);
@@ -612,28 +788,39 @@ export function GamesFeature() {
                 <span>{t("features.games.table.size")}</span>
                 <span>{t("features.games.table.signals")}</span>
               </div>
-              {gamesQuery.data.items.map((item) => (
-                <GamesLibraryRow
-                  key={item.id}
-                  displayTitle={item.display_title}
-                  gameFormat={item.game_format}
-                  isFavorite={item.is_favorite}
-                  isBatchMode={isBatchMode}
-                  modifiedAt={item.modified_at}
-                  path={item.path}
-                  rating={item.rating}
-                  selected={isBatchMode ? isSelected(item.id) : selectedItemId === String(item.id)}
-                  sizeBytes={item.size_bytes}
-                  status={item.status}
-                  onSelect={() => {
-                    if (isBatchMode) {
-                      toggleSelection(item.id);
-                      return;
-                    }
-                    selectItem(String(item.id));
-                  }}
-                />
-              ))}
+              {gamesQuery.data.items.map((item) => {
+                const displayInfo = buildGameDisplayInfo({
+                  fileKind: item.file_kind,
+                  format: item.game_format,
+                });
+                return (
+                  <GamesLibraryRow
+                    key={item.id}
+                    displayInfo={displayInfo}
+                    displayTitle={item.display_title}
+                    fileId={item.id}
+                    gameFormat={item.game_format}
+                    isFavorite={item.is_favorite}
+                    isBatchMode={isBatchMode}
+                    modifiedAt={item.modified_at}
+                    path={item.path}
+                    rating={item.rating}
+                    selected={isBatchMode ? isSelected(item.id) : selectedItemId === String(item.id)}
+                    sizeBytes={item.size_bytes}
+                    status={item.status}
+                    thumbnailDisabled={!displayInfo.thumbnailCapable || thumbnailWarmup.isThumbnailDisabled(item.id)}
+                    thumbnailRefreshToken={thumbnailWarmup.getRefreshToken(item.id)}
+                    onThumbnailLoaded={() => thumbnailWarmup.markLoaded(item.id)}
+                    onSelect={() => {
+                      if (isBatchMode) {
+                        toggleSelection(item.id);
+                        return;
+                      }
+                      selectItem(String(item.id));
+                    }}
+                  />
+                );
+              })}
             </div>
           )}
           <div className="files-pager">

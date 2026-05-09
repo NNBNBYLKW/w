@@ -3,7 +3,7 @@
 这份文档覆盖当前四条 subset surface：
 
 - media
-- books
+- documents（wire compatibility route 仍为 `/library/books`）
 - games
 - software
 
@@ -13,6 +13,7 @@
 - 每个 subset 都有独立 list contract
 - 每个 subset 都支持分页、排序，以及当前已落地的**最小过滤**
 - 四个 subset item 都只返回列表重构所需的轻量字段
+- 四个 subset 当前都是 smart views：通过 `effective_placement = manual_placement ?? auto_placement` 查询，而不是各自硬编码扩展名
 - 详情、标签、颜色标签、favorite / rating、open actions 仍统一走 shared details 主链
 
 ## Not currently supported
@@ -26,6 +27,8 @@
 ## Shared subset boundaries
 
 - 这些 route 都是 retrieval surfaces，不是独立数据库产品
+- `manual_placement` 永远优先于 `auto_placement`；`files_only` 会把文件排除出 Media / Documents / Games / Software smart views
+- 普通 archive 默认 `file_kind=archive`、`auto_placement=none`，因此只在 Files / Files Archives quick filter 中出现，除非用户手动放入某个库
 - 每条 subset contract 都是“最小可浏览、最小可组织、最小可再找回”的列表合同
 - 前端页面点击后仍应汇入 `GET /files/{file_id}`
 - 当前 subset routes 不会额外校验 `tag_id` 是否存在；未知 tag 目前表现为空结果，而不是 `404 TAG_NOT_FOUND`
@@ -61,6 +64,10 @@ sort_order?: asc | desc
       "name": "cover.jpg",
       "path": "D:\\Assets\\cover.jpg",
       "file_type": "image",
+      "file_kind": "image",
+      "auto_placement": "media",
+      "manual_placement": null,
+      "effective_placement": "media",
       "modified_at": "2026-04-22T10:00:00",
       "size_bytes": 12345,
       "is_favorite": true,
@@ -76,7 +83,8 @@ sort_order?: asc | desc
 - Common error / failure behavior:
   - `422` for invalid enum / pagination values
 - Notes / constraints / caveats:
-  - `file_type` 只会是 `image` 或 `video`
+  - 默认自动分类会把 image / video / audio 放入 Media
+  - 因为用户可以手动 placement，Media item 不应被前端假设只能是 image / video
   - 当前过滤能力是最小集合：`view_scope + tag_id + color_tag`
   - 没有更复杂的 media-type facets
 
@@ -84,10 +92,10 @@ sort_order?: asc | desc
 
 - Method: `GET`
 - Path: `/library/books`
-- Purpose: ebook-oriented subset surface
+- Purpose: Documents subset surface；`/library/books` 是当前兼容 route
 - Used by:
-  - `BooksFeature`
-  - `Recent / Tags / Collections / Details` 中的 “Open in Books / Filter in Books / Open matching books”
+  - `BooksFeature`（legacy internal component name）
+  - `Recent / Tags / Collections / Details` 中的 “Open in Documents / Filter in Documents / Open matching documents”
 - Query params:
 
 ```text
@@ -107,9 +115,13 @@ sort_order?: asc | desc
   "items": [
     {
       "id": 1,
-      "display_title": "The Example Book",
-      "book_format": "epub",
-      "path": "D:\\Books\\example.epub",
+      "display_title": "Quarterly Report",
+      "book_format": "xlsx",
+      "path": "D:\\Documents\\quarterly-report.xlsx",
+      "file_kind": "document",
+      "auto_placement": "books",
+      "manual_placement": null,
+      "effective_placement": "books",
       "modified_at": "2026-04-22T10:00:00",
       "size_bytes": 12345,
       "is_favorite": false,
@@ -125,9 +137,11 @@ sort_order?: asc | desc
 - Common error / failure behavior:
   - `422` for invalid pagination or enum values
 - Notes / constraints / caveats:
-  - 当前识别范围是 `.epub` / `.pdf`
+  - 用户侧页面名称是 Documents / 文档；`books` placement、`/library/books` route、`book_format` 字段是兼容命名
+  - 默认自动分类会把 `.pdf` / `.epub` / `.mobi` / `.azw3`、`.doc` / `.docx`、`.ppt` / `.pptx`、`.xls` / `.xlsx` / `.csv`、`.txt` / `.md`、`.rtf`、`.odt` / `.ods` / `.odp` 放入 Documents
+  - 因为用户可以手动 placement，Documents item 不应被前端假设只能是 ebook extension
   - `display_title` 是服务层基于文件 stem / name 做的轻量显示值，不是外部 metadata title
-  - 当前只支持 tag / color 再找回，不是复杂书库筛选系统
+  - 当前只支持 tag / color 再找回，不是复杂文档管理、阅读器或 Office 编辑系统
 
 ## GET /library/games
 
@@ -160,6 +174,10 @@ sort_order?: asc | desc
       "display_title": "Example Game",
       "game_format": "lnk",
       "path": "D:\\Games\\Example.lnk",
+      "file_kind": "shortcut",
+      "auto_placement": "games",
+      "manual_placement": null,
+      "effective_placement": "games",
       "modified_at": "2026-04-22T10:00:00",
       "size_bytes": 12345,
       "status": "playing",
@@ -176,9 +194,9 @@ sort_order?: asc | desc
 - Common error / failure behavior:
   - `422` for invalid pagination or enum values
 - Notes / constraints / caveats:
-  - 当前识别范围是：
-    - `.lnk`
-    - 或符合当前启发式规则的 `.exe`
+  - 默认自动分类会把 Games / Steam / Epic / GOG 等路径下的 `.exe` / `.lnk` 推荐到 Games
+  - 普通 archive 不会自动进入 Games；用户可通过 DetailsPanel 或 Batch organize 手动设置
+  - 因为用户可以手动 placement，Games item 不应被前端假设只能是 `.exe` / `.lnk`
   - `status` 是 Games 专属 domain-specific 语义
   - `status` 不应被理解为全站统一状态系统
   - 当前 games filtering 只到 `status + tag_id + color_tag`
@@ -214,6 +232,10 @@ sort_order?: asc | desc
       "display_title": "Example Installer",
       "software_format": "msi",
       "path": "D:\\Installers\\example.msi",
+      "file_kind": "installer",
+      "auto_placement": "software",
+      "manual_placement": null,
+      "effective_placement": "software",
       "modified_at": "2026-04-22T10:00:00",
       "size_bytes": 12345,
       "is_favorite": false,
@@ -229,7 +251,9 @@ sort_order?: asc | desc
 - Common error / failure behavior:
   - `422` for invalid pagination or enum values
 - Notes / constraints / caveats:
-  - 当前识别范围是 `.exe` / `.msi` / `.zip`
+  - 默认自动分类会把 `.exe` / `.msi` / `.msix` / `.appx` 放入 Software
+  - 普通 archive 不会自动进入 Software；用户可通过 DetailsPanel 或 Batch organize 手动设置
+  - 因为用户可以手动 placement，Software item 不应被前端假设只能是 installer / executable extension
   - `display_title` 是基于文件名的轻量显示值，不是外部厂商元数据
   - 当前只支持最小 tag / color 再找回，不是安装管理器或包管理器筛选系统
 

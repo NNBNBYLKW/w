@@ -17,6 +17,9 @@
 - 当前有通用 search 与 files browse contract
 - `GET /files/{file_id}` 是 shared details 的统一详情合同
 - `GET /files/{file_id}/thumbnail` 当前支持 image / video thumbnails、Windows `.exe` 图标缩略图，以及 `.pdf` 第一页缩略图
+- `GET /files/{file_id}/video-preview` 与 frame route 当前支持 DetailsPanel 的 6 帧视频预览
+- 当前有持久化分类字段：`file_kind` / `auto_placement` / `manual_placement`，smart views 使用 `effective_placement = manual_placement ?? auto_placement`
+- 用户侧 Documents / 文档 当前使用兼容 route `/library/books` 与 wire value `books`
 
 ## Not currently supported
 
@@ -242,6 +245,7 @@
 ```text
 query?: string
 file_type?: image | video | document | archive | other
+file_kind?: image | video | audio | document | ebook | archive | executable | installer | shortcut | other
 tag_id?: positive integer
 color_tag?: red | yellow | green | blue | purple
 page?: integer >= 1
@@ -261,6 +265,10 @@ sort_order?: asc | desc
       "name": "cover.jpg",
       "path": "D:\\Assets\\cover.jpg",
       "file_type": "image",
+      "file_kind": "image",
+      "auto_placement": "media",
+      "manual_placement": null,
+      "effective_placement": "media",
       "modified_at": "2026-04-22T10:00:00"
     }
   ],
@@ -291,6 +299,7 @@ sort_order?: asc | desc
 ```text
 source_id?: positive integer
 parent_path?: string
+file_kind?: image | video | audio | document | ebook | archive | executable | installer | shortcut | other
 tag_id?: positive integer
 color_tag?: red | yellow | green | blue | purple
 page?: integer >= 1
@@ -308,8 +317,12 @@ sort_order?: asc | desc
     {
       "id": 1,
       "name": "cover.jpg",
-      "path": "D:\\Assets\\Books\\cover.jpg",
+      "path": "D:\\Assets\\Images\\cover.jpg",
       "file_type": "image",
+      "file_kind": "image",
+      "auto_placement": "media",
+      "manual_placement": null,
+      "effective_placement": "media",
       "modified_at": "2026-04-22T10:00:00",
       "size_bytes": 12345
     }
@@ -329,6 +342,7 @@ sort_order?: asc | desc
 - Notes / constraints / caveats:
   - 这是 flat browse contract，不是文件树 API
   - `parent_path` 只在给定 `source_id` 时有效
+  - `file_kind=archive` 是 Files 页面 archive quick filter 的当前后端语义；没有独立 Archives 页面
   - 当前页面是“精确目录 browsing”，不是递归目录查询
 
 ## GET /files/{file_id}
@@ -351,6 +365,10 @@ sort_order?: asc | desc
     "name": "cover.jpg",
     "path": "D:\\Assets\\cover.jpg",
     "file_type": "image",
+    "file_kind": "image",
+    "auto_placement": "media",
+    "manual_placement": null,
+    "effective_placement": "media",
     "size_bytes": 12345,
     "created_at_fs": "2026-04-20T08:00:00",
     "modified_at_fs": "2026-04-22T10:00:00",
@@ -379,7 +397,72 @@ sort_order?: asc | desc
   - 这是当前统一详情中心 contract
   - `status` 字段会始终出现，但其语义仅在 Games 上下文里有效
   - `metadata` 可能整体为 `null`，也可能内部字段单独为 `null`
+  - `manual_placement: null` 表示用户选择 Auto；`auto_placement: "none"` 表示系统明确没有推荐库位置；`manual_placement: "files_only"` 表示用户明确排除出 smart views
   - open actions 依赖这里返回的 `path`
+
+## PATCH /files/{file_id}/placement
+
+- Method: `PATCH`
+- Path: `/files/{file_id}/placement`
+- Purpose: 手动设置单个文件所属库，供 DetailsPanel 使用
+- Request body:
+
+```json
+{
+  "manual_placement": "games"
+}
+```
+
+- 恢复 Auto:
+
+```json
+{
+  "manual_placement": null
+}
+```
+
+- Allowed values:
+  - `media`
+  - `books`
+  - `games`
+  - `software`
+  - `files_only`
+  - `null`
+- Response shape:
+  - 返回当前文件的 `file_kind`、`auto_placement`、`manual_placement`、`effective_placement`
+- Notes / constraints / caveats:
+  - 用户侧 Documents 对应的 wire value 当前仍是 `books`
+  - 不修改 `file_type`
+  - 不改文件系统
+  - 扫描 / backfill 可以更新 `file_kind` 与 `auto_placement`，但不能覆盖 `manual_placement`
+
+## PATCH /files/batch/placement
+
+- Method: `PATCH`
+- Path: `/files/batch/placement`
+- Purpose: 批量设置所选文件的所属库，供 Batch organize 使用
+- Request body:
+
+```json
+{
+  "file_ids": [1, 2, 3],
+  "manual_placement": "software"
+}
+```
+
+- 恢复 Auto:
+
+```json
+{
+  "file_ids": [1, 2, 3],
+  "manual_placement": null
+}
+```
+
+- Notes / constraints / caveats:
+  - 这是组织层 metadata 更新，不移动或修改真实文件
+  - 用户侧 Documents 对应的 `manual_placement` wire value 当前仍是 `books`
+  - 普通 archive 默认 `auto_placement="none"`；只有用户手动设置后才会进入 Games / Software 等 smart views
 
 ## GET /files/{file_id}/thumbnail
 
@@ -389,7 +472,7 @@ sort_order?: asc | desc
 - Used by:
   - `DetailsPanelFeature` 的 image / video preview、`.exe` software icon preview 与 `.pdf` document preview
   - Software 列表中的 `.exe` 图标提示
-  - Files / Search / Books 的 icon 或 row thumbnail surface
+  - Files / Search / Documents 的 icon 或 row thumbnail surface
 - Query params:
   - `file_id` path param，正整数
 - Request body: 无
@@ -429,8 +512,44 @@ sort_order?: asc | desc
 - Notes / constraints / caveats:
   - 不新增数据库任务表；当前是 local-first beta 的进程内 warmup queue
   - 同一 cache key 会去重，避免重复生成
-  - PDF 生成并发上限为 2，`.exe` 图标生成并发上限为 4
+  - PDF 渲染在 warmup worker 中通过 subprocess + lock 串行执行，`.exe` 图标生成保留受控并发
   - 失败状态是短 TTL，后续 warmup 可再次尝试
+
+## GET /files/{file_id}/video-preview
+
+- Method: `GET`
+- Path: `/files/{file_id}/video-preview`
+- Purpose: 返回 DetailsPanel 视频 6 帧预览的 frame index 列表
+- Used by:
+  - `DetailsPanelFeature`
+- Response shape:
+
+```json
+{
+  "item": {
+    "frame_count": 6,
+    "frame_indexes": [1, 2, 3, 4, 5, 6]
+  }
+}
+```
+
+- Notes / constraints / caveats:
+  - 当前保持 6 帧，不把多帧预览扩展到列表、hover 或卡片
+  - 预览帧基于 ffprobe 提取的 `duration_ms` 在视频内部均匀采样，避开 0% 和 100%
+  - video preview cache key 当前包含 version，当前版本为 `v2`
+  - 旧视频需要重新提取 metadata 或刷新 preview cache 后，才会得到 duration-aware 采样
+
+## GET /files/{file_id}/video-preview/frames/{frame_index}
+
+- Method: `GET`
+- Path: `/files/{file_id}/video-preview/frames/{frame_index}`
+- Purpose: 返回单张 video preview JPG frame
+- Response shape:
+  - 不是 JSON
+  - 成功时返回单张 JPEG frame
+- Notes / constraints / caveats:
+  - `frame_index` 当前为 `1..6`
+  - 生成失败、缺失或不支持时按现有 thumbnail / preview 错误语义降级，不改变前端主路径
 
 ## Open actions boundary
 

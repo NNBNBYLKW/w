@@ -1,7 +1,9 @@
 from sqlalchemy.orm import Session
 
 from app.api.schemas.file import FileListItemResponse, FileListQueryParams, FileListResponse
+from app.core.classification import effective_placement
 from app.core.errors.exceptions import BadRequestError, NotFoundError
+from app.repositories.file_user_meta.repository import FileUserMetaRepository
 from app.repositories.file.repository import FileRepository
 from app.repositories.source.repository import SourceRepository
 from app.repositories.tag.repository import TagRepository
@@ -15,6 +17,7 @@ class FilesService:
         self.file_repository = FileRepository()
         self.source_repository = SourceRepository()
         self.tag_repository = TagRepository()
+        self.file_user_meta_repository = FileUserMetaRepository()
 
     def list_files(self, session: Session, params: FileListQueryParams) -> FileListResponse:
         if params.parent_path is not None and params.source_id is None:
@@ -35,6 +38,7 @@ class FilesService:
 
         files, total = self.file_repository.list_indexed_files(
             session,
+            file_kind=params.file_kind,
             source_id=params.source_id,
             parent_path=params.parent_path,
             tag_id=params.tag_id,
@@ -45,14 +49,7 @@ class FilesService:
             sort_order=params.sort_order,
         )
         items = [
-            FileListItemResponse(
-                id=file.id,
-                name=file.name,
-                path=file.path,
-                file_type=file.file_type,
-                modified_at=file.modified_at_fs or file.discovered_at,
-                size_bytes=file.size_bytes,
-            )
+            self._to_list_item(session, file)
             for file in files
         ]
         return FileListResponse(
@@ -60,6 +57,22 @@ class FilesService:
             page=params.page,
             page_size=params.page_size,
             total=total,
+        )
+
+    def _to_list_item(self, session: Session, file) -> FileListItemResponse:
+        file_user_meta = self.file_user_meta_repository.get_by_file_id(session, file.id)
+        manual_placement = file_user_meta.manual_placement if file_user_meta is not None else None
+        return FileListItemResponse(
+            id=file.id,
+            name=file.name,
+            path=file.path,
+            file_type=file.file_type,
+            file_kind=file.file_kind,
+            auto_placement=file.auto_placement,
+            manual_placement=manual_placement,
+            effective_placement=effective_placement(file.auto_placement, manual_placement),
+            modified_at=file.modified_at_fs or file.discovered_at,
+            size_bytes=file.size_bytes,
         )
 
     def _normalize_color_tag(self, raw_color_tag: str | None) -> str | None:

@@ -18,12 +18,12 @@ from app.services.diagnostics.runtime import get_runtime_diagnostics, get_pypdfi
 from app.workers.thumbnails.exe_icon_generator import ExeIconGeneratorWorker
 from app.workers.thumbnails.generator import ThumbnailGeneratorWorker
 from app.workers.thumbnails.pdf_generator import PdfThumbnailGeneratorWorker
-from app.workers.thumbnails.video_generator import VideoThumbnailGeneratorWorker
+from app.workers.thumbnails.video_generator import VideoThumbnailGenerationError, VideoThumbnailGeneratorWorker
 
 
 VIDEO_PREVIEW_FRAME_COUNT = 6
 VIDEO_PREVIEW_WIDTH = 320
-VIDEO_PREVIEW_VERSION = "v1"
+VIDEO_PREVIEW_VERSION = "v2"
 EXE_ICON_SIZE = 256
 EXE_ICON_VERSION = "v3"
 EXE_ICON_MAX_CONCURRENCY = 4
@@ -494,19 +494,34 @@ class ThumbnailService:
                 logger.info("Thumbnail warmup generation success file_id=%s kind=%s cache_path=%s", job.file.id, job.kind, job.cache_path)
             except Exception as error:
                 reason = self._format_warmup_failure_reason(error)
-                logger.exception(
-                    (
-                        "Thumbnail warmup generation failed file_id=%s kind=%s source_path=%s "
-                        "cache_path=%s tmp_path=%s exception_type=%s message=%s"
-                    ),
-                    job.file.id,
-                    job.kind,
-                    job.file.path,
-                    job.cache_path,
-                    temporary_path,
-                    type(error).__name__,
-                    error,
-                )
+                if self._is_expected_warmup_failure(job, error):
+                    logger.warning(
+                        (
+                            "Thumbnail warmup expected generation failure file_id=%s kind=%s source_path=%s "
+                            "cache_path=%s tmp_path=%s exception_type=%s reason=%s"
+                        ),
+                        job.file.id,
+                        job.kind,
+                        job.file.path,
+                        job.cache_path,
+                        temporary_path,
+                        type(error).__name__,
+                        reason,
+                    )
+                else:
+                    logger.exception(
+                        (
+                            "Thumbnail warmup generation failed file_id=%s kind=%s source_path=%s "
+                            "cache_path=%s tmp_path=%s exception_type=%s message=%s"
+                        ),
+                        job.file.id,
+                        job.kind,
+                        job.file.path,
+                        job.cache_path,
+                        temporary_path,
+                        type(error).__name__,
+                        error,
+                    )
                 self._record_warmup_failure(job, reason, error=error, temporary_path=temporary_path)
             finally:
                 if temporary_path.exists():
@@ -655,6 +670,9 @@ class ThumbnailService:
 
     def _format_warmup_failure_reason(self, error: Exception) -> str:
         return f"{type(error).__name__}: {error}"
+
+    def _is_expected_warmup_failure(self, job: ThumbnailWarmupJob, error: Exception) -> bool:
+        return job.kind == "video" and isinstance(error, VideoThumbnailGenerationError)
 
     def _record_warmup_failure(
         self,
@@ -892,10 +910,14 @@ class ThumbnailService:
         if duration_ms is None or duration_ms <= 0:
             return [0.5 * index for index in self._get_video_preview_frame_indexes()]
 
-        duration_seconds = max(duration_ms / 1000, 1)
-        preview_window_seconds = max(min(duration_seconds * 0.3, duration_seconds - 0.2), 0.6)
-        step = preview_window_seconds / (VIDEO_PREVIEW_FRAME_COUNT + 1)
-        return [max(step * index, 0.2) for index in self._get_video_preview_frame_indexes()]
+        duration_seconds = duration_ms / 1000
+        safe_margin = min(0.5, duration_seconds * 0.1)
+        safe_start = safe_margin
+        safe_end = max(safe_start, duration_seconds - safe_margin)
+        return [
+            safe_start + (safe_end - safe_start) * (index + 1) / (VIDEO_PREVIEW_FRAME_COUNT + 1)
+            for index in range(VIDEO_PREVIEW_FRAME_COUNT)
+        ]
 
     def _get_video_preview_lock(self, cache_key: str) -> Lock:
         with self._video_preview_locks_guard:

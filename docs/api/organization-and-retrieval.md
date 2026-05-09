@@ -209,7 +209,7 @@ sort_order?: asc | desc
 - Used by:
   - `BatchActionBar`
   - `useBatchOrganizeActions`
-  - 当前接入页：Recent Imports + Media + Books + Games + Software
+  - 当前接入页：Recent Imports + Media + Documents + Games + Software
 - Query params: 无
 - Request body:
 
@@ -329,6 +329,56 @@ sort_order?: asc | desc
   - 服务层会 dedupe `file_ids`
   - 任一目标文件不可用会整批失败
 
+## PATCH /files/batch/placement
+
+- Method: `PATCH`
+- Path: `/files/batch/placement`
+- Purpose: 为一批文件统一设置或清除手动 library placement
+- Used by:
+  - `BatchActionBar`
+  - `useBatchOrganizeActions`
+- Query params: 无
+- Request body:
+
+```json
+{
+  "file_ids": [1, 2, 3],
+  "manual_placement": "games"
+}
+```
+
+或恢复 Auto：
+
+```json
+{
+  "file_ids": [1, 2, 3],
+  "manual_placement": null
+}
+```
+
+- Allowed values:
+  - `media`
+  - `books`（用户侧 Documents / 文档 的兼容 wire value）
+  - `games`
+  - `software`
+  - `files_only`
+  - `null`
+- Response shape:
+
+```json
+{
+  "updated_file_ids": [1, 2, 3],
+  "updated_count": 3,
+  "manual_placement": "games"
+}
+```
+
+- Notes / constraints / caveats:
+  - `manual_placement=null` 表示 Auto，不等同于 `auto_placement=none`
+  - `manual_placement=files_only` 表示用户明确排除出 Media / Documents / Games / Software smart views
+  - 服务层会 dedupe `file_ids`
+  - 任一目标文件不可用会整批失败
+
 ## GET /collections
 
 - Method: `GET`
@@ -345,7 +395,7 @@ sort_order?: asc | desc
   "items": [
     {
       "id": 1,
-      "name": "Blue books",
+      "name": "Blue documents",
       "file_type": "document",
       "tag_id": 10,
       "color_tag": "blue",
@@ -376,7 +426,7 @@ sort_order?: asc | desc
 
 ```json
 {
-  "name": "Blue books",
+  "name": "Blue documents",
   "file_type": "document",
   "tag_id": 10,
   "color_tag": "blue",
@@ -408,7 +458,7 @@ sort_order?: asc | desc
 
 ```json
 {
-  "name": "Blue books v2",
+  "name": "Blue documents v2",
   "tag_id": 11,
   "color_tag": "purple"
 }

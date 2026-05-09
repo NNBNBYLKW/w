@@ -26,7 +26,7 @@ class Phase3BSoftwareLibraryTestCase(unittest.TestCase):
         self._reset_database()
         engine.dispose()
 
-    def test_returns_active_exe_msi_and_zip_files_only(self) -> None:
+    def test_returns_active_exe_and_installer_files_only(self) -> None:
         self._seed_sources_and_files()
 
         with TestClient(app) as client:
@@ -34,15 +34,13 @@ class Phase3BSoftwareLibraryTestCase(unittest.TestCase):
 
         self.assertEqual(200, response.status_code)
         payload = response.json()
-        self.assertEqual(6, payload["total"])
+        self.assertEqual(4, payload["total"])
         self.assertEqual(
             [
-                "Zip Toolkit",
                 "Install Wizard",
                 "Patch Runner",
                 "Portable Setup.exe",
                 "Space Utility Installer",
-                "Updater Bundle",
             ],
             [item["display_title"] for item in payload["items"]],
         )
@@ -67,8 +65,8 @@ class Phase3BSoftwareLibraryTestCase(unittest.TestCase):
         by_title = {item["display_title"]: item for item in response.json()["items"]}
         self.assertEqual("exe", by_title["Patch Runner"]["software_format"])
         self.assertEqual("msi", by_title["Space Utility Installer"]["software_format"])
-        self.assertEqual("zip", by_title["Updater Bundle"]["software_format"])
         self.assertEqual("2026-04-18T12:00:00", by_title["Install Wizard"]["modified_at"])
+        self.assertNotIn("Updater Bundle", by_title)
 
     def test_reuses_conservative_display_title_normalization(self) -> None:
         self._seed_sources_and_files()
@@ -79,7 +77,7 @@ class Phase3BSoftwareLibraryTestCase(unittest.TestCase):
         titles = [item["display_title"] for item in response.json()["items"]]
         self.assertIn("Space Utility Installer", titles)
         self.assertIn("Portable Setup.exe", titles)
-        self.assertIn("Updater Bundle", titles)
+        self.assertNotIn("Updater Bundle", titles)
 
     def test_supports_name_and_discovered_at_sorting(self) -> None:
         self._seed_sources_and_files()
@@ -94,8 +92,6 @@ class Phase3BSoftwareLibraryTestCase(unittest.TestCase):
                 "Install Wizard",
                 "Patch Runner",
                 "Space Utility Installer",
-                "Updater Bundle",
-                "Zip Toolkit",
             ],
             [item["display_title"] for item in name_response.json()["items"]],
         )
@@ -103,10 +99,8 @@ class Phase3BSoftwareLibraryTestCase(unittest.TestCase):
             [
                 "Patch Runner",
                 "Portable Setup.exe",
-                "Updater Bundle",
                 "Space Utility Installer",
                 "Install Wizard",
-                "Zip Toolkit",
             ],
             [item["display_title"] for item in discovered_response.json()["items"]],
         )
@@ -117,19 +111,19 @@ class Phase3BSoftwareLibraryTestCase(unittest.TestCase):
         with TestClient(app) as client:
             first_response = client.get(
                 "/library/software",
-                params={"sort_by": "modified_at", "sort_order": "desc", "page": 1, "page_size": 6},
+                params={"sort_by": "modified_at", "sort_order": "desc", "page": 1, "page_size": 4},
             )
             repeated_response = client.get(
                 "/library/software",
-                params={"sort_by": "modified_at", "sort_order": "desc", "page": 1, "page_size": 6},
+                params={"sort_by": "modified_at", "sort_order": "desc", "page": 1, "page_size": 4},
             )
             page_one = client.get(
                 "/library/software",
-                params={"sort_by": "modified_at", "sort_order": "desc", "page": 1, "page_size": 3},
+                params={"sort_by": "modified_at", "sort_order": "desc", "page": 1, "page_size": 2},
             )
             page_two = client.get(
                 "/library/software",
-                params={"sort_by": "modified_at", "sort_order": "desc", "page": 2, "page_size": 3},
+                params={"sort_by": "modified_at", "sort_order": "desc", "page": 2, "page_size": 2},
             )
 
         first_items = first_response.json()["items"]
@@ -137,21 +131,19 @@ class Phase3BSoftwareLibraryTestCase(unittest.TestCase):
         self.assertEqual([item["id"] for item in first_items], [item["id"] for item in repeated_items])
         self.assertEqual(
             [
-                "Zip Toolkit",
                 "Install Wizard",
                 "Patch Runner",
                 "Portable Setup.exe",
                 "Space Utility Installer",
-                "Updater Bundle",
             ],
             [item["display_title"] for item in first_items],
         )
         self.assertEqual(
-            ["Zip Toolkit", "Install Wizard", "Patch Runner"],
+            ["Install Wizard", "Patch Runner"],
             [item["display_title"] for item in page_one.json()["items"]],
         )
         self.assertEqual(
-            ["Portable Setup.exe", "Space Utility Installer", "Updater Bundle"],
+            ["Portable Setup.exe", "Space Utility Installer"],
             [item["display_title"] for item in page_two.json()["items"]],
         )
 
@@ -166,8 +158,8 @@ class Phase3BSoftwareLibraryTestCase(unittest.TestCase):
 
         self.assertEqual(200, response.status_code)
         payload = response.json()
-        self.assertEqual(2, payload["total"])
-        self.assertEqual(["Patch Runner", "Zip Toolkit"], [item["display_title"] for item in payload["items"]])
+        self.assertEqual(1, payload["total"])
+        self.assertEqual(["Patch Runner"], [item["display_title"] for item in payload["items"]])
 
     def test_supports_color_tag_filtering(self) -> None:
         self._seed_sources_and_files()
@@ -177,8 +169,8 @@ class Phase3BSoftwareLibraryTestCase(unittest.TestCase):
 
         self.assertEqual(200, response.status_code)
         payload = response.json()
-        self.assertEqual(2, payload["total"])
-        self.assertEqual(["Portable Setup.exe", "Zip Toolkit"], [item["display_title"] for item in payload["items"]])
+        self.assertEqual(1, payload["total"])
+        self.assertEqual(["Portable Setup.exe"], [item["display_title"] for item in payload["items"]])
 
     def test_supports_combined_tag_and_color_filtering(self) -> None:
         seeded = self._seed_sources_and_files()
@@ -191,8 +183,8 @@ class Phase3BSoftwareLibraryTestCase(unittest.TestCase):
 
         self.assertEqual(200, response.status_code)
         payload = response.json()
-        self.assertEqual(1, payload["total"])
-        self.assertEqual(["Zip Toolkit"], [item["display_title"] for item in payload["items"]])
+        self.assertEqual(0, payload["total"])
+        self.assertEqual([], [item["display_title"] for item in payload["items"]])
 
     def _seed_sources_and_files(self) -> dict[str, int]:
         with SessionLocal() as session:

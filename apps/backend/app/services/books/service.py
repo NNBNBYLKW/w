@@ -3,6 +3,7 @@ import re
 from sqlalchemy.orm import Session
 
 from app.api.schemas.books import BookListItemResponse, BooksListQueryParams, BooksListResponse
+from app.core.classification import effective_placement
 from app.repositories.file.repository import FileRepository
 
 
@@ -35,8 +36,12 @@ class BooksLibraryService:
                 size_bytes=file.size_bytes,
                 is_favorite=is_favorite,
                 rating=rating,
+                file_kind=file.file_kind,
+                auto_placement=file.auto_placement,
+                manual_placement=manual_placement,
+                effective_placement=effective_placement(file.auto_placement, manual_placement),
             )
-            for file, is_favorite, rating in rows
+            for file, is_favorite, rating, manual_placement in rows
         ]
         return BooksListResponse(
             items=items,

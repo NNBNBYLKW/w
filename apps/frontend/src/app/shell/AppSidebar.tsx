@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 
-import { t } from "../../shared/text";
+import { t, useLocale } from "../../shared/text";
 import { SidebarIcon, type NavigationIconName } from "../../shared/ui/icons";
 import { useUIStore } from "../providers/uiStore";
 
@@ -19,6 +19,7 @@ const navItems: Array<{ to: string; labelKey: Parameters<typeof t>[0]; icon: Nav
 ];
 
 export function AppSidebar() {
+  useLocale();
   const isSidebarCollapsed = useUIStore((state) => state.isSidebarCollapsed);
   const toggleSidebarCollapsed = useUIStore((state) => state.toggleSidebarCollapsed);
 

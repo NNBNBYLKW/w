@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 
 import { getSystemStatus } from "../../services/api/systemApi";
 import { queryKeys } from "../../services/query/queryKeys";
-import { t } from "../../shared/text";
+import { t, useLocale } from "../../shared/text";
 import { SidebarIcon } from "../../shared/ui/icons";
 import { useUIStore } from "../providers/uiStore";
 
@@ -30,6 +30,7 @@ const pageHeaderCopy: Record<string, PageHeaderCopy> = {
 
 
 export function PageContentHeader() {
+  useLocale();
   const location = useLocation();
   const isDetailsPanelOpen = useUIStore((state) => state.isDetailsPanelOpen);
   const setDetailsPanelOpen = useUIStore((state) => state.setDetailsPanelOpen);

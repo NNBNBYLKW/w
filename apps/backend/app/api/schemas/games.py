@@ -1,12 +1,10 @@
 from datetime import datetime
-from typing import Literal
-
 from pydantic import BaseModel, Field
 
-from app.api.schemas.file import ColorTagValue, FileListSortBy, FileRatingValue, FileStatusValue, SortOrder
+from app.api.schemas.file import ColorTagValue, FileKindValue, FileListSortBy, FileRatingValue, FileStatusValue, ManualPlacementValue, PlacementValue, SortOrder
 
 
-GameFormatValue = Literal["exe", "lnk"]
+GameFormatValue = str
 
 
 class GamesListQueryParams(BaseModel):
@@ -23,6 +21,10 @@ class GameListItemResponse(BaseModel):
     id: int
     display_title: str
     game_format: GameFormatValue
+    file_kind: FileKindValue
+    auto_placement: PlacementValue
+    manual_placement: ManualPlacementValue | None
+    effective_placement: PlacementValue
     path: str
     modified_at: datetime
     size_bytes: int | None

@@ -21,8 +21,8 @@ export const pages = {
   },
   books: {
     eyebrow: "子库浏览面",
-    title: "图书",
-    description: "在聚焦的子库界面中浏览识别出的电子书文件。选择会继续进入共享详情与现有打开动作。",
+    title: "文档",
+    description: "在聚焦的子库界面中浏览识别出的文档文件。选择会继续进入共享详情与现有打开动作。",
   },
   media: {
     eyebrow: "视觉子库界面",

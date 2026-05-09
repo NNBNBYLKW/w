@@ -24,7 +24,7 @@ function formatBytes(value: number | null): string {
 
 function inferBookFile(name: string, path: string): boolean {
   const candidate = `${name} ${path}`.toLowerCase();
-  return candidate.includes(".epub") || candidate.includes(".pdf");
+  return /\.(azw3|csv|doc|docx|epub|md|mobi|odp|ods|odt|pdf|ppt|pptx|rtf|txt|xls|xlsx)(\s|$)/.test(candidate);
 }
 
 function inferSoftwareFile(name: string, path: string): boolean {
@@ -152,7 +152,7 @@ export function RecentImportsFeature() {
     pageLabel: t("shell.topbar.pages.recent"),
     resetDeps: [family, range, sortOrder, page],
   });
-  const { applyColorTag, applyTag, isApplyingColorTag, isApplyingTag } = useBatchOrganizeActions({
+  const { applyColorTag, applyPlacement, applyTag, isApplyingColorTag, isApplyingPlacement, isApplyingTag } = useBatchOrganizeActions({
     onSuccess: clearSelection,
   });
 
@@ -275,8 +275,10 @@ export function RecentImportsFeature() {
       {family === "imports" && isBatchMode ? (
         <BatchActionBar
           isApplyingColorTag={isApplyingColorTag}
+          isApplyingPlacement={isApplyingPlacement}
           isApplyingTag={isApplyingTag}
           onApplyColorTag={(colorTag) => applyColorTag(selectedIds, colorTag)}
+          onApplyPlacement={(manualPlacement) => applyPlacement(selectedIds, manualPlacement)}
           onApplyTag={(name) => applyTag(selectedIds, name)}
           onClearSelection={clearSelection}
           onExitBatchMode={exitBatchMode}
