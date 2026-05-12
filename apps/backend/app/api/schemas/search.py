@@ -7,6 +7,7 @@ from app.api.schemas.file import FileKindValue, ManualPlacementValue, PlacementV
 
 
 FileTypeFilter = Literal["image", "video", "document", "archive", "other"]
+LibraryPlacementFilter = Literal["documents", "media", "games", "software"]
 SearchSortBy = Literal["modified_at", "name", "discovered_at"]
 SortOrder = Literal["asc", "desc"]
 
@@ -14,6 +15,7 @@ SortOrder = Literal["asc", "desc"]
 class SearchQueryParams(BaseModel):
     query: str | None = None
     file_type: FileTypeFilter | None = None
+    library_placement: LibraryPlacementFilter | None = None
     tag_id: int | None = Field(default=None, ge=1)
     color_tag: str | None = None
     page: int = Field(default=1, ge=1)

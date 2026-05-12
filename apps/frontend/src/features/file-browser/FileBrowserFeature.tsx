@@ -10,6 +10,7 @@ import { listIndexedFiles } from "../../services/api/filesApi";
 import { getSources } from "../../services/api/sourcesApi";
 import { listTags } from "../../services/api/tagsApi";
 import { queryKeys } from "../../services/query/queryKeys";
+import { setWorkbenchFileDragData } from "../../services/tools/videoMergeDrag";
 
 
 function formatBytes(value: number | null): string {
@@ -440,6 +441,18 @@ export function FileBrowserFeature() {
                 key={item.id}
                 className={`files-list-row${selectedItemId === String(item.id) ? " files-list-row--selected" : ""}`}
                 type="button"
+                draggable={item.file_type === "video"}
+                onDragStart={(event) => {
+                  if (item.file_type !== "video") {
+                    return;
+                  }
+                  setWorkbenchFileDragData(event, {
+                    file_id: item.id,
+                    name: item.name,
+                    path: item.path,
+                    file_type: item.file_type,
+                  });
+                }}
                 onClick={() => selectItem(String(item.id))}
               >
                   <FileRowThumbnail

@@ -18,6 +18,7 @@ export type ManualPlacementValue = "media" | "books" | "games" | "software" | "f
 export type ColorTagValue = "red" | "yellow" | "green" | "blue" | "purple";
 export type FileStatusValue = "playing" | "completed" | "shelved";
 export type FileRatingValue = 1 | 2 | 3 | 4 | 5;
+export type LibraryPlacementFilter = "documents" | "media" | "games" | "software";
 
 export type SearchSortBy = "modified_at" | "name" | "discovered_at";
 export type SearchSortOrder = "asc" | "desc";
@@ -59,6 +60,7 @@ export type FilesListResponseVM = {
 export type SearchQueryInput = {
   query?: string;
   file_type?: FileType;
+  library_placement?: LibraryPlacementFilter;
   tag_id?: number;
   color_tag?: ColorTagValue;
   page: number;

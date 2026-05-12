@@ -12,6 +12,7 @@ const navItems: Array<{ to: string; labelKey: Parameters<typeof t>[0]; icon: Nav
   { to: "/software", labelKey: "navigation.items.software", icon: "software" },
   { to: "/library/media", labelKey: "navigation.items.media", icon: "media" },
   { to: "/library/games", labelKey: "navigation.items.games", icon: "games" },
+  { to: "/tools", labelKey: "navigation.items.tools", icon: "tools" },
   { to: "/recent", labelKey: "navigation.items.recent", icon: "recent" },
   { to: "/tags", labelKey: "navigation.items.tags", icon: "tags" },
   { to: "/collections", labelKey: "navigation.items.collections", icon: "collections" },

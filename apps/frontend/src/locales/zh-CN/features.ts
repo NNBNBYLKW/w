@@ -1,36 +1,28 @@
 export const features = {
   homeOverview: {
     systemOverviewEyebrow: "概览入口",
-    systemOverviewDescription: "使用这个轻量概览入口，在进入工作台流程之前先查看当前运行状态和已索引内容覆盖情况。",
-    recentPreview: {
-      eyebrow: "最近导入预览",
-      title: "最近已索引文件",
-      description: "先预览最近 7 天内最新索引的文件，再进入完整的最近导入页面。",
-      loading: "正在加载最近导入预览...",
-      unavailableTitle: "最近导入预览不可用",
-      empty: "最近 7 天内还没有发现处于活跃状态的已索引文件。",
-    },
-    sourcesOverview: {
-      eyebrow: "来源概览",
-      title: "已索引来源覆盖情况",
-      description: "在进入设置中的来源设置和扫描控制之前，先查看已保存来源及其最近一次扫描状态。",
-      loading: "正在加载来源概览...",
-      unavailableTitle: "来源概览不可用",
-      empty: "还没有保存的来源。打开设置开始来源设置并运行首次扫描。",
-      scanFailed: "上次扫描失败：{message}",
-    },
-    quickLinks: {
-      eyebrow: "快捷入口",
-      title: "跳转到工作台流程",
-      description: "无需离开共享壳层，直接打开当前的搜索、浏览、媒体、最近、标签、集合或来源/系统页面。",
-      items: {
-        search: "已索引搜索结果",
-        files: "已索引文件浏览",
-        media: "已索引媒体列表",
-        recent: "最近已索引文件",
-        tags: "按标签检索",
-        collections: "已保存集合",
-        settings: "来源 / 系统入口",
+    systemOverviewDescription: "先查看运行健康状态，再从一个紧凑面板进入主要库内容。",
+    dashboard: {
+      viewAll: "查看全部",
+      loading: "正在加载...",
+      unableToLoad: "无法加载",
+      modules: {
+        documents: {
+          title: "文档",
+          empty: "暂无文档",
+        },
+        software: {
+          title: "软件",
+          empty: "暂无软件",
+        },
+        media: {
+          title: "媒体",
+          empty: "暂无媒体",
+        },
+        games: {
+          title: "游戏",
+          empty: "暂无游戏",
+        },
       },
     },
   },
@@ -95,9 +87,7 @@ export const features = {
     },
     quickActions: {
       eyebrow: "快速动作",
-      description: "复用现有工作台路径来整理、搜索或管理已索引来源。",
-      search: "高级搜索",
-      sources: "管理来源",
+      description: "使用批量处理和保存检索动作整理当前文档集合。",
     },
     table: {
       ariaLabel: "文档文件表格",
@@ -147,9 +137,7 @@ export const features = {
     },
     quickActions: {
       eyebrow: "快速动作",
-      description: "复用现有工作台路径来整理、搜索或管理已索引来源。",
-      search: "高级搜索",
-      sources: "管理来源",
+      description: "使用批量处理和保存检索动作整理当前媒体集合。",
     },
     table: {
       ariaLabel: "媒体文件表格",
@@ -218,9 +206,7 @@ export const features = {
     },
     quickActions: {
       eyebrow: "快速动作",
-      description: "复用现有工作台路径来整理、搜索或管理已索引来源。",
-      search: "高级搜索",
-      sources: "管理来源",
+      description: "使用批量处理和保存检索动作整理当前游戏集合。",
     },
     table: {
       ariaLabel: "游戏入口文件表格",
@@ -278,9 +264,7 @@ export const features = {
     },
     quickActions: {
       eyebrow: "快速动作",
-      description: "复用现有工作台路径来整理、搜索或管理已索引来源。",
-      search: "高级搜索",
-      sources: "管理来源",
+      description: "使用批量处理和保存检索动作整理当前软件集合。",
     },
     table: {
       ariaLabel: "软件文件表格",
@@ -320,6 +304,64 @@ export const features = {
     collectionPrefill: {
       base: "软件",
       default: "软件集合",
+    },
+  },
+  tools: {
+    eyebrow: "内置工具",
+    title: "工具",
+    description: "运行聚焦的本地工具，不把 Workbench 扩展成脚本执行器。",
+    availableTools: "可用工具",
+    tabs: {
+      ariaLabel: "工具分区",
+      currentTool: "当前工具",
+      inProgress: "进行中",
+      completed: "已完成",
+    },
+    empty: {
+      inProgress: "当前没有进行中的任务",
+      completed: "暂无已完成任务",
+    },
+    videoMerge: {
+      title: "视频合并",
+      description: "按顺序合并多个视频文件",
+      inputVideos: "输入视频",
+      dropVideos: "将视频文件拖入此处",
+      dropHint: "可使用已索引视频、Workbench 视频行，或桌面端中的资源管理器文件。",
+      onlyVideo: "当前工具只支持视频文件。",
+      externalDropUnsupported: "当前运行环境无法读取拖入文件路径，请从已索引文件中选择视频。",
+      indexedVideos: "已索引视频",
+      mergeOrder: "合并顺序",
+      noInputs: "还没有输入视频。",
+      outputName: "输出文件名",
+      outputDir: "输出目录",
+      mode: "合并模式",
+      copyMode: "快速合并",
+      copyHint: "不重新编码，速度快",
+      reencodeMode: "兼容合并",
+      reencodeHint: "重新编码，兼容性更高",
+      start: "开始合并",
+      starting: "启动中...",
+      currentRun: "当前运行",
+      history: "运行历史",
+      pending: "等待中",
+      running: "运行中",
+      completed: "合并完成",
+      failed: "合并失败",
+      outputFile: "输出文件",
+      rescanHint: "如需在 Workbench 中看到该文件，请重新扫描对应来源。",
+      indexed: "已索引",
+      external: "外部文件",
+      delete: "删除",
+      moveUp: "上移",
+      moveDown: "下移",
+      clear: "清空",
+      status: {
+        idle: "空闲",
+        pending: "等待中",
+        running: "运行中",
+        succeeded: "合并完成",
+        failed: "合并失败",
+      },
     },
   },
   recent: {

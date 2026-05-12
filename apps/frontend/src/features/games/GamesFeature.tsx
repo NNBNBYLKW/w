@@ -590,12 +590,6 @@ export function GamesFeature() {
               {t("common.actions.batchOrganize")}
             </button>
           ) : null}
-          <button className="ghost-button" type="button" onClick={() => navigate("/search")}>
-            {t("features.games.quickActions.search")}
-          </button>
-          <button className="ghost-button" type="button" onClick={() => navigate("/settings")}>
-            {t("features.games.quickActions.sources")}
-          </button>
           {hasActiveStatusFilter || hasActiveRetrievalFilters ? (
             <button className="ghost-button" type="button" onClick={clearFilters}>
               {t("common.actions.clearFilters")}

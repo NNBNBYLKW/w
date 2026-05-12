@@ -9,6 +9,7 @@
 - files
 - shared details
 - thumbnail
+- tools
 - open actions 协作边界
 
 ## Current support
@@ -20,6 +21,7 @@
 - `GET /files/{file_id}/video-preview` 与 frame route 当前支持 DetailsPanel 的 6 帧视频预览
 - 当前有持久化分类字段：`file_kind` / `auto_placement` / `manual_placement`，smart views 使用 `effective_placement = manual_placement ?? auto_placement`
 - 用户侧 Documents / 文档 当前使用兼容 route `/library/books` 与 wire value `books`
+- 当前有 `Tools / 工具` 的第一版内置工具：`video_merge`；它只允许按固定参数调用 FFmpeg 合并视频，不支持任意 bat / shell / script 执行
 
 ## Not currently supported
 
@@ -27,6 +29,7 @@
 - 没有文件树或 breadcrumb browse API
 - 没有复杂 query DSL、聚合统计或多维 faceting
 - 没有对所有文件类型提供统一 thumbnail 合同；当前只覆盖 image / video / `.exe` / `.pdf`
+- 没有任意命令执行、PowerShell/bat 注册、插件式工具系统或自动把工具输出加入索引
 
 ## GET /health
 
@@ -246,6 +249,7 @@
 query?: string
 file_type?: image | video | document | archive | other
 file_kind?: image | video | audio | document | ebook | archive | executable | installer | shortcut | other
+library_placement?: documents | media | games | software
 tag_id?: positive integer
 color_tag?: red | yellow | green | blue | purple
 page?: integer >= 1
@@ -284,6 +288,9 @@ sort_order?: asc | desc
   - `422` for invalid pagination / enum values
 - Notes / constraints / caveats:
   - 当前 search 只支持**最小过滤**
+  - `library_placement` 使用 smart view 的 effective placement 语义：`manual_placement ?? auto_placement`
+  - `library_placement=documents` 当前映射到兼容 wire value `books`，因此会包含旧 Documents/Books 数据
+  - `files_only` 与 `none` 不会匹配 Documents / Media / Games / Software 过滤
   - 空 query 也是合法的；前端会把它当作 empty-query browse state
   - 当前结果 item 不包含 tags / color / user meta 明细，详情仍需走 `GET /files/{file_id}`
 
@@ -550,6 +557,95 @@ sort_order?: asc | desc
 - Notes / constraints / caveats:
   - `frame_index` 当前为 `1..6`
   - 生成失败、缺失或不支持时按现有 thumbnail / preview 错误语义降级，不改变前端主路径
+
+## GET /tools
+
+- Method: `GET`
+- Path: `/tools`
+- Purpose: 返回当前内置工具列表
+- Response shape:
+
+```json
+{
+  "items": [
+    {
+      "key": "video_merge",
+      "title_key": "features.tools.videoMerge.title",
+      "description_key": "features.tools.videoMerge.description",
+      "category": "video"
+    }
+  ]
+}
+```
+
+- Notes / constraints / caveats:
+  - 当前只提供内置 `video_merge`
+  - 后端只返回稳定 key，用户侧文案由前端 i18n 负责
+  - 这不是插件系统、脚本注册系统或任意命令入口
+
+## POST /tools/video-merge/runs
+
+- Method: `POST`
+- Path: `/tools/video-merge/runs`
+- Purpose: 创建一个后台视频合并 run，立即返回 `run_id`
+- Request body:
+
+```json
+{
+  "inputs": [
+    { "source_kind": "indexed_file", "file_id": 1 },
+    { "source_kind": "external_path", "path": "G:\\Videos\\clip02.mp4" }
+  ],
+  "output_name": "merged-video",
+  "output_dir": "G:\\Videos",
+  "mode": "copy"
+}
+```
+
+- Response shape:
+
+```json
+{
+  "run_id": 123,
+  "status": "pending"
+}
+```
+
+- Notes / constraints / caveats:
+  - `inputs` 顺序就是合并顺序，最少 2 个
+  - `source_kind` 只允许 `indexed_file` 或 `external_path`
+  - 只接受视频扩展名：`.mp4`、`.mkv`、`.mov`、`.avi`、`.webm`、`.m4v`、`.ts`
+  - `mode` 只允许 `copy` 或 `reencode`
+  - 输出文件不会覆盖已有文件，会自动追加 `_1` / `_2`
+  - 输出文件不会自动加入索引；用户需要重新扫描对应来源
+  - 前端不会传入 shell command、环境变量、bat 或任意命令片段；FFmpeg argv 由后端服务层构造
+
+## GET /tools/runs/{run_id}
+
+- Method: `GET`
+- Path: `/tools/runs/{run_id}`
+- Purpose: 查询工具 run 状态，用于前端轮询
+- Response fields:
+  - `status`: `pending | running | succeeded | failed | cancelled`
+  - `input`: 创建 run 时的输入快照
+  - `output_path` / `final_output_name`: 成功时的实际输出
+  - `log_tail`: 最多 20KB 的日志尾部
+  - `error_message`: 失败原因
+- Notes / constraints / caveats:
+  - 后端启动时会把旧进程遗留的 `pending` / `running` run 标记为 failed/interrupted
+  - run 在拿到 FFmpeg 并发 semaphore 前保持 `pending`，真正执行时进入 `running`
+
+## GET /tools/runs
+
+- Method: `GET`
+- Path: `/tools/runs`
+- Purpose: 返回工具运行历史
+- Query params:
+  - `page`: 默认 `1`
+  - `page_size`: 默认 `20`，最大 `100`
+- Notes / constraints / caveats:
+  - 默认按 `created_at desc`
+  - 第一版没有 cancel API；不要在 UI 中展示假的取消能力
 
 ## Open actions boundary
 

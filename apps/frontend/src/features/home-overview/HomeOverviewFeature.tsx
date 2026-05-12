@@ -1,61 +1,327 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import type { SVGProps } from "react";
 
 import { useUIStore } from "../../app/providers/uiStore";
+import SevenZipIcon from "../../assets/icons/navigation/7Z.svg?react";
+import ExcelIcon from "../../assets/icons/navigation/Excel.svg?react";
+import MarkdownIcon from "../../assets/icons/navigation/MD.svg?react";
+import Mp3Icon from "../../assets/icons/navigation/mp3.svg?react";
+import M4aIcon from "../../assets/icons/navigation/m4a.svg?react";
+import PowerPointIcon from "../../assets/icons/navigation/PowerPoint.svg?react";
+import RarIcon from "../../assets/icons/navigation/RAR.svg?react";
+import TextIcon from "../../assets/icons/navigation/TXT.svg?react";
+import WavIcon from "../../assets/icons/navigation/wav.svg?react";
+import WordIcon from "../../assets/icons/navigation/Word.svg?react";
+import ZipIcon from "../../assets/icons/navigation/zip.svg?react";
 import { t } from "../../shared/text";
-import { listRecentImports } from "../../services/api/recentApi";
-import { getSources } from "../../services/api/sourcesApi";
+import { SidebarIcon, type NavigationIconName } from "../../shared/ui/icons";
+import type { BookListItemVM } from "../../entities/book/types";
+import type { GameListItemVM } from "../../entities/game/types";
+import type { MediaListItemVM } from "../../entities/media/types";
+import type { SoftwareListItemVM } from "../../entities/software/types";
+import { listBooks } from "../../services/api/booksApi";
+import { listGames } from "../../services/api/gamesApi";
+import { listMediaLibrary } from "../../services/api/mediaLibraryApi";
+import { listSoftware } from "../../services/api/softwareApi";
 import { queryKeys } from "../../services/query/queryKeys";
 import { SystemStatusFeature } from "../system-status/SystemStatusFeature";
 
 
+const HOME_MODULE_PAGE_SIZE = 8;
+
+type HomeRowIcon = (props: SVGProps<SVGSVGElement>) => JSX.Element;
+
+type HomeDashboardItem = {
+  id: number;
+  title: string;
+  path: string;
+  modifiedAt: string;
+  sizeBytes: number | null;
+  format: string;
+  icon?: HomeRowIcon;
+  mark: string;
+  tone: "documents" | "software" | "media" | "games";
+};
+
+type HomeDashboardModuleProps = {
+  emptyLabel: string;
+  error: Error | null;
+  icon: NavigationIconName;
+  isLoading: boolean;
+  items: HomeDashboardItem[];
+  title: string;
+  viewAllTo: string;
+};
+
 function formatTimestamp(value: string): string {
-  return new Date(value).toLocaleString();
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? t("common.states.unavailable") : date.toLocaleString();
 }
 
+function formatBytes(value: number | null): string {
+  if (value === null) {
+    return t("common.states.sizeUnavailable");
+  }
 
-function formatScanStatusLabel(value: string | null): string {
-  if (value === "running") {
-    return t("settings.sourceManagement.scanStatus.running");
+  const units = ["bytes", "KB", "MB", "GB", "TB"];
+  let size = value;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
   }
-  if (value === "failed") {
-    return t("settings.sourceManagement.scanStatus.failed");
+
+  if (unitIndex === 0) {
+    return `${value.toLocaleString()} bytes`;
   }
-  if (value === "succeeded") {
-    return t("settings.sourceManagement.scanStatus.succeeded");
-  }
-  return t("settings.sourceManagement.scanStatus.none");
+
+  const rounded = size >= 10 ? Math.round(size) : Math.round(size * 10) / 10;
+  return `${rounded.toLocaleString()} ${units[unitIndex]}`;
 }
 
+function formatHomeMetadata(item: HomeDashboardItem): string {
+  return [item.format, formatTimestamp(item.modifiedAt), formatBytes(item.sizeBytes)].filter(Boolean).join(" · ");
+}
 
-export function HomeOverviewFeature() {
+function normalizeFormatMark(value: string | null | undefined, fallback: string): string {
+  const normalized = (value ?? "").trim().replace(/^\./, "").toUpperCase();
+  return (normalized || fallback).slice(0, 5);
+}
+
+function getExtensionFromPath(path: string): string {
+  const fileName = path.split(/[\\/]/).pop() ?? path;
+  const lastDot = fileName.lastIndexOf(".");
+  return lastDot >= 0 ? fileName.slice(lastDot + 1).toLowerCase() : "";
+}
+
+function getHomeRowIcon(format: string): HomeRowIcon | undefined {
+  switch (format.toLowerCase()) {
+    case "doc":
+    case "docx":
+    case "rtf":
+    case "odt":
+      return WordIcon;
+    case "xls":
+    case "xlsx":
+    case "csv":
+    case "ods":
+      return ExcelIcon;
+    case "ppt":
+    case "pptx":
+    case "odp":
+      return PowerPointIcon;
+    case "md":
+      return MarkdownIcon;
+    case "txt":
+      return TextIcon;
+    case "zip":
+      return ZipIcon;
+    case "7z":
+      return SevenZipIcon;
+    case "rar":
+      return RarIcon;
+    case "mp3":
+      return Mp3Icon;
+    case "m4a":
+      return M4aIcon;
+    case "wav":
+      return WavIcon;
+    default:
+      return undefined;
+  }
+}
+
+function normalizeFormat(value: string | null | undefined, path: string, fallback: string): string {
+  const normalized = (value ?? "").trim().replace(/^\./, "").toLowerCase();
+  return normalized || getExtensionFromPath(path) || fallback.toLowerCase();
+}
+
+function getMediaMark(fileType: string): string {
+  if (fileType === "image") {
+    return t("features.media.types.imageShort");
+  }
+  if (fileType === "video") {
+    return t("features.media.types.videoShort");
+  }
+  if (fileType === "audio") {
+    return "AUD";
+  }
+  return normalizeFormatMark(fileType, "MED");
+}
+
+function mapBookItem(item: BookListItemVM): HomeDashboardItem {
+  const format = normalizeFormat(item.book_format, item.path, "doc");
+  return {
+    id: item.id,
+    title: item.display_title,
+    path: item.path,
+    modifiedAt: item.modified_at,
+    sizeBytes: item.size_bytes,
+    format: normalizeFormatMark(format, "DOC"),
+    icon: getHomeRowIcon(format),
+    mark: normalizeFormatMark(format, "DOC"),
+    tone: "documents",
+  };
+}
+
+function mapSoftwareItem(item: SoftwareListItemVM): HomeDashboardItem {
+  const format = normalizeFormat(item.software_format, item.path, "app");
+  return {
+    id: item.id,
+    title: item.display_title,
+    path: item.path,
+    modifiedAt: item.modified_at,
+    sizeBytes: item.size_bytes,
+    format: normalizeFormatMark(format, "APP"),
+    icon: getHomeRowIcon(format),
+    mark: normalizeFormatMark(format, "APP"),
+    tone: "software",
+  };
+}
+
+function mapMediaItem(item: MediaListItemVM): HomeDashboardItem {
+  const format = normalizeFormat(null, item.path, item.file_type);
+  return {
+    id: item.id,
+    title: item.name,
+    path: item.path,
+    modifiedAt: item.modified_at,
+    sizeBytes: item.size_bytes,
+    format: normalizeFormatMark(format, "MED"),
+    icon: getHomeRowIcon(format),
+    mark: getMediaMark(item.file_type),
+    tone: "media",
+  };
+}
+
+function mapGameItem(item: GameListItemVM): HomeDashboardItem {
+  const format = normalizeFormat(item.game_format, item.path, "game");
+  return {
+    id: item.id,
+    title: item.display_title,
+    path: item.path,
+    modifiedAt: item.modified_at,
+    sizeBytes: item.size_bytes,
+    format: normalizeFormatMark(format, "GAME"),
+    icon: getHomeRowIcon(format),
+    mark: normalizeFormatMark(format, "GAME"),
+    tone: "games",
+  };
+}
+
+function HomeDashboardModule({
+  emptyLabel,
+  error,
+  icon,
+  isLoading,
+  items,
+  title,
+  viewAllTo,
+}: HomeDashboardModuleProps) {
   const selectedItemId = useUIStore((state) => state.selectedItemId);
   const selectItem = useUIStore((state) => state.selectItem);
-  const quickLinks = [
-    { to: "/search", label: t("features.homeOverview.quickLinks.items.search") },
-    { to: "/files", label: t("features.homeOverview.quickLinks.items.files") },
-    { to: "/library/media", label: t("features.homeOverview.quickLinks.items.media") },
-    { to: "/recent", label: t("features.homeOverview.quickLinks.items.recent") },
-    { to: "/tags", label: t("features.homeOverview.quickLinks.items.tags") },
-    { to: "/collections", label: t("features.homeOverview.quickLinks.items.collections") },
-    { to: "/settings", label: t("features.homeOverview.quickLinks.items.settings") },
-  ];
 
-  const recentQueryParams = {
-    range: "7d" as const,
+  return (
+    <section className="home-dashboard-card">
+      <div className="home-dashboard-card__header">
+        <div className="home-dashboard-card__title">
+          <span className="home-dashboard-card__icon" aria-hidden="true">
+            <SidebarIcon name={icon} />
+          </span>
+          <h3>{title}</h3>
+        </div>
+        <Link className="secondary-button home-dashboard-card__link" to={viewAllTo}>
+          {t("features.homeOverview.dashboard.viewAll")}
+        </Link>
+      </div>
+
+      {isLoading ? <p className="home-dashboard-card__state">{t("features.homeOverview.dashboard.loading")}</p> : null}
+
+      {error ? (
+        <div className="home-dashboard-card__state home-dashboard-card__state--error">
+          <strong>{t("features.homeOverview.dashboard.unableToLoad")}</strong>
+          <p>{error.message}</p>
+        </div>
+      ) : null}
+
+      {!isLoading && !error && items.length === 0 ? (
+        <div className="home-dashboard-card__state">{emptyLabel}</div>
+      ) : null}
+
+      {!isLoading && !error && items.length > 0 ? (
+        <div className="home-dashboard-list">
+          {items.slice(0, HOME_MODULE_PAGE_SIZE).map((item) => {
+            const Icon = item.icon;
+
+            return (
+              <button
+                key={item.id}
+                className={`home-dashboard-row${
+                  selectedItemId === String(item.id) ? " home-dashboard-row--selected" : ""
+                }`}
+                type="button"
+                onClick={() => selectItem(String(item.id))}
+              >
+                <span className={`home-dashboard-row__mark home-dashboard-row__mark--${item.tone}`} aria-hidden="true">
+                  {Icon ? <Icon className="home-dashboard-row__icon" /> : item.mark}
+                </span>
+                <span className="home-dashboard-row__copy">
+                  <strong title={item.title}>{item.title}</strong>
+                  <span title={formatHomeMetadata(item)}>{formatHomeMetadata(item)}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+export function HomeOverviewFeature() {
+  const booksQueryParams = {
     page: 1,
-    page_size: 10,
+    page_size: HOME_MODULE_PAGE_SIZE,
+    sort_by: "modified_at" as const,
+    sort_order: "desc" as const,
+  };
+  const softwareQueryParams = {
+    page: 1,
+    page_size: HOME_MODULE_PAGE_SIZE,
+    sort_by: "modified_at" as const,
+    sort_order: "desc" as const,
+  };
+  const mediaQueryParams = {
+    view_scope: "all" as const,
+    page: 1,
+    page_size: HOME_MODULE_PAGE_SIZE,
+    sort_by: "modified_at" as const,
+    sort_order: "desc" as const,
+  };
+  const gamesQueryParams = {
+    page: 1,
+    page_size: HOME_MODULE_PAGE_SIZE,
+    sort_by: "modified_at" as const,
     sort_order: "desc" as const,
   };
 
-  const recentQuery = useQuery({
-    queryKey: queryKeys.recent(recentQueryParams),
-    queryFn: () => listRecentImports(recentQueryParams),
+  const booksQuery = useQuery({
+    queryKey: queryKeys.booksList(booksQueryParams),
+    queryFn: () => listBooks(booksQueryParams),
   });
-
-  const sourcesQuery = useQuery({
-    queryKey: queryKeys.sources,
-    queryFn: getSources,
+  const softwareQuery = useQuery({
+    queryKey: queryKeys.softwareList(softwareQueryParams),
+    queryFn: () => listSoftware(softwareQueryParams),
+  });
+  const mediaQuery = useQuery({
+    queryKey: queryKeys.mediaLibrary(mediaQueryParams),
+    queryFn: () => listMediaLibrary(mediaQueryParams),
+  });
+  const gamesQuery = useQuery({
+    queryKey: queryKeys.gamesList(gamesQueryParams),
+    queryFn: () => listGames(gamesQueryParams),
   });
 
   return (
@@ -64,111 +330,46 @@ export function HomeOverviewFeature() {
         eyebrow={t("features.homeOverview.systemOverviewEyebrow")}
         title={t("settings.systemStatus.title")}
         description={t("features.homeOverview.systemOverviewDescription")}
+        variant="compact"
       />
 
-      <div className="home-overview-grid">
-        <section className="feature-shell">
-          <div className="feature-header">
-            <span className="page-header__eyebrow">{t("features.homeOverview.recentPreview.eyebrow")}</span>
-            <h3>{t("features.homeOverview.recentPreview.title")}</h3>
-            <p>{t("features.homeOverview.recentPreview.description")}</p>
-          </div>
-
-          {recentQuery.isLoading ? <p>{t("features.homeOverview.recentPreview.loading")}</p> : null}
-
-          {recentQuery.error instanceof Error ? (
-            <div className="status-block page-card">
-              <strong>{t("features.homeOverview.recentPreview.unavailableTitle")}</strong>
-              <p>{recentQuery.error.message}</p>
-            </div>
-          ) : null}
-
-          {recentQuery.data && recentQuery.data.items.length === 0 ? (
-            <div className="future-frame">{t("features.homeOverview.recentPreview.empty")}</div>
-          ) : null}
-
-          {recentQuery.data && recentQuery.data.items.length > 0 ? (
-            <div className="recent-list">
-              {recentQuery.data.items.map((item) => (
-                <button
-                  key={item.id}
-                  className={`recent-row${selectedItemId === String(item.id) ? " recent-row--selected" : ""}`}
-                  type="button"
-                  onClick={() => selectItem(String(item.id))}
-                >
-                  <div className="recent-row__meta">
-                    <strong>{item.name}</strong>
-                    <p>{item.path}</p>
-                  </div>
-                  <div className="recent-row__badges">
-                    <span className="status-pill">{item.file_type}</span>
-                    <span className="status-pill">{formatTimestamp(item.discovered_at)}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </section>
-
-        <section className="feature-shell">
-          <div className="feature-header">
-            <span className="page-header__eyebrow">{t("features.homeOverview.sourcesOverview.eyebrow")}</span>
-            <h3>{t("features.homeOverview.sourcesOverview.title")}</h3>
-            <p>{t("features.homeOverview.sourcesOverview.description")}</p>
-          </div>
-
-          {sourcesQuery.isLoading ? <p>{t("features.homeOverview.sourcesOverview.loading")}</p> : null}
-
-          {sourcesQuery.error instanceof Error ? (
-            <div className="status-block page-card">
-              <strong>{t("features.homeOverview.sourcesOverview.unavailableTitle")}</strong>
-              <p>{sourcesQuery.error.message}</p>
-            </div>
-          ) : null}
-
-          {sourcesQuery.data && sourcesQuery.data.length === 0 ? (
-            <div className="future-frame">{t("features.homeOverview.sourcesOverview.empty")}</div>
-          ) : null}
-
-          {sourcesQuery.data && sourcesQuery.data.length > 0 ? (
-            <div className="source-list">
-              {sourcesQuery.data.slice(0, 5).map((source) => (
-                <article className="source-row" key={source.id}>
-                  <div className="source-row__meta">
-                    <strong>{source.display_name ?? source.path}</strong>
-                    <p className="source-row__path">{source.path}</p>
-                    {source.last_scan_status === "failed" && source.last_scan_error_message ? (
-                      <p className="source-row__path">
-                        {t("features.homeOverview.sourcesOverview.scanFailed", {
-                          message: source.last_scan_error_message,
-                        })}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="source-row__actions">
-                    <span className="status-pill">{formatScanStatusLabel(source.last_scan_status)}</span>
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : null}
-        </section>
-
-        <section className="feature-shell">
-          <div className="feature-header">
-            <span className="page-header__eyebrow">{t("features.homeOverview.quickLinks.eyebrow")}</span>
-            <h3>{t("features.homeOverview.quickLinks.title")}</h3>
-            <p>{t("features.homeOverview.quickLinks.description")}</p>
-          </div>
-
-          <div className="quick-links-grid">
-            {quickLinks.map((link) => (
-              <Link key={link.to} className="quick-link-card" to={link.to}>
-                {link.label}
-              </Link>
-            ))}
-          </div>
-        </section>
+      <div className="home-dashboard-grid">
+        <HomeDashboardModule
+          emptyLabel={t("features.homeOverview.dashboard.modules.documents.empty")}
+          error={booksQuery.error instanceof Error ? booksQuery.error : null}
+          icon="books"
+          isLoading={booksQuery.isLoading}
+          items={(booksQuery.data?.items ?? []).map(mapBookItem)}
+          title={t("features.homeOverview.dashboard.modules.documents.title")}
+          viewAllTo="/books"
+        />
+        <HomeDashboardModule
+          emptyLabel={t("features.homeOverview.dashboard.modules.software.empty")}
+          error={softwareQuery.error instanceof Error ? softwareQuery.error : null}
+          icon="software"
+          isLoading={softwareQuery.isLoading}
+          items={(softwareQuery.data?.items ?? []).map(mapSoftwareItem)}
+          title={t("features.homeOverview.dashboard.modules.software.title")}
+          viewAllTo="/software"
+        />
+        <HomeDashboardModule
+          emptyLabel={t("features.homeOverview.dashboard.modules.media.empty")}
+          error={mediaQuery.error instanceof Error ? mediaQuery.error : null}
+          icon="media"
+          isLoading={mediaQuery.isLoading}
+          items={(mediaQuery.data?.items ?? []).map(mapMediaItem)}
+          title={t("features.homeOverview.dashboard.modules.media.title")}
+          viewAllTo="/library/media"
+        />
+        <HomeDashboardModule
+          emptyLabel={t("features.homeOverview.dashboard.modules.games.empty")}
+          error={gamesQuery.error instanceof Error ? gamesQuery.error : null}
+          icon="games"
+          isLoading={gamesQuery.isLoading}
+          items={(gamesQuery.data?.items ?? []).map(mapGameItem)}
+          title={t("features.homeOverview.dashboard.modules.games.title")}
+          viewAllTo="/library/games"
+        />
       </div>
     </section>
   );

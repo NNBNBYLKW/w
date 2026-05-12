@@ -8,6 +8,7 @@ export const navigation = {
     software: "软件",
     media: "媒体",
     games: "游戏",
+    tools: "工具",
     recent: "最近",
     tags: "标签",
     collections: "集合",

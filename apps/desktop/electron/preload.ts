@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { contextBridge, ipcRenderer, shell } from "electron";
+import { contextBridge, ipcRenderer, shell, webUtils } from "electron";
 
 
 const defaultBackendBaseUrl = "http://127.0.0.1:8000";
@@ -114,6 +114,14 @@ async function openContainingFolder(filePath: string): Promise<OpenActionResult>
 contextBridge.exposeInMainWorld("assetWorkbench", {
   getBackendBaseUrl: () => process.env.BACKEND_URL ?? defaultBackendBaseUrl,
   selectFolder: async (): Promise<string | null> => ipcRenderer.invoke(selectFolderChannel),
+  getDroppedFilePath: (file: unknown): string | null => {
+    const getPathForFile = (webUtils as { getPathForFile?: (file: unknown) => string }).getPathForFile;
+    if (!getPathForFile) {
+      return null;
+    }
+    const filePath = getPathForFile(file);
+    return typeof filePath === "string" && filePath.trim() ? filePath : null;
+  },
   openFile,
   openContainingFolder,
   minimizeWindow: async (): Promise<void> => ipcRenderer.invoke(minimizeWindowChannel),

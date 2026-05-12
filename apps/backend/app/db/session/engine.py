@@ -21,6 +21,7 @@ def initialize_database() -> None:
     try:
         connection.executescript(sql)
         _ensure_classification_columns(connection)
+        _ensure_tool_runs_table(connection)
         _backfill_file_classification(connection)
         connection.commit()
     finally:
@@ -64,6 +65,29 @@ def _backfill_file_classification(connection: sqlite3.Connection) -> None:
             "UPDATE files SET file_kind = ?, auto_placement = ? WHERE id = ?",
             (classification.file_kind, classification.auto_placement, file_id),
         )
+
+
+def _ensure_tool_runs_table(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS tool_runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tool_key TEXT NOT NULL,
+            status TEXT NOT NULL,
+            input_json TEXT NOT NULL,
+            output_json TEXT NULL,
+            log_text TEXT NULL,
+            error_message TEXT NULL,
+            started_at DATETIME NULL,
+            finished_at DATETIME NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL
+        )
+        """
+    )
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_tool_runs_tool_key ON tool_runs(tool_key)")
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_tool_runs_status ON tool_runs(status)")
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_tool_runs_created_at ON tool_runs(created_at)")
 
 
 def _table_columns(connection: sqlite3.Connection, table_name: str) -> set[str]:

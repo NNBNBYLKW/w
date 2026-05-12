@@ -2,36 +2,28 @@ export const features = {
   homeOverview: {
     systemOverviewEyebrow: "Overview entry",
     systemOverviewDescription:
-      "Use this lightweight overview entry to review current runtime health and indexed-content coverage before opening a workbench flow.",
-    recentPreview: {
-      eyebrow: "Recent imports preview",
-      title: "Recently indexed files",
-      description: "Preview the latest indexed files from the last 7 days before jumping into the full recent-imports page.",
-      loading: "Loading recent imports preview...",
-      unavailableTitle: "Recent imports preview unavailable",
-      empty: "No active indexed files were discovered in the last 7 days yet.",
-    },
-    sourcesOverview: {
-      eyebrow: "Sources overview",
-      title: "Indexed source coverage",
-      description: "Review saved source rows and their latest scan state before opening source setup and scan control in Settings.",
-      loading: "Loading sources overview...",
-      unavailableTitle: "Sources overview unavailable",
-      empty: "No saved sources yet. Open Settings to start source setup and run a first scan.",
-      scanFailed: "Last scan failed: {message}",
-    },
-    quickLinks: {
-      eyebrow: "Quick links",
-      title: "Jump into a workbench flow",
-      description: "Open the current search, browse, media, recent, tag, collections, or source-entry pages without leaving the shared shell.",
-      items: {
-        search: "Indexed search results",
-        files: "Indexed-files browse",
-        media: "Indexed media listing",
-        recent: "Recently indexed files",
-        tags: "Tag-scoped retrieval",
-        collections: "Saved collections",
-        settings: "Source / system entry",
+      "Review runtime health, then jump into the main library surfaces from one compact dashboard.",
+    dashboard: {
+      viewAll: "View all",
+      loading: "Loading...",
+      unableToLoad: "Unable to load",
+      modules: {
+        documents: {
+          title: "Documents",
+          empty: "No documents yet",
+        },
+        software: {
+          title: "Software",
+          empty: "No software yet",
+        },
+        media: {
+          title: "Media",
+          empty: "No media yet",
+        },
+        games: {
+          title: "Games",
+          empty: "No games yet",
+        },
       },
     },
   },
@@ -100,9 +92,7 @@ export const features = {
     },
     quickActions: {
       eyebrow: "Quick actions",
-      description: "Use existing workbench paths to organize, search, or manage indexed sources.",
-      search: "Advanced search",
-      sources: "Manage sources",
+      description: "Use batch processing and saved retrieval actions to organize the current document set.",
     },
     table: {
       ariaLabel: "Documents files table",
@@ -152,9 +142,7 @@ export const features = {
     },
     quickActions: {
       eyebrow: "Quick actions",
-      description: "Use existing workbench paths to organize, search, or manage indexed sources.",
-      search: "Advanced search",
-      sources: "Manage sources",
+      description: "Use batch processing and saved retrieval actions to organize the current media set.",
     },
     table: {
       ariaLabel: "Media files table",
@@ -226,9 +214,7 @@ export const features = {
     },
     quickActions: {
       eyebrow: "Quick actions",
-      description: "Use existing workbench paths to organize, search, or manage indexed sources.",
-      search: "Advanced search",
-      sources: "Manage sources",
+      description: "Use batch processing and saved retrieval actions to organize the current games set.",
     },
     table: {
       ariaLabel: "Game entry files table",
@@ -289,9 +275,7 @@ export const features = {
     },
     quickActions: {
       eyebrow: "Quick actions",
-      description: "Use existing workbench paths to organize, search, or manage indexed sources.",
-      search: "Advanced search",
-      sources: "Manage sources",
+      description: "Use batch processing and saved retrieval actions to organize the current software set.",
     },
     table: {
       ariaLabel: "Software files table",
@@ -331,6 +315,64 @@ export const features = {
     collectionPrefill: {
       base: "Software",
       default: "Software Collection",
+    },
+  },
+  tools: {
+    eyebrow: "Built-in tools",
+    title: "Tools",
+    description: "Run narrow local-first utilities without turning Workbench into a script runner.",
+    availableTools: "Available tools",
+    tabs: {
+      ariaLabel: "Tools sections",
+      currentTool: "Current tool",
+      inProgress: "In progress",
+      completed: "Completed",
+    },
+    empty: {
+      inProgress: "No tasks in progress",
+      completed: "No completed tasks yet",
+    },
+    videoMerge: {
+      title: "Video Merge",
+      description: "Merge multiple videos in order",
+      inputVideos: "Input videos",
+      dropVideos: "Drop video files here",
+      dropHint: "Use indexed videos, Workbench video rows, or Explorer files in the desktop app.",
+      onlyVideo: "This tool only supports video files.",
+      externalDropUnsupported: "This environment cannot read dropped file paths. Choose indexed videos instead.",
+      indexedVideos: "Indexed videos",
+      mergeOrder: "Merge order",
+      noInputs: "No input videos yet.",
+      outputName: "Output filename",
+      outputDir: "Output directory",
+      mode: "Merge mode",
+      copyMode: "Fast merge",
+      copyHint: "No re-encoding, faster",
+      reencodeMode: "Compatible merge",
+      reencodeHint: "Re-encode for better compatibility",
+      start: "Start merge",
+      starting: "Starting...",
+      currentRun: "Current run",
+      history: "Run history",
+      pending: "Pending",
+      running: "Running",
+      completed: "Merge completed",
+      failed: "Merge failed",
+      outputFile: "Output file",
+      rescanHint: "Rescan the source to index this file.",
+      indexed: "Indexed",
+      external: "External file",
+      delete: "Delete",
+      moveUp: "Move up",
+      moveDown: "Move down",
+      clear: "Clear",
+      status: {
+        idle: "Idle",
+        pending: "Pending",
+        running: "Running",
+        succeeded: "Merge completed",
+        failed: "Merge failed",
+      },
     },
   },
   recent: {

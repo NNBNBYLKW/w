@@ -9,12 +9,16 @@ from app.api.routes.search import router as search_router
 from app.api.routes.sources import router as sources_router
 from app.api.routes.system import router as system_router
 from app.api.routes.tags import router as tags_router
+from app.api.routes.tools import router as tools_router, tools_service
 from app.core.config.settings import settings
 from app.core.errors.handlers import register_exception_handlers
 from app.db.session.engine import initialize_database
+from app.db.session.session import SessionLocal
 
 def create_app() -> FastAPI:
     initialize_database()
+    with SessionLocal() as startup_session:
+        tools_service.mark_stale_runs_failed(startup_session)
     app = FastAPI(
         title=settings.app_name,
         version="0.1.0",
@@ -41,6 +45,7 @@ def create_app() -> FastAPI:
     app.include_router(search_router)
     app.include_router(sources_router)
     app.include_router(tags_router)
+    app.include_router(tools_router)
 
     return app
 

@@ -9,6 +9,7 @@ type SystemStatusFeatureProps = {
   eyebrow?: string;
   title?: string;
   description?: string;
+  variant?: "default" | "compact";
 };
 
 
@@ -16,6 +17,7 @@ export function SystemStatusFeature({
   eyebrow = t("settings.systemStatus.defaultEyebrow"),
   title = t("settings.systemStatus.defaultTitle"),
   description = t("settings.systemStatus.defaultDescription"),
+  variant = "default",
 }: SystemStatusFeatureProps) {
   const systemStatusQuery = useQuery({
     queryKey: queryKeys.systemStatus,
@@ -23,7 +25,7 @@ export function SystemStatusFeature({
   });
 
   return (
-    <section className="feature-shell">
+    <section className={`feature-shell${variant === "compact" ? " system-status--compact" : ""}`}>
       <div className="feature-header">
         <span className="page-header__eyebrow">{eyebrow}</span>
         <h3>{title}</h3>

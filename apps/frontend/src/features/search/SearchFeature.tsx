@@ -5,7 +5,13 @@ import { useUIStore } from "../../app/providers/uiStore";
 import { t } from "../../shared/text";
 import { AssetIconGrid, ViewModeToggle, useViewMode, type AssetIconCardItem } from "../../shared/ui/view-mode";
 import { useThumbnailWarmup } from "../../shared/ui/thumbnail";
-import type { ColorTagValue, FileType, SearchSortBy, SearchSortOrder } from "../../entities/file/types";
+import type {
+  ColorTagValue,
+  FileType,
+  LibraryPlacementFilter,
+  SearchSortBy,
+  SearchSortOrder,
+} from "../../entities/file/types";
 import { getFileThumbnailUrl } from "../../services/api/fileDetailsApi";
 import { searchFiles } from "../../services/api/searchApi";
 import { listTags } from "../../services/api/tagsApi";
@@ -15,6 +21,7 @@ import {
   openIndexedFile,
 } from "../../services/desktop/openActions";
 import { queryKeys } from "../../services/query/queryKeys";
+import { setWorkbenchFileDragData } from "../../services/tools/videoMergeDrag";
 
 
 function formatSearchModifiedAt(value: string): string {
@@ -66,6 +73,13 @@ export function SearchFeature() {
     { label: t("common.fileTypes.archive"), value: "archive" },
     { label: t("common.fileTypes.other"), value: "other" },
   ];
+  const libraryPlacementOptions: Array<{ label: string; value: LibraryPlacementFilter | "all" }> = [
+    { label: t("common.libraryPlacements.all"), value: "all" },
+    { label: t("common.libraryPlacements.documents"), value: "documents" },
+    { label: t("common.libraryPlacements.media"), value: "media" },
+    { label: t("common.libraryPlacements.games"), value: "games" },
+    { label: t("common.libraryPlacements.software"), value: "software" },
+  ];
   const colorTagOptions: Array<{ label: string; value: ColorTagValue | "all" }> = [
     { label: t("common.colors.all"), value: "all" },
     { label: t("common.colors.red"), value: "red" },
@@ -77,6 +91,7 @@ export function SearchFeature() {
   const [inputQuery, setInputQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
   const [fileType, setFileType] = useState<FileType | "all">("all");
+  const [libraryPlacement, setLibraryPlacement] = useState<LibraryPlacementFilter | "all">("all");
   const [selectedTagId, setSelectedTagId] = useState("all");
   const [selectedColorTag, setSelectedColorTag] = useState<ColorTagValue | "all">("all");
   const [sortBy, setSortBy] = useState<SearchSortBy>("modified_at");
@@ -90,6 +105,7 @@ export function SearchFeature() {
   const queryParams = {
     query: appliedQuery,
     file_type: fileType === "all" ? undefined : fileType,
+    library_placement: libraryPlacement === "all" ? undefined : libraryPlacement,
     tag_id: selectedTagId === "all" ? undefined : Number(selectedTagId),
     color_tag: selectedColorTag === "all" ? undefined : selectedColorTag,
     page,
@@ -159,6 +175,23 @@ export function SearchFeature() {
               }}
             >
               {fileTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field-stack search-toolbar__field">
+            <span>{t("common.labels.library")}</span>
+            <select
+              className="select-input"
+              value={libraryPlacement}
+              onChange={(event) => {
+                setLibraryPlacement(event.target.value as LibraryPlacementFilter | "all");
+                setPage(1);
+              }}
+            >
+              {libraryPlacementOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -291,6 +324,18 @@ export function SearchFeature() {
                   key={item.id}
                   className={`search-result-row${selectedItemId === String(item.id) ? " search-result-row--selected" : ""}`}
                   type="button"
+                  draggable={item.file_type === "video"}
+                  onDragStart={(event) => {
+                    if (item.file_type !== "video") {
+                      return;
+                    }
+                    setWorkbenchFileDragData(event, {
+                      file_id: item.id,
+                      name: item.name,
+                      path: item.path,
+                      file_type: item.file_type,
+                    });
+                  }}
                   onClick={() => selectItem(String(item.id))}
                   onDoubleClick={() => {
                     const normalizedPath = normalizeIndexedFilePath(item.path);

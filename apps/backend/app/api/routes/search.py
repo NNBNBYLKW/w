@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.api.schemas.search import (
     FileTypeFilter,
+    LibraryPlacementFilter,
     SearchQueryParams,
     SearchResponse,
     SearchSortBy,
@@ -20,6 +21,7 @@ search_service = SearchService()
 def search_files(
     query: str | None = Query(default=None),
     file_type: FileTypeFilter | None = Query(default=None),
+    library_placement: LibraryPlacementFilter | None = Query(default=None),
     tag_id: int | None = Query(default=None, ge=1),
     color_tag: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
@@ -31,6 +33,7 @@ def search_files(
     params = SearchQueryParams(
         query=query,
         file_type=file_type,
+        library_placement=library_placement,
         tag_id=tag_id,
         color_tag=color_tag,
         page=page,
