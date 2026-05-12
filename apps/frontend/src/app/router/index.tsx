@@ -14,6 +14,7 @@ import { SearchPage } from "../../pages/search/SearchPage";
 import { SettingsPage } from "../../pages/settings/SettingsPage";
 import { SoftwarePage } from "../../pages/software/SoftwarePage";
 import { TagsPage } from "../../pages/tags/TagsPage";
+import { ToolsPage } from "../../pages/tools/ToolsPage";
 import { getSources } from "../../services/api/sourcesApi";
 import { queryKeys } from "../../services/query/queryKeys";
 
@@ -47,6 +48,7 @@ export function AppRouter() {
         <Route path="/software" element={<SoftwarePage />} />
         <Route path="/library/games" element={<GamesPage />} />
         <Route path="/library/media" element={<MediaLibraryPage />} />
+        <Route path="/tools" element={<ToolsPage />} />
         <Route path="/recent" element={<RecentImportsPage />} />
         <Route path="/tags" element={<TagsPage />} />
         <Route path="/collections" element={<CollectionsPage />} />

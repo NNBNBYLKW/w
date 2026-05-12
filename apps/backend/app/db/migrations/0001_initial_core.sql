@@ -116,6 +116,20 @@ CREATE TABLE IF NOT EXISTS tasks (
     FOREIGN KEY(target_file_id) REFERENCES files(id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS tool_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tool_key TEXT NOT NULL,
+    status TEXT NOT NULL,
+    input_json TEXT NOT NULL,
+    output_json TEXT NULL,
+    log_text TEXT NULL,
+    error_message TEXT NULL,
+    started_at DATETIME NULL,
+    finished_at DATETIME NULL,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_files_source_id ON files(source_id);
 CREATE INDEX IF NOT EXISTS idx_files_file_type ON files(file_type);
 CREATE INDEX IF NOT EXISTS idx_files_parent_path ON files(parent_path);
@@ -124,3 +138,6 @@ CREATE INDEX IF NOT EXISTS idx_file_tags_tag_id ON file_tags(tag_id);
 CREATE INDEX IF NOT EXISTS idx_file_user_meta_color_tag ON file_user_meta(color_tag);
 CREATE INDEX IF NOT EXISTS idx_tasks_source_id ON tasks(source_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+CREATE INDEX IF NOT EXISTS idx_tool_runs_tool_key ON tool_runs(tool_key);
+CREATE INDEX IF NOT EXISTS idx_tool_runs_status ON tool_runs(status);
+CREATE INDEX IF NOT EXISTS idx_tool_runs_created_at ON tool_runs(created_at);

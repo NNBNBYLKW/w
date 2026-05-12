@@ -7,6 +7,7 @@ export type NavigationIconName =
   | "software"
   | "media"
   | "games"
+  | "tools"
   | "recent"
   | "tags"
   | "collections"

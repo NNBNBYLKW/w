@@ -456,12 +456,6 @@ export function SoftwareFeature() {
               {t("common.actions.batchOrganize")}
             </button>
           ) : null}
-          <button className="ghost-button" type="button" onClick={() => navigate("/search")}>
-            {t("features.software.quickActions.search")}
-          </button>
-          <button className="ghost-button" type="button" onClick={() => navigate("/settings")}>
-            {t("features.software.quickActions.sources")}
-          </button>
           {hasActiveSoftwareFilters ? (
             <>
               <button className="ghost-button" type="button" onClick={clearSoftwareFilters}>

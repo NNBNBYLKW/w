@@ -20,6 +20,7 @@ import {
 import { listMediaLibrary } from "../../services/api/mediaLibraryApi";
 import { listTags } from "../../services/api/tagsApi";
 import { queryKeys } from "../../services/query/queryKeys";
+import { setWorkbenchFileDragData } from "../../services/tools/videoMergeDrag";
 
 
 function formatBytes(value: number | null): string {
@@ -174,6 +175,7 @@ function MediaLibraryRow({
   rating,
   selected,
   sizeBytes,
+  draggable,
   onSelect,
   onThumbnailLoaded,
   thumbnailDisabled,
@@ -189,6 +191,7 @@ function MediaLibraryRow({
   rating: number | null;
   selected: boolean;
   sizeBytes: number | null;
+  draggable?: boolean;
   onSelect: () => void;
   onThumbnailLoaded?: () => void;
   thumbnailDisabled?: boolean;
@@ -213,6 +216,18 @@ function MediaLibraryRow({
     <button
       className={`compact-library-table__row${selected ? " compact-library-table__row--selected" : ""}`}
       type="button"
+      draggable={draggable}
+      onDragStart={(event) => {
+        if (!draggable) {
+          return;
+        }
+        setWorkbenchFileDragData(event, {
+          file_id: fileId,
+          name,
+          path,
+          file_type: fileType,
+        });
+      }}
       onClick={onSelect}
       onDoubleClick={() => {
         if (isBatchMode) {
@@ -507,12 +522,6 @@ export function MediaLibraryFeature() {
               {t("common.actions.batchOrganize")}
             </button>
           ) : null}
-          <button className="ghost-button" type="button" onClick={() => navigate("/search")}>
-            {t("features.media.quickActions.search")}
-          </button>
-          <button className="ghost-button" type="button" onClick={() => navigate("/settings")}>
-            {t("features.media.quickActions.sources")}
-          </button>
           {saveCollectionHref ? (
             <button
               className="ghost-button"
@@ -734,6 +743,7 @@ export function MediaLibraryFeature() {
                   name={item.name}
                   path={item.path}
                   rating={item.rating}
+                  draggable={item.file_type === "video"}
                   selected={isBatchMode ? isSelected(item.id) : selectedItemId === String(item.id)}
                   sizeBytes={item.size_bytes}
                   thumbnailDisabled={thumbnailWarmup.isThumbnailDisabled(item.id)}

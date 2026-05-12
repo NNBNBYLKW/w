@@ -3,7 +3,7 @@ export const pages = {
     eyebrow: "Lightweight overview",
     title: "Home",
     description:
-      "Use this lightweight overview page as the main entry to system status, source coverage, and the current indexed-file flows.",
+      "Use this lightweight dashboard to review system status and jump into Documents, Software, Media, and Games.",
   },
   onboarding: {
     eyebrow: "Getting started",

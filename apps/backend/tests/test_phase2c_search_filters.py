@@ -123,6 +123,67 @@ class Phase2CSearchFiltersTestCase(unittest.TestCase):
         self.assertEqual(1, len(payload["items"]))
         self.assertEqual(["Alpha Concept.png"], [item["name"] for item in payload["items"]])
 
+    def test_search_filters_by_library_placement_with_manual_override_semantics(self) -> None:
+        self._seed_library_placement_files()
+
+        with TestClient(app) as client:
+            documents_response = client.get(
+                "/search",
+                params={"library_placement": "documents", "sort_by": "name", "sort_order": "asc"},
+            )
+            media_response = client.get(
+                "/search",
+                params={"library_placement": "media", "sort_by": "name", "sort_order": "asc"},
+            )
+            games_response = client.get(
+                "/search",
+                params={"library_placement": "games", "sort_by": "name", "sort_order": "asc"},
+            )
+            software_response = client.get(
+                "/search",
+                params={"library_placement": "software", "sort_by": "name", "sort_order": "asc"},
+            )
+
+        self.assertEqual(200, documents_response.status_code)
+        self.assertEqual(
+            ["Auto Document.pdf", "Manual Document.zip"],
+            [item["name"] for item in documents_response.json()["items"]],
+        )
+        self.assertEqual(200, media_response.status_code)
+        self.assertEqual(["Media Image.png"], [item["name"] for item in media_response.json()["items"]])
+        self.assertEqual(200, games_response.status_code)
+        self.assertEqual(["Manual Game.zip"], [item["name"] for item in games_response.json()["items"]])
+        self.assertEqual(200, software_response.status_code)
+        self.assertEqual(["Software Tool.exe"], [item["name"] for item in software_response.json()["items"]])
+
+    def test_search_library_placement_combines_with_existing_filters(self) -> None:
+        self._seed_library_placement_files()
+
+        with TestClient(app) as client:
+            response = client.get(
+                "/search",
+                params={
+                    "query": "manual",
+                    "file_type": "archive",
+                    "library_placement": "documents",
+                    "sort_by": "name",
+                    "sort_order": "asc",
+                },
+            )
+
+        self.assertEqual(200, response.status_code)
+        payload = response.json()
+        self.assertEqual(1, payload["total"])
+        self.assertEqual(["Manual Document.zip"], [item["name"] for item in payload["items"]])
+
+    def test_search_rejects_invalid_library_placement(self) -> None:
+        self._seed_library_placement_files()
+
+        with TestClient(app) as client:
+            response = client.get("/search", params={"library_placement": "books"})
+
+        self.assertEqual(422, response.status_code)
+
     def _seed_sources_files_and_tags(self) -> dict[str, int]:
         with SessionLocal() as session:
             source = Source(
@@ -257,6 +318,207 @@ class Phase2CSearchFiltersTestCase(unittest.TestCase):
                 "concept_tag_id": int(concept_tag.id),
                 "docs_tag_id": int(docs_tag.id),
             }
+
+    def _seed_library_placement_files(self) -> None:
+        with SessionLocal() as session:
+            source = Source(
+                path=r"D:\Assets",
+                display_name="Assets",
+                is_enabled=True,
+                scan_mode="manual_plus_basic_incremental",
+                last_scan_at=_dt(9),
+                last_scan_status="succeeded",
+                created_at=_dt(8),
+                updated_at=_dt(9),
+            )
+            session.add(source)
+            session.flush()
+
+            auto_document = File(
+                source_id=source.id,
+                path=r"D:\Assets\Docs\Auto Document.pdf",
+                parent_path=r"D:\Assets\Docs",
+                name="Auto Document.pdf",
+                stem="Auto Document",
+                extension="pdf",
+                file_type="document",
+                file_kind="ebook",
+                auto_placement="books",
+                mime_type=None,
+                size_bytes=180,
+                created_at_fs=_dt(9, 5),
+                modified_at_fs=_dt(10),
+                discovered_at=_dt(9, 10),
+                last_seen_at=_dt(10),
+                is_deleted=False,
+                checksum_hint=None,
+                updated_at=_dt(10),
+            )
+            manual_document = File(
+                source_id=source.id,
+                path=r"D:\Assets\Bundles\Manual Document.zip",
+                parent_path=r"D:\Assets\Bundles",
+                name="Manual Document.zip",
+                stem="Manual Document",
+                extension="zip",
+                file_type="archive",
+                file_kind="archive",
+                auto_placement="none",
+                mime_type=None,
+                size_bytes=200,
+                created_at_fs=_dt(9, 15),
+                modified_at_fs=_dt(11),
+                discovered_at=_dt(9, 20),
+                last_seen_at=_dt(11),
+                is_deleted=False,
+                checksum_hint=None,
+                updated_at=_dt(11),
+            )
+            media_file = File(
+                source_id=source.id,
+                path=r"D:\Assets\Media\Media Image.png",
+                parent_path=r"D:\Assets\Media",
+                name="Media Image.png",
+                stem="Media Image",
+                extension="png",
+                file_type="image",
+                file_kind="image",
+                auto_placement="media",
+                mime_type=None,
+                size_bytes=120,
+                created_at_fs=_dt(9, 25),
+                modified_at_fs=_dt(12),
+                discovered_at=_dt(9, 30),
+                last_seen_at=_dt(12),
+                is_deleted=False,
+                checksum_hint=None,
+                updated_at=_dt(12),
+            )
+            manual_game = File(
+                source_id=source.id,
+                path=r"D:\Assets\Bundles\Manual Game.zip",
+                parent_path=r"D:\Assets\Bundles",
+                name="Manual Game.zip",
+                stem="Manual Game",
+                extension="zip",
+                file_type="archive",
+                file_kind="archive",
+                auto_placement="none",
+                mime_type=None,
+                size_bytes=220,
+                created_at_fs=_dt(9, 35),
+                modified_at_fs=_dt(13),
+                discovered_at=_dt(9, 40),
+                last_seen_at=_dt(13),
+                is_deleted=False,
+                checksum_hint=None,
+                updated_at=_dt(13),
+            )
+            software_file = File(
+                source_id=source.id,
+                path=r"D:\Assets\Apps\Software Tool.exe",
+                parent_path=r"D:\Assets\Apps",
+                name="Software Tool.exe",
+                stem="Software Tool",
+                extension="exe",
+                file_type="other",
+                file_kind="executable",
+                auto_placement="software",
+                mime_type=None,
+                size_bytes=240,
+                created_at_fs=_dt(9, 45),
+                modified_at_fs=_dt(14),
+                discovered_at=_dt(9, 50),
+                last_seen_at=_dt(14),
+                is_deleted=False,
+                checksum_hint=None,
+                updated_at=_dt(14),
+            )
+            files_only_document = File(
+                source_id=source.id,
+                path=r"D:\Assets\Docs\Files Only.pdf",
+                parent_path=r"D:\Assets\Docs",
+                name="Files Only.pdf",
+                stem="Files Only",
+                extension="pdf",
+                file_type="document",
+                file_kind="ebook",
+                auto_placement="books",
+                mime_type=None,
+                size_bytes=260,
+                created_at_fs=_dt(9, 55),
+                modified_at_fs=_dt(15),
+                discovered_at=_dt(10),
+                last_seen_at=_dt(15),
+                is_deleted=False,
+                checksum_hint=None,
+                updated_at=_dt(15),
+            )
+            none_archive = File(
+                source_id=source.id,
+                path=r"D:\Assets\Bundles\Plain Archive.zip",
+                parent_path=r"D:\Assets\Bundles",
+                name="Plain Archive.zip",
+                stem="Plain Archive",
+                extension="zip",
+                file_type="archive",
+                file_kind="archive",
+                auto_placement="none",
+                mime_type=None,
+                size_bytes=280,
+                created_at_fs=_dt(10, 5),
+                modified_at_fs=_dt(16),
+                discovered_at=_dt(10, 10),
+                last_seen_at=_dt(16),
+                is_deleted=False,
+                checksum_hint=None,
+                updated_at=_dt(16),
+            )
+            session.add_all(
+                [
+                    auto_document,
+                    manual_document,
+                    media_file,
+                    manual_game,
+                    software_file,
+                    files_only_document,
+                    none_archive,
+                ]
+            )
+            session.flush()
+
+            session.add_all(
+                [
+                    FileUserMeta(
+                        file_id=manual_document.id,
+                        manual_placement="books",
+                        color_tag=None,
+                        status=None,
+                        rating=None,
+                        is_favorite=False,
+                        updated_at=_dt(11, 10),
+                    ),
+                    FileUserMeta(
+                        file_id=manual_game.id,
+                        manual_placement="games",
+                        color_tag=None,
+                        status=None,
+                        rating=None,
+                        is_favorite=False,
+                        updated_at=_dt(13, 10),
+                    ),
+                    FileUserMeta(
+                        file_id=files_only_document.id,
+                        manual_placement="files_only",
+                        color_tag=None,
+                        status=None,
+                        rating=None,
+                        is_favorite=False,
+                        updated_at=_dt(15, 10),
+                    ),
+                ]
+            )
+            session.commit()
 
     def _reset_database(self) -> None:
         with SessionLocal() as session:

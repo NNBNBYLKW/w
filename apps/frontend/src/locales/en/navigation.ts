@@ -8,6 +8,7 @@ export const navigation = {
     software: "Software",
     media: "Media",
     games: "Games",
+    tools: "Tools",
     recent: "Recent",
     tags: "Tags",
     collections: "Collections",

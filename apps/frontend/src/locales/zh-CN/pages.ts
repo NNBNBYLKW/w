@@ -2,7 +2,7 @@ export const pages = {
   home: {
     eyebrow: "轻量概览",
     title: "首页",
-    description: "使用这个轻量概览页作为系统状态、来源覆盖情况和当前已索引文件工作流的主入口。",
+    description: "使用这个轻量仪表盘查看系统状态，并快速进入文档、软件、媒体和游戏资产。",
   },
   onboarding: {
     eyebrow: "开始使用",

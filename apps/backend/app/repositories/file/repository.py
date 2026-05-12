@@ -183,6 +183,7 @@ class FileRepository:
         query: str | None,
         file_type: str | None,
         file_kind: str | None,
+        library_placement: str | None,
         tag_id: int | None,
         color_tag: str | None,
         page: int,
@@ -203,6 +204,10 @@ class FileRepository:
             filters.append(File.file_type == file_type)
         if file_kind is not None:
             filters.append(File.file_kind == file_kind)
+        needs_user_meta_join = False
+        if library_placement is not None:
+            filters.append(self._effective_placement_expr() == library_placement)
+            needs_user_meta_join = True
         if tag_id is not None:
             filters.append(
                 select(1)
@@ -228,6 +233,7 @@ class FileRepository:
             page_size=page_size,
             sort_by=sort_by,
             sort_order=sort_order,
+            join_user_meta=needs_user_meta_join,
         )
 
     def list_media_files(
@@ -583,6 +589,7 @@ class FileRepository:
         page_size: int,
         sort_by: str,
         sort_order: str,
+        join_user_meta: bool = False,
     ) -> tuple[list[File], int]:
         modified_expr = func.coalesce(File.modified_at_fs, File.discovered_at)
         if sort_by == "name":
@@ -595,16 +602,21 @@ class FileRepository:
         ordered_primary = primary_order.asc() if sort_order == "asc" else primary_order.desc()
         offset = (page - 1) * page_size
 
+        statement = select(File)
+        if join_user_meta:
+            statement = statement.outerjoin(FileUserMeta, FileUserMeta.file_id == File.id)
         statement = (
-            select(File)
-            .where(*filters)
+            statement.where(*filters)
             .order_by(ordered_primary, File.path.asc(), File.id.asc())
             .offset(offset)
             .limit(page_size)
         )
         items = list(session.scalars(statement))
 
-        total_statement = select(func.count()).select_from(File).where(*filters)
+        total_statement = select(func.count()).select_from(File)
+        if join_user_meta:
+            total_statement = total_statement.outerjoin(FileUserMeta, FileUserMeta.file_id == File.id)
+        total_statement = total_statement.where(*filters)
         total = int(session.scalar(total_statement) or 0)
         return items, total
 

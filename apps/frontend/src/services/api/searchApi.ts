@@ -34,6 +34,9 @@ export async function searchFiles(input: SearchQueryInput): Promise<SearchRespon
   if (input.file_type) {
     params.set("file_type", input.file_type);
   }
+  if (input.library_placement) {
+    params.set("library_placement", input.library_placement);
+  }
   if (input.tag_id !== undefined) {
     params.set("tag_id", String(input.tag_id));
   }

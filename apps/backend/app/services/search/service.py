@@ -1,8 +1,8 @@
 from sqlalchemy.orm import Session
 
-from app.core.classification import effective_placement
+from app.core.classification import PLACEMENT_BOOKS, effective_placement
 from app.core.errors.exceptions import BadRequestError, NotFoundError
-from app.api.schemas.search import SearchQueryParams, SearchResponse, SearchResultItemResponse
+from app.api.schemas.search import LibraryPlacementFilter, SearchQueryParams, SearchResponse, SearchResultItemResponse
 from app.repositories.file.repository import FileRepository
 from app.repositories.file_user_meta.repository import FileUserMetaRepository
 from app.repositories.tag.repository import TagRepository
@@ -22,11 +22,13 @@ class SearchService:
             raise NotFoundError("TAG_NOT_FOUND", "Tag not found.")
 
         normalized_color_tag = self._normalize_color_tag(params.color_tag)
+        normalized_library_placement = self._normalize_library_placement(params.library_placement)
         files, total = self.file_repository.search_indexed_files(
             session,
             query=params.query,
             file_type=params.file_type,
             file_kind=None,
+            library_placement=normalized_library_placement,
             tag_id=params.tag_id,
             color_tag=normalized_color_tag,
             page=params.page,
@@ -68,3 +70,10 @@ class SearchService:
         if not normalized or normalized not in ALLOWED_COLOR_TAGS:
             raise BadRequestError("COLOR_TAG_INVALID", "Color tag is invalid.")
         return normalized
+
+    def _normalize_library_placement(self, raw_placement: LibraryPlacementFilter | None) -> str | None:
+        if raw_placement is None:
+            return None
+        if raw_placement == "documents":
+            return PLACEMENT_BOOKS
+        return raw_placement

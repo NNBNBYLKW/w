@@ -19,6 +19,7 @@ import Sidebar1Icon from "../../../assets/icons/navigation/sidebar1.svg?react";
 import Sidebar2Icon from "../../../assets/icons/navigation/sidebar2.svg?react";
 import SoftwareIcon from "../../../assets/icons/navigation/software.svg?react";
 import TagsIcon from "../../../assets/icons/navigation/tags.svg?react";
+import ToolsIcon from "../../../assets/icons/navigation/tools.svg?react";
 
 import type { NavigationIconName } from "./icon-types";
 
@@ -31,6 +32,7 @@ const navigationIconMap: Record<NavigationIconName, (props: SVGProps<SVGSVGEleme
   software: SoftwareIcon,
   media: MediaIcon,
   games: GamesIcon,
+  tools: ToolsIcon,
   recent: RecentIcon,
   tags: TagsIcon,
   collections: CollectionsIcon,
