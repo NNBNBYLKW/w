@@ -5,6 +5,17 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useUIStore } from "../../app/providers/uiStore";
 import { t, useLocale } from "../../shared/text";
 import { EmptyState, KeyValueRow, ActionButton, StatusBadge } from "../../shared/ui/components";
+import { DetailsIdentitySection } from "./sections/DetailsIdentitySection";
+import { DetailsPlacementSection } from "./sections/DetailsPlacementSection";
+import { DetailsRatingSection } from "./sections/DetailsRatingSection";
+import { DetailsGameStatusSection } from "./sections/DetailsGameStatusSection";
+import { DetailsColorTagSection } from "./sections/DetailsColorTagSection";
+import { DetailsTagsSection } from "./sections/DetailsTagsSection";
+import { DetailsActionsSection } from "./sections/DetailsActionsSection";
+import { DetailsRatingSection } from "./sections/DetailsRatingSection";
+import { DetailsGameStatusSection } from "./sections/DetailsGameStatusSection";
+import { DetailsColorTagSection } from "./sections/DetailsColorTagSection";
+import { DetailsTagsSection } from "./sections/DetailsTagsSection";
 import { useRetryingThumbnail, useThumbnailWarmup } from "../../shared/ui/thumbnail";
 import type {
   ColorTagValue,
@@ -626,16 +637,7 @@ export function DetailsPanelFeature() {
         : previewThumbnail.imageSrc;
     content = (
       <div className="details-panel details-panel--file">
-        <section className="details-panel__identity">
-          <span className="placeholder-pill">{t("details.placeholders.indexedFile")}</span>
-          <h3 className="details-panel__title" title={item.name}>
-            {item.name}
-          </h3>
-          <div className="details-panel__identity-meta">
-            <span>{item.file_type}</span>
-            <span>#{item.id}</span>
-          </div>
-        </section>
+        <DetailsIdentitySection name={item.name} fileType={item.file_type} id={item.id} />
         <div className="kv-list details-panel__fact-list">
           <KeyValueRow label={t("details.fields.path")} value={item.path} mono />
           <KeyValueRow label={t("details.fields.type")} value={item.file_type} />
@@ -648,38 +650,16 @@ export function DetailsPanelFeature() {
           <KeyValueRow label={t("details.fields.lastSeen")} value={formatTimestamp(item.last_seen_at)} />
           <KeyValueRow label={t("details.fields.deleted")} value={item.is_deleted ? t("details.values.yes") : t("details.values.no")} />
         </div>
-        <section className="details-placement-section">
-          <div className="details-placement-section__header">
-            <h4>{t("details.sections.libraryPlacement")}</h4>
-            {isPlacementMutationPending ? <span className="status-pill">{t("details.actions.updating")}</span> : null}
-          </div>
-          <label className="field-stack">
-            <span>{t("details.fields.libraryPlacement")}</span>
-            <select
-              className="select-input"
-              value={item.manual_placement ?? "auto"}
-              onChange={(event) => {
-                const value = event.target.value;
-                placementMutation.mutate(value === "auto" ? null : (value as ManualPlacementValue));
-              }}
-              disabled={isPlacementMutationPending}
-            >
-              {PLACEMENT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {t(option.labelKey)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <p className="details-placement-section__note">
-            {t("details.placement.summary", {
-              kind: item.file_kind,
-              auto: formatPlacementLabel(item.auto_placement),
-              effective: formatPlacementLabel(item.effective_placement),
-            })}
-          </p>
-          {placementMutationError ? <p className="color-tag-section__error">{placementMutationError}</p> : null}
-        </section>
+        <DetailsPlacementSection
+          manualPlacement={item.manual_placement}
+          fileKind={item.file_kind}
+          autoPlacementLabel={formatPlacementLabel(item.auto_placement)}
+          effectivePlacementLabel={formatPlacementLabel(item.effective_placement)}
+          isPending={isPlacementMutationPending}
+          error={placementMutationError}
+          placementOptions={PLACEMENT_OPTIONS}
+          onChange={(value) => placementMutation.mutate(value === "auto" ? null : (value as ManualPlacementValue))}
+        />
         {isBookContext && inferredBookFormat ? (
           <section className="details-book-info-section">
             <div className="details-book-info-section__header">
@@ -820,158 +800,47 @@ export function DetailsPanelFeature() {
             )}
           </section>
         ) : null}
-        <section className="details-user-meta-section">
-          <div className="details-user-meta-section__header">
-            <h4>{t("details.sections.favoriteAndRating")}</h4>
-            {isUserMetaMutationPending ? <span className="status-pill">{t("details.actions.updating")}</span> : null}
-          </div>
-          <dl className="details-list">
-            <div className="details-list__row">
-              <dt>{t("details.fields.favorite")}</dt>
-              <dd>{formatFavoriteLabel(item.is_favorite)}</dd>
-            </div>
-            <div className="details-list__row">
-              <dt>{t("details.fields.rating")}</dt>
-              <dd>{formatRatingLabel(item.rating)}</dd>
-            </div>
-          </dl>
-          <div className="details-user-meta-actions">
-            <button
-              className={`ghost-button details-user-meta-button${item.is_favorite ? " details-user-meta-button--selected" : ""}`}
-              type="button"
-              onClick={() => userMetaMutation.mutate({ is_favorite: !item.is_favorite })}
-              disabled={isUserMetaMutationPending}
-            >
-              {item.is_favorite ? t("details.actions.removeFavorite") : t("details.actions.markFavorite")}
-            </button>
-          </div>
-          <div className="details-user-meta-rating-actions">
-            {[1, 2, 3, 4, 5].map((value) => (
-              <button
-                key={value}
-                className={`ghost-button details-user-meta-button${item.rating === value ? " details-user-meta-button--selected" : ""}`}
-                type="button"
-                onClick={() => userMetaMutation.mutate({ rating: value as FileRatingValue })}
-                disabled={isUserMetaMutationPending}
-              >
-                ★ {value}
-              </button>
-            ))}
-            <button
-              className={`ghost-button details-user-meta-button${item.rating === null ? " details-user-meta-button--selected" : ""}`}
-              type="button"
-              onClick={() => userMetaMutation.mutate({ rating: null })}
-              disabled={isUserMetaMutationPending}
-            >
-              {t("details.actions.clearRating")}
-            </button>
-          </div>
-          {userMetaMutationError ? <p className="color-tag-section__error">{userMetaMutationError}</p> : null}
-        </section>
+        <DetailsRatingSection
+          isFavorite={item.is_favorite}
+          rating={item.rating}
+          isPending={isUserMetaMutationPending}
+          error={userMetaMutationError}
+          favoriteLabel={formatFavoriteLabel(item.is_favorite)}
+          ratingLabel={formatRatingLabel(item.rating)}
+          onToggleFavorite={() => userMetaMutation.mutate({ is_favorite: !item.is_favorite })}
+          onSetRating={(value) => userMetaMutation.mutate({ rating: value })}
+          onClearRating={() => userMetaMutation.mutate({ rating: null })}
+        />
         {isGameContext ? (
-          <section className="details-game-status-section">
-            <div className="details-game-status-section__header">
-              <h4>{t("details.sections.gameStatus")}</h4>
-              {isStatusMutationPending ? <span className="status-pill">{t("details.actions.updating")}</span> : null}
-            </div>
-            <p>{t("details.fields.currentStatus", { status: item.status ? formatStatusLabel(item.status) : t("details.values.none") })}</p>
-            <div className="details-game-status-actions">
-              {GAME_STATUS_OPTIONS.map((status) => (
-                <button
-                  key={status}
-                  className={`ghost-button details-game-status-button${item.status === status ? " details-game-status-button--selected" : ""}`}
-                  type="button"
-                  onClick={() => statusMutation.mutate(status)}
-                  disabled={isStatusMutationPending}
-                >
-                  {formatStatusLabel(status)}
-                </button>
-              ))}
-              <button
-                className={`ghost-button details-game-status-button${item.status === null ? " details-game-status-button--selected" : ""}`}
-                type="button"
-                onClick={() => statusMutation.mutate(null)}
-                disabled={isStatusMutationPending}
-              >
-                {t("details.actions.clear")}
-              </button>
-            </div>
-            {statusMutationError ? <p className="color-tag-section__error">{statusMutationError}</p> : null}
-          </section>
+          <DetailsGameStatusSection
+            status={item.status}
+            isPending={isStatusMutationPending}
+            error={statusMutationError}
+            statusLabel={item.status ? formatStatusLabel(item.status) : t("details.values.none")}
+            statusOptions={GAME_STATUS_OPTIONS}
+            onChange={(value) => statusMutation.mutate(value)}
+          />
         ) : null}
-        <section className="color-tag-section">
-          <div className="color-tag-section__header">
-            <h4>{t("details.sections.colorTag")}</h4>
-            {isColorTagMutationPending ? <span className="status-pill">{t("details.actions.updating")}</span> : null}
-          </div>
-          <p>{t("details.fields.currentColorTag", { color: item.color_tag ?? t("details.values.none") })}</p>
-          <div className="color-tag-actions">
-            {COLOR_TAG_OPTIONS.map((colorTag) => (
-              <button
-                key={colorTag}
-                className={`ghost-button color-tag-button color-tag-button--${colorTag}${item.color_tag === colorTag ? " color-tag-button--selected" : ""}`}
-                type="button"
-                onClick={() => colorTagMutation.mutate(colorTag)}
-                disabled={isColorTagMutationPending}
-              >
-                {colorTag}
-              </button>
-            ))}
-            <button
-              className={`ghost-button color-tag-button${item.color_tag === null ? " color-tag-button--selected" : ""}`}
-              type="button"
-              onClick={() => colorTagMutation.mutate(null)}
-              disabled={isColorTagMutationPending}
-            >
-              {t("details.actions.clear")}
-            </button>
-          </div>
-          {colorTagMutationError ? <p className="color-tag-section__error">{colorTagMutationError}</p> : null}
-        </section>
-        <section className="tag-section">
-          <div className="tag-section__header">
-            <h4>{t("details.sections.tags")}</h4>
-            {isTagMutationPending ? <span className="status-pill">{t("details.actions.updating")}</span> : null}
-          </div>
-          <form
-            className="tag-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              addTagMutation.mutate(tagInput);
-            }}
-          >
-            <input
-              className="text-input"
-              value={tagInput}
-              onChange={(event) => setTagInput(event.target.value)}
-              placeholder={t("details.actions.addTagPlaceholder")}
-              disabled={isTagMutationPending}
-            />
-            <button className="secondary-button" type="submit" disabled={isTagMutationPending}>
-              {t("common.actions.addTag")}
-            </button>
-          </form>
-          {tagMutationError ? <p className="tag-section__error">{tagMutationError}</p> : null}
-          {item.tags.length === 0 ? (
-            <p>{t("details.notes.noTags")}</p>
-          ) : (
-            <div className="tag-chip-list">
-              {item.tags.map((tag) => (
-                <div key={tag.id} className="tag-chip">
-                  <span>{tag.name}</span>
-                  <button
-                    className="ghost-button tag-chip__remove"
-                    type="button"
-                    onClick={() => removeTagMutation.mutate(tag.id)}
-                    disabled={isTagMutationPending}
-                  >
-                    {t("details.actions.remove")}
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+        <DetailsColorTagSection
+          colorTag={item.color_tag}
+          isPending={isColorTagMutationPending}
+          error={colorTagMutationError}
+          colorOptions={COLOR_TAG_OPTIONS}
+          currentColorLabel={item.color_tag ?? t("details.values.none")}
+          onChange={(value) => colorTagMutation.mutate(value)}
+        />
+        <DetailsTagsSection
+          tags={item.tags}
+          tagInput={tagInput}
+          isPending={isTagMutationPending}
+          error={tagMutationError}
+          onTagInputChange={setTagInput}
+          onAddTag={(event) => {
+            event.preventDefault();
+            addTagMutation.mutate(tagInput);
+          }}
+          onRemoveTag={(tagId) => removeTagMutation.mutate(tagId)}
+        />
         {isMediaFile && (firstTag || item.color_tag || (retrievalHint !== null && retrievalHint.kind !== "status")) ? (
           <section className="details-retrieval-section">
             <div className="details-retrieval-section__header">
@@ -1227,38 +1096,20 @@ export function DetailsPanelFeature() {
             </div>
           </section>
         ) : null}
-        <section className="open-actions-section">
-          <div className="open-actions-section__header">
-            <h4>{t("details.sections.openActions")}</h4>
-            {isOpenActionPending ? <span className="status-pill">{t("details.actions.opening")}</span> : null}
-          </div>
-          <div className="open-actions-buttons">
-            <ActionButton
-              variant="primary"
-              size="sm"
-              onClick={() => void handleOpenAction("file", item.path)}
-              disabled={isOpenActionPending || !hasDesktopOpenActions}
-            >
-              {isGameContext
-                ? t("details.actions.openGameEntry")
-                : isSoftwareContext
-                  ? t("details.actions.openSoftwareFile")
-                  : t("details.actions.openFile")}
-            </ActionButton>
-            <ActionButton
-              variant="secondary"
-              size="sm"
-              onClick={() => void handleOpenAction("folder", item.path)}
-              disabled={isOpenActionPending || !hasDesktopOpenActions}
-            >
-              {t("details.actions.openContainingFolder")}
-            </ActionButton>
-          </div>
-          {!hasDesktopOpenActions ? (
-            <p className="open-actions-section__note">{t("details.actions.openActionUnavailable")}</p>
-          ) : null}
-          {openActionError ? <p className="open-actions-section__error">{openActionError}</p> : null}
-        </section>
+        <DetailsActionsSection
+          isOpenActionPending={isOpenActionPending}
+          hasDesktopOpenActions={hasDesktopOpenActions}
+          openActionError={openActionError}
+          onOpenFile={() => void handleOpenAction("file", item.path)}
+          onOpenFolder={() => void handleOpenAction("folder", item.path)}
+          openFileLabel={
+            isGameContext
+              ? t("details.actions.openGameEntry")
+              : isSoftwareContext
+                ? t("details.actions.openSoftwareFile")
+                : t("details.actions.openFile")
+          }
+        />
       </div>
     );
   } else {

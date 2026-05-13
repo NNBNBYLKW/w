@@ -608,8 +608,8 @@ button {
 .action-button--sm { font-size: 11px; padding: 3px 10px; min-height: 26px; border-radius: 4px; }
 .action-button--primary { background: var(--accent-primary, var(--accent)); color: #fff; }
 .action-button--primary:hover { filter: brightness(1.1); }
-.action-button--secondary { background: var(--control-bg, var(--bg-card)); color: var(--text-secondary); }
-.action-button--secondary:hover { background: var(--control-bg-hover); }
+.action-button--secondary { background: var(--control-bg, var(--bg-card)); color: var(--text-secondary); border: 1px solid var(--border-soft); }
+.action-button--secondary:hover { background: var(--control-bg-hover); border-color: var(--border-strong); }
 .action-button--ghost { background: transparent; color: var(--text-soft); }
 .action-button--ghost:hover { background: var(--control-bg-hover); }
 .action-button--danger { background: var(--accent-danger); color: #fff; }
@@ -621,6 +621,52 @@ button {
 .action-button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .action-button__icon { display: inline-flex; align-items: center; }
+
+/* ── Unified Select / Dropdown ── */
+select.unified-select,
+.library-filter-row select,
+.browse-toolbar select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 5px 28px 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-soft);
+  background: var(--control-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E") no-repeat right 10px center;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  line-height: 1.4;
+}
+
+select.unified-select:hover,
+.library-filter-row select:hover,
+.browse-toolbar select:hover {
+  border-color: var(--border-strong);
+}
+
+select.unified-select:focus,
+.library-filter-row select:focus,
+.browse-toolbar select:focus {
+  outline: none;
+  border-color: var(--accent-primary, var(--accent));
+  box-shadow: 0 0 0 2px var(--focus-ring, rgba(77,171,247,0.25));
+}
+
+:root select.unified-select option,
+:root .library-filter-row select option,
+:root .browse-toolbar select option {
+  background: #fff;
+  color: #17344d;
+}
+
+:root[data-theme="dark"] select.unified-select option,
+:root[data-theme="dark"] .library-filter-row select option,
+:root[data-theme="dark"] .browse-toolbar select option {
+  background: #162236;
+  color: #e2e8f0;
+}
 
 /* ── Shared: FileRow ── */
 .file-row {
@@ -1446,9 +1492,14 @@ button {
   border-radius: 999px;
   background: var(--control-bg-soft);
   color: var(--accent-strong);
-  padding: 4px 8px;
+  padding: 4px 10px;
   font-size: 11px;
   font-weight: 700;
+  min-width: 110px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .library-object-row__main,
@@ -1793,11 +1844,25 @@ button {
 }
 
 .library-objects-layout {
+  display: grid;
+  grid-template-columns: minmax(460px, 560px) minmax(320px, 1fr);
+  gap: 16px;
+  width: 100%;
   min-height: 0;
+  align-items: start;
 }
 
 .library-object-list-panel {
   overflow-y: auto;
+  min-width: 0;
+  width: 100%;
+  max-width: none;
+}
+
+.library-object-detail {
+  min-width: 320px;
+  width: 100%;
+  max-width: none;
 }
 
 /* ── Library Filter Row ── */
@@ -7871,4 +7936,114 @@ textarea,
 .tag-section__error,
 .danger-text {
   color: var(--color-danger);
+}
+
+/* Objects page: keep the object list dominant while the local object detail compresses. */
+.library-objects-layout {
+  display: grid;
+  grid-template-columns: minmax(520px, 1fr) minmax(220px, 320px);
+  gap: 16px;
+  width: 100%;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.app-shell__content--details-open .library-objects-layout {
+  grid-template-columns: minmax(520px, 1fr) minmax(220px, 300px);
+}
+
+.app-shell__content--details-hidden .library-objects-layout {
+  grid-template-columns: minmax(560px, 1fr) minmax(300px, 380px);
+}
+
+.library-object-list-panel {
+  min-width: 0;
+  width: 100%;
+  max-width: none;
+}
+
+.library-object-detail {
+  min-width: 220px;
+  width: 100%;
+  max-width: none;
+  justify-self: stretch;
+  overflow: hidden;
+}
+
+.library-object-detail .kv-row,
+.library-object-detail .key-value-row {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  min-width: 0;
+}
+
+.library-object-detail code,
+.library-object-detail pre,
+.library-object-detail .path-text,
+.library-object-detail .mono,
+.library-object-detail [class*="path"],
+.library-object-detail dd,
+.library-object-detail .kv-row__value,
+.library-object-detail .key-value-row__value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-object-row__type {
+  min-width: 120px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.library-objects-layout:not(.library-pending-layout):not(.library-plans-layout) .library-object-list-panel,
+.library-objects-layout:not(.library-pending-layout):not(.library-plans-layout) .library-object-list {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+
+.library-objects-layout:not(.library-pending-layout):not(.library-plans-layout) .library-object-row {
+  display: grid;
+  grid-template-columns: 128px minmax(0, 1fr);
+  column-gap: 18px;
+  align-items: center;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+.library-objects-layout:not(.library-pending-layout):not(.library-plans-layout) .library-object-row__type {
+  width: 100%;
+  min-width: 0;
+  justify-self: stretch;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.library-objects-layout:not(.library-pending-layout):not(.library-plans-layout) .library-object-row__main {
+  grid-column: 2;
+  min-width: 0;
+  justify-self: stretch;
+  text-align: left;
+}
+
+.library-objects-layout:not(.library-pending-layout):not(.library-plans-layout) .library-object-row__title {
+  display: block;
+  min-width: 0;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-objects-layout:not(.library-pending-layout):not(.library-plans-layout) .library-object-row__meta {
+  grid-column: 2;
+  min-width: 0;
+  justify-content: flex-start;
 }
