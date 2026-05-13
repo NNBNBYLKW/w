@@ -327,8 +327,8 @@ export function ToolsFeature() {
   const sortedInputs = useMemo(() => inputs, [inputs]);
 
   return (
-    <section className="feature-shell tools-workbench">
-      <div className="feature-header">
+    <section className="feature-shell tools-workbench utility-surface utility-surface--tools">
+      <div className="feature-header utility-surface__header">
         <div>
           <span className="page-header__eyebrow">{t("features.tools.eyebrow")}</span>
           <h3>{t("features.tools.title")}</h3>

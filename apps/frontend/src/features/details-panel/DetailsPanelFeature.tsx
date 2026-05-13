@@ -555,40 +555,48 @@ export function DetailsPanelFeature() {
 
   if (batchSelectionSummary) {
     content = (
-      <>
+      <div className="details-panel details-panel--batch">
         <span className="placeholder-pill">{t("details.placeholders.batch.eyebrow")}</span>
         <h3>{batchSelectionSummary.pageLabel}</h3>
         <p>{t("details.placeholders.batch.selectedCount", { count: batchSelectionSummary.selectedCount })}</p>
         <p>{t("details.placeholders.batch.description")}</p>
-      </>
+      </div>
     );
   } else if (selectedItemId === null) {
     content = (
-      <EmptyState
-        title={t("details.placeholders.awaitingSelection.title")}
-        description={t("details.placeholders.awaitingSelection.description")}
-      />
+      <div className="details-panel details-panel--state">
+        <EmptyState
+          title={t("details.placeholders.awaitingSelection.title")}
+          description={t("details.placeholders.awaitingSelection.description")}
+        />
+      </div>
     );
   } else if (hasInvalidSelectedId) {
     content = (
-      <EmptyState
-        title={t("details.placeholders.selectionError.title")}
-        description={t("details.placeholders.selectionError.description")}
-      />
+      <div className="details-panel details-panel--state">
+        <EmptyState
+          title={t("details.placeholders.selectionError.title")}
+          description={t("details.placeholders.selectionError.description")}
+        />
+      </div>
     );
   } else if (detailQuery.isLoading) {
     content = (
-      <EmptyState
-        title={t("details.placeholders.loading.title")}
-        description={t("details.placeholders.loading.description")}
-      />
+      <div className="details-panel details-panel--state">
+        <EmptyState
+          title={t("details.placeholders.loading.title")}
+          description={t("details.placeholders.loading.description")}
+        />
+      </div>
     );
   } else if (detailQuery.error instanceof Error) {
     content = (
-      <EmptyState
-        title={t("details.placeholders.error.title")}
-        description={detailQuery.error.message}
-      />
+      <div className="details-panel details-panel--state">
+        <EmptyState
+          title={t("details.placeholders.error.title")}
+          description={detailQuery.error.message}
+        />
+      </div>
     );
   } else if (detailQuery.data) {
     const { item } = detailQuery.data;
@@ -617,12 +625,18 @@ export function DetailsPanelFeature() {
         ? getFileVideoPreviewFrameUrl(item.id, activeVideoPreviewFrameIndex)
         : previewThumbnail.imageSrc;
     content = (
-      <>
-        <span className="placeholder-pill">{t("details.placeholders.indexedFile")}</span>
-        <h3 className="details-panel__title" title={item.name}>
-          {item.name}
-        </h3>
-        <div className="kv-list">
+      <div className="details-panel details-panel--file">
+        <section className="details-panel__identity">
+          <span className="placeholder-pill">{t("details.placeholders.indexedFile")}</span>
+          <h3 className="details-panel__title" title={item.name}>
+            {item.name}
+          </h3>
+          <div className="details-panel__identity-meta">
+            <span>{item.file_type}</span>
+            <span>#{item.id}</span>
+          </div>
+        </section>
+        <div className="kv-list details-panel__fact-list">
           <KeyValueRow label={t("details.fields.path")} value={item.path} mono />
           <KeyValueRow label={t("details.fields.type")} value={item.file_type} />
           <KeyValueRow label={t("details.fields.size")} value={formatBytes(item.size_bytes)} />
@@ -1245,16 +1259,18 @@ export function DetailsPanelFeature() {
           ) : null}
           {openActionError ? <p className="open-actions-section__error">{openActionError}</p> : null}
         </section>
-      </>
+      </div>
     );
   } else {
     content = (
-      <EmptyState
-        title={t("details.placeholders.unavailable.title")}
-        description={t("details.placeholders.unavailable.description")}
-      />
+      <div className="details-panel details-panel--state">
+        <EmptyState
+          title={t("details.placeholders.unavailable.title")}
+          description={t("details.placeholders.unavailable.description")}
+        />
+      </div>
     );
   }
 
-  return <section className="panel-card">{content}</section>;
+  return <section className="panel-card details-panel-card">{content}</section>;
 }

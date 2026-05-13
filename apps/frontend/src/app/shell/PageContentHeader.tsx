@@ -64,6 +64,7 @@ export function PageContentHeader() {
           <span className="page-content-header__connection-icon" aria-hidden="true">
             <SidebarIcon name="connection" />
           </span>
+          <span className="page-content-header__connection-label">{connectionLabel}</span>
         </div>
         <button
           className="ghost-button app-shell-icon-button page-content-header__details-toggle"

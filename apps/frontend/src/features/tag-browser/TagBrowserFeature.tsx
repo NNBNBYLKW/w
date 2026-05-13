@@ -102,8 +102,8 @@ export function TagBrowserFeature() {
   }, [requestedFocusId, selectItem, tagFilesQuery.data]);
 
   return (
-    <section className="feature-shell">
-      <div className="feature-header">
+    <section className="feature-shell refind-surface refind-surface--tags">
+      <div className="feature-header refind-surface__header">
         <span className="page-header__eyebrow">{t("features.tags.eyebrow")}</span>
         <h3>{t("features.tags.title")}</h3>
         <p>{t("features.tags.description")}</p>
