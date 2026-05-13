@@ -40,3 +40,9 @@ docs/_wip/*
 # Backend build output
 apps/backend/build/
 apps/backend/dist/
+
+prompt.md
+result.md
+
+designs/*
+plans/*

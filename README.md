@@ -19,9 +19,10 @@ Workbench 是一个建立在 **Windows 本地文件系统** 之上的 local-firs
 
 它不是试图替代真实文件系统，而是在真实文件之上补一层**索引、详情、组织和再找回**能力，让本地资产更容易被浏览、轻量整理和重新找到。当前产品的核心形态是：
 
-- `Search` / `Files` 作为通用 indexed-files surface
+- `Search` / `Library` / `Files` 作为通用 indexed-files surface
 - `Media` / `Documents` / `Games` / `Software` 作为受控 subset surfaces
 - `Recent` / `Tags` / `Collections` 作为组织与再找回 surfaces
+- `Tools` 作为受控文件处理工具入口（当前仅 `video_merge`）
 - `DetailsPanelFeature` 作为统一详情中心
 
 它主要解决的是这样一类问题：本地文件很多，但仅靠文件夹结构和文件名，不足以支撑“找到 -> 看清楚 -> 标记 -> 以后再找回来”的日常工作流。
@@ -35,6 +36,12 @@ Workbench 是一个建立在 **Windows 本地文件系统** 之上的 local-firs
 - `Documents` 文档库
 - `Software` 软件库
 - 组织层与库体验补齐
+- `Library` 文件库（Phase 1-4 已完成）
+  - Phase 1: Library shell + Path Browser
+  - Phase 2: Object scanner（只读扫描 `[TYPE]` 对象根）
+  - Phase 3: Organize plan drafts（候选人扫描、计划生成、Mark Ready）
+  - Phase 4: Organize plan execution（Preflight → 用户确认 → Execute → Logs）
+- `Tools` 第一版（Video Merge 视频合并工具）
 - 测试版范围冻结
 - 测试版体验统一
 - API 文档收口
@@ -507,14 +514,17 @@ API 文档入口在：
 
 ## 当前下一步
 
-当前下一步不是继续做新的大能力批次，而是围绕测试版继续收口：
+当前 Library Phase 1-4 与 Tools 第一版已完成。下一步包括：
 
-1. 做真实测试版验证
-2. 记录用户理解偏差、主路径卡点和边界误解
-3. 按 `P0 / P1 / P2 / P3` 做问题分级
-4. 继续做体验一致性、稳定性和性能收口
-5. 为正式发布前的整理与验收做准备
+1. Library Phase 5（执行后 reconciliation、失败重试、受限 rollback、asset.yaml 安全更新、模板、AI 建议层）
+2. 继续做真实测试版验证
+3. 记录用户理解偏差、主路径卡点和边界误解
+4. 按 `P0 / P1 / P2 / P3` 做问题分级
+5. 继续做体验一致性、稳定性和性能收口
 
 最近几轮前端改动也应按这个节奏理解：它们主要是在收口三栏壳层、导航 / details 控制表达、状态提示与整体视觉一致性，而不是把项目往新的功能方向继续扩张。
+
+Library Phase 1-5 详细方案见 `docs/library_phase1_plan.md` 至 `docs/library_phase5_plan.md`。
+Tools Video Merge 方案见 `docs/TOOLS_VIDEO_MERGE_PLAN.md`。
 
 历史阶段文档仍保留在 [docs/archive/](docs/archive/) 里，但它们不应替代当前 README 和 `docs/` 顶层正式文档作为事实入口。

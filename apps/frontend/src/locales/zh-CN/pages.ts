@@ -19,6 +19,11 @@ export const pages = {
     title: "文件",
     description: "按来源和精确目录浏览已索引文件记录。",
   },
+  library: {
+    eyebrow: "文件库",
+    title: "文件库",
+    description: "管理受管库、路径浏览、待整理文件、对象识别和整理计划。",
+  },
   books: {
     eyebrow: "子库浏览面",
     title: "文档",

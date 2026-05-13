@@ -7,7 +7,7 @@ import { useUIStore } from "../providers/uiStore";
 const navItems: Array<{ to: string; labelKey: Parameters<typeof t>[0]; icon: NavigationIconName }> = [
   { to: "/home", labelKey: "navigation.items.home", icon: "home" },
   { to: "/search", labelKey: "navigation.items.search", icon: "search" },
-  { to: "/files", labelKey: "navigation.items.files", icon: "files" },
+  { to: "/library", labelKey: "navigation.items.library", icon: "files" },
   { to: "/books", labelKey: "navigation.items.books", icon: "books" },
   { to: "/software", labelKey: "navigation.items.software", icon: "software" },
   { to: "/library/media", labelKey: "navigation.items.media", icon: "media" },
@@ -48,6 +48,7 @@ export function AppSidebar() {
           <NavLink
             key={item.to}
             to={item.to}
+            end={item.to === "/library"}
             aria-label={t(item.labelKey)}
             title={t(item.labelKey)}
             className={({ isActive }) =>

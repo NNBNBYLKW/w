@@ -22,6 +22,10 @@
 - 当前有持久化分类字段：`file_kind` / `auto_placement` / `manual_placement`，smart views 使用 `effective_placement = manual_placement ?? auto_placement`
 - 用户侧 Documents / 文档 当前使用兼容 route `/library/books` 与 wire value `books`
 - 当前有 `Tools / 工具` 的第一版内置工具：`video_merge`；它只允许按固定参数调用 FFmpeg 合并视频，不支持任意 bat / shell / script 执行
+- 当前有 Library Phase 2/3/4 已实现接口：
+  - Phase 2: 对象扫描只写 SQLite 扫描结果；不修改真实文件
+  - Phase 3: 整理计划只写 SQLite candidates / plans / actions；不移动、重命名、创建、删除或写入真实文件
+  - Phase 4: 用户确认后可执行 organize plan（preflight → execute → logs）；执行真实文件系统操作（mkdir / move / rename / write_asset_yaml），但目标路径存在时 blocked，永不覆盖
 
 ## Not currently supported
 
@@ -30,6 +34,7 @@
 - 没有复杂 query DSL、聚合统计或多维 faceting
 - 没有对所有文件类型提供统一 thumbnail 合同；当前只覆盖 image / video / `.exe` / `.pdf`
 - 没有任意命令执行、PowerShell/bat 注册、插件式工具系统或自动把工具输出加入索引
+- Library Phase 5A reconcile 接口已实现；Phase 5B copy-failed-actions 接口已实现；Phase 5C generate-rollback 接口已实现；Phase 5D-1 asset.yaml safe merge draft 已实现；Phase 5D-2 organize templates 已实现（含 anime template hotfix）；Phase 5D-3 rule-based suggestions 已实现
 
 ## GET /health
 
@@ -79,6 +84,169 @@
   - 未预期错误返回统一 `500` error shape
 - Notes / constraints / caveats:
   - 当前只返回基础 runtime counts，不是运营 dashboard 数据源
+
+## Library Roots Management (implemented)
+
+- `GET /library/roots`：列出所有托管库根。
+- `POST /library/roots`：创建新库根（body: `root_path: str`, `display_name?: str`；errors: `400` overlap, `409` duplicate path）。
+- `GET /library/roots/{id}`：按 ID 获取单个库根。
+- `PATCH /library/roots/{id}`：更新字段（`display_name`, `is_enabled`, `scan_policy`；禁用时清除 `is_default`）。
+- `POST /library/roots/{id}/set-default`：设为默认库根（errors: `400` 如果已禁用, `404` 如果未找到；清除之前的默认库根）。
+- Response model `LibraryRootItem`：`id`, `root_path`, `display_name`, `root_kind`, `is_enabled`, `is_default`, `scan_policy`, `created_at`, `updated_at`。
+
+## Library object and organize APIs
+
+### Phase 2 — Object scanning (implemented)
+
+- `POST /library/objects/scan`：只读扫描 `[TYPE]` 对象根，读取 `asset.yaml` 并写入 SQLite 对象扫描结果；不修改真实文件。
+- `GET /library/objects` / `GET /library/objects/{id}` / `GET /library/objects/{id}/members`：读取对象、对象详情和成员分页。
+- `GET /library/overview`：返回对象扫描统计。
+
+### Phase 3 — Organize plan drafts (implemented)
+
+- `POST /library/organize/candidates/scan`：从 needs-review objects、unknown objects、invalid asset.yaml objects、Inbox-like 文件和保守 loose files 生成待整理候选项；只写 SQLite。
+- `GET /library/organize/candidates` / `GET /library/organize/candidates/{id}` / `POST /library/organize/candidates/{id}/ignore`：读取或忽略候选项；忽略只更新数据库状态。
+- `POST /library/organize/plans/generate`：从候选项生成 `draft` plan 和 `draft` actions，包含 before / after path preview、conflict status 和 `asset.yaml` 草稿 payload。`GeneratePlanRequest` 和 `GeneratePlanResponse` 均包含 `target_library_root_id: int | None`；`GeneratePlanResponse` 额外包含 `target_root_path: str | None`。
+- `GET /library/organize/plans` / `GET /library/organize/plans/{id}`：读取计划列表和计划详情；详情会刷新 conflict / stale 状态。
+- `PATCH /library/organize/plans/{id}` / `PATCH /library/organize/actions/{id}`：仅允许编辑 draft 计划或 draft action 的安全草稿字段。
+- `POST /library/organize/plans/{id}/mark-ready`：重新检查冲突；无 blocked / stale action 时将 plan 标记为 `ready`，但不执行任何文件操作。
+- `POST /library/organize/plans/{id}/cancel`：取消 draft / ready 计划；不执行文件操作。
+- `GET /library/organize/stats`：返回 pending candidates、draft plans、ready plans、blocked actions 统计。
+
+### Phase 4 — Plan execution (implemented)
+
+- `POST /library/organize/plans/{plan_id}/preflight`：重新检查 plan 是否仍可执行（源路径存在、目标路径不存在、在 managed root 内、路径长度合法、磁盘可写）；不执行文件操作。`PreflightResponse` 包含 `messages: list[str]`。
+- `POST /library/organize/plans/{plan_id}/execute`：执行已确认的 organize plan（后台 worker thread）。actions 按 `action_order ASC` 顺序执行；关键 action 失败则后续标记 `skipped`。支持 `mkdir` / `move` / `rename` / `write_asset_yaml`。`ExecutePlanResponse` 包含 `affected_source_ids: list[int]` 和 `affected_library_root_ids: list[int]`。
+- `GET /library/organize/plans/{plan_id}/logs`：查询 plan 执行事件日志（每 action 的 event_type、message、before/after path、error_message、timestamp）。
+
+### Phase 5A — Post-execution reconciliation (implemented)
+
+- `POST /library/organize/plans/{plan_id}/reconcile`：执行后文件系统对账（只读）。检查每个 action 的 source/target 实际文件系统状态，不修改任何文件。更新 `organize_plans.reconcile_status` / `reconciled_at` / `reconcile_summary_json` 和每个 action 的 `organize_actions.reconcile_status`。
+  - Request: path param `plan_id`
+  - Response `ReconcilePlanResponse`:
+    - `plan_id: int`
+    - `reconcile_status: str` — `not_required | pending | reconciled | reconcile_failed`
+    - `reconciled_at: datetime | null`
+    - `summary: dict[str, int]` — status 到 count 的映射（如 `{"matched": 5, "source_still_exists": 1, "both_missing": 1}`）
+    - `actions: list[ReconcileActionItem]` — 每个 action 的 reconcile 结果（`action_id`, `action_type`, `reconcile_status`, `source_path`, `target_path`, `details`）
+  - Action `reconcile_status` 值：`not_checked | matched | source_still_exists | target_missing | both_exist | both_missing | target_not_directory | asset_yaml_missing | unknown`
+  - Status codes: `200` OK, `400` (plan 未完成，尚不可对账), `404` plan 未找到
+
+Plan detail responses (`GET /library/organize/plans/{id}`) now include `reconcile_status`, `reconciled_at`, `reconcile_summary_json` on the plan object, and `reconcile_status` on each action object.
+
+### Phase 5B — Copy failed actions to new plan (implemented)
+
+- `POST /library/organize/plans/{plan_id}/copy-failed-actions`：将已完成或失败计划中的 `failed`/`blocked`/`skipped` 动作复制到新的草稿计划中（只读，不修改源计划）。
+  - Allowed source plan statuses: `completed`, `completed_with_errors`, `failed`
+  - 不复制 `succeeded`/`ready`/`executing`/`draft` 动作
+  - 新建计划：`status = "draft"`, `parent_plan_id = source_plan.id`, `plan_origin = "copied_failed_actions"`
+  - 复制后的动作：`status = "draft"`, `conflict_status` 通过 `_refresh_plan_conflicts` 重新计算, `reconcile_status = "not_checked"`, 执行字段（`error_message`/`before_path`/`after_path`/`executed_at`/`finished_at`）清空
+  - Response `CopyFailedActionsResponse`:
+    - `source_plan_id: int`
+    - `new_plan_id: int`
+    - `copied_actions_count: int`
+    - `skipped_actions_count: int`
+    - `plan_origin: str` — `"copied_failed_actions"`
+  - Status codes: `200` OK, `400` (plan 状态不允许或无失败动作), `404` plan 未找到
+
+Plan detail responses now also include `parent_plan_id` and `plan_origin` on the plan object.
+
+### Phase 5C — Generate rollback draft plan (implemented)
+
+- `POST /library/organize/plans/{plan_id}/generate-rollback`：为已完成（或 completed_with_errors、failed）计划中已成功执行的 move/rename 动作生成回滚草稿计划（只读，不修改源计划，不执行回滚）。
+  - Allowed source plan statuses: `completed`, `completed_with_errors`, `failed`
+  - 仅回滚 `succeeded` 的 `move` 和 `rename` 动作；`mkdir`、`write_asset_yaml` 和未成功的动作不包含在内
+  - 每个回滚动作的 source/target 路径互换（回滚 source = 原 target，回滚 target = 原 source）
+  - Precondition 检查（不满足的动作被阻止并记录原因）：
+    - 缺少 source 或 target path
+    - Rename 回滚必须保持在同一父目录内
+    - 原 target 缺失
+    - 原 source 仍存在（文件未被实际移动）
+    - 回滚 target（原 source path）已被占用
+    - 回滚 target parent 目录不存在
+  - 新建计划：`title = "Rollback plan #{id}"`, `status = "draft"`, `plan_kind = 继承自源计划`, `target_library_root_id = None`（允许跨源回滚的 per-action root 解析）, `parent_plan_id = source_plan.id`, `plan_origin = "rollback"`, `reconcile_status = "not_required"`
+  - 复制后的回滚动作：`action_type` 保持（move→move, rename→rename）, `source_path`/`target_path` 互换, `status = "draft"`, `conflict_status` 通过 `_refresh_plan_conflicts` 重新计算, `reconcile_status = "not_checked"`, 执行字段清空, `reason = "Rollback of action #{id}"`
+  - Response `GenerateRollbackResponse`:
+    - `source_plan_id: int`
+    - `rollback_plan_id: int`
+    - `rollback_actions_count: int`
+    - `blocked_actions_count: int`
+    - `plan_origin: str` — `"rollback"`
+    - `blocked_actions: list[RollbackBlockedActionItem]` — 每个包含 `source_action_id: int` 和 `reason: str`
+  - Status codes: `200` OK, `400` (plan 状态不允许或无回滚动作), `404` plan 未找到
+  - 用户仍需按现有流程操作：`draft → review/edit → mark-ready → preflight → execute`
+
+### Phase 5D-1 — Generate asset.yaml merge draft (implemented)
+
+- `POST /library/organize/actions/{action_id}/generate-asset-yaml-merge`：为一个被阻塞的 `write_asset_yaml` 动作生成 asset.yaml 合并草稿计划。源 action 的 target 必须存在 asset.yaml 文件。合并草稿包含一个 `backup_asset_yaml` 动作（action_order=1）和一个 `write_asset_yaml_update` 动作（action_order=2）。不写文件，不执行任何动作。
+  - 仅允许 `action_type = "write_asset_yaml"` 的动作
+  - 要求：action 有 `target_path` 和 `payload_json`；target 名字为 `asset.yaml`；target 文件存在于文件系统中；可成功解析当前 asset.yaml
+  - 字段合并规则：
+    - **安全新增**（`aliases`, `tags`, `localized_title`, `notes`）：自动合并入 merged_yaml，diff 状态为 `"added"`
+    - **需要确认**（`title`, `year`, `cover`, `launch_exe`, `main_video`, `creator`, `source`, `source_url`）：保留当前值，diff 状态为 `"conflict"`
+    - **永不自动修改**（`schema_version`, `type`, `filesystem_title`, `original_title`）：保留当前值，diff 状态为 `"kept_current"`
+    - `schema_version` 降级永远不会自动应用
+  - 新建计划：`title = "Asset.yaml merge plan #{id}"`, `status = "draft"`, `plan_kind = 继承自源计划`, `target_library_root_id = 继承自源计划`, `parent_plan_id = source_plan.id`, `plan_origin = "asset_yaml_merge"`, `reconcile_status = "not_required"`
+  - `backup_asset_yaml` 动作：`source_path = 当前 asset.yaml`, `target_path = "{asset.yaml}.bak-{timestamp}"`, `payload_json` 包含 `backup_path`
+  - `write_asset_yaml_update` 动作：`source_path = 当前 asset.yaml`, `target_path = 当前 asset.yaml`（同路径更新）, `payload_json` 包含 `merge_kind`, `current_yaml`, `proposed_yaml`, `merged_yaml`, `field_diff`
+  - Preflight 规则：
+    - `backup_asset_yaml`：源文件必须存在；backup target 不能已存在；backup 必须与源文件在同一目录；必须在允许的 root 内
+    - `write_asset_yaml_update`：源和目标必须存在；target 必须命名为 `asset.yaml`；`payload_json` 必须包含 `merged_yaml`；必须有先行 `backup_asset_yaml` 动作且 `action_order` 更小；必须在允许的 root 内
+  - Execute 规则：
+    - `backup_asset_yaml`：使用 `shutil.copy2` 将 asset.yaml 复制到 backup path；target 已存在时失败
+    - `write_asset_yaml_update`：要求同计划中的先行 `backup_asset_yaml` 已成功；使用原子 tmp+replace 写入合并后的 YAML；**这是系统中唯一受控的覆盖**——需要 backup + 用户确认的计划 + 原子写入
+  - Response `GenerateAssetYamlMergeResponse`:
+    - `source_plan_id: int`
+    - `source_action_id: int`
+    - `merge_plan_id: int`
+    - `backup_action_id: int`
+    - `update_action_id: int`
+    - `plan_origin: str` — `"asset_yaml_merge"`
+    - `field_diff: list[FieldDiffItem]` — 每个包含 `field: str`, `status: str`, `current: str | null`, `proposed: str | null`, `merged: str | null`
+  - Status codes: `200` OK, `400`（action 类型错误、target 未命名为 asset.yaml、asset.yaml 不存在、YAML/JSON 解析失败）, `404` action 未找到
+
+### Phase 5D-2 — Organize templates (implemented)
+
+- `GET /library/organize/templates`
+  - Returns list of 7 builtin template items.
+  - Each item: `template_key`, `object_type`, `name`, `description`, `path_template`, `filename_template` (nullable), `is_builtin`, `is_enabled`.
+- `POST /library/organize/plans/generate` extended:
+  - New optional field: `template_key: string | null`
+  - When provided: validates template exists/enabled, checks object_type matches candidate's detected_type, renders template path with variable substitution.
+  - Template variables: `type`, `title`, `year`, `season`, `creator`, `source`, `resolution`, `language`, `platform`, `version`, `date`.
+  - Path safety: rendered path must be relative, no `..`, no drive letter, no UNC, no Windows-invalid chars; missing variables trigger safe fallback.
+  - Templates only affect draft plan generation — no file operations.
+  - Status codes: `200` OK, `400`（invalid/missing template_key, object_type mismatch）, `404` plan/candidates not found.
+- `organize_plans.template_key` column: nullable TEXT, tracks which template was used to generate the plan.
+
+### Phase 5D-3 — Rule-based organize suggestions (implemented)
+
+- `POST /library/organize/candidates/{candidate_id}/suggestions/generate`
+  - Creates local `rule_based` suggestions for a candidate.
+  - Supported `suggestion_type`: `object_type`, `title`, `tags`, `asset_yaml`, `template_key`.
+  - Writes only `organize_suggestions`; does not modify candidates, plans, actions, tags, or files.
+  - No real LLM provider, cloud AI, or metadata fetching.
+- `GET /library/organize/candidates/{candidate_id}/suggestions`
+  - Lists suggestions for that candidate.
+- `POST /library/organize/suggestions/{suggestion_id}/accept`
+  - Updates lifecycle only: `status = accepted`, `accepted_at = now`.
+  - Does not generate a plan, mark ready, preflight, execute, or write asset.yaml.
+- `POST /library/organize/suggestions/{suggestion_id}/reject`
+  - Updates lifecycle only: `status = rejected`, `rejected_at = now`.
+- Response item shape: `id`, `candidate_id`, `plan_id`, `action_id`, `suggestion_type`, `payload_json`, `confidence`, `reason`, `provider`, `status`, `created_at`, `accepted_at`, `rejected_at`.
+
+Safety contract:
+
+- Phase 2/3 只写 SQLite 扫描结果和整理草稿数据；不修改真实文件。
+- Phase 4 执行真实文件系统操作，但受以下硬规则约束：
+  - 必须先通过 preflight 检查
+  - 必须经过用户二次确认（前端 confirmation modal）
+  - 目标路径存在时 action 标记 `blocked`，永不覆盖（Phase 5D-1 `write_asset_yaml_update` 是唯一受控例外：必须有先行 `backup_asset_yaml` 成功 + 用户确认的计划 + 原子 tmp+replace）
+  - 不执行 `delete`、`copy`、`overwrite`、`extract_archive`、`run_script`
+  - 路径必须在 managed root 内，拒绝路径穿越（`..\..\Windows\System32`）
+  - Managed-root boundary enforcement: 当 `target_library_root_id` 被设置时，所有目标路径必须位于所选库根的路径子树内；cross-source 路径也会针对目标库根进行验证
+  - 执行在后台 worker thread，不阻塞 HTTP request
+- Library Phase 5A reconcile 接口已实现；Phase 5B copy-failed-actions 接口已实现；Phase 5C generate-rollback 接口已实现；Phase 5D-1 asset.yaml safe merge draft 已实现；Phase 5D-2 organize templates 已实现（含 anime template hotfix）；Phase 5D-3 rule-based suggestions 已实现。
 
 ## GET /sources
 

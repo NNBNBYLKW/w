@@ -32,9 +32,16 @@
 - search / files / shared details / thumbnail
 - library subsets
   - media
-  - books
+  - documents (`/library/books` compatibility route)
   - games
   - software
+- library objects and organize (Phase 2/3/4)
+  - object scan, list, detail, members
+  - organize candidates scan, list, ignore
+  - organize plan generate, list, detail, edit
+  - mark-ready, preflight, execute, logs
+- tools
+  - video_merge runs
 - tags
 - color tags
 - collections
@@ -93,6 +100,9 @@
 
 - `shared details` 是当前统一详情中心，核心详情 contract 是 `GET /files/{file_id}`。
 - 各 subset surface 的 contract **彼此独立**，但都建立在 indexed files 之上，不是独立对象库。
+- Library objects 与 organize plans 是 Phase 2-4 已实现的能力，遵循严格的安全递进：Phase 2 (只读扫描) → Phase 3 (草稿计划) → Phase 4 (用户确认后执行)。
+- organize plan execution 存在真实文件系统操作（mkdir / move / rename / write_asset_yaml），但受限于 preflight 检查、用户二次确认和目标路径不覆盖的硬规则。
+- `Tools` 当前只提供 `video_merge` 一个内置工具；只允许按固定参数调用 FFmpeg，不支持任意命令执行或插件系统。
 - `Games.status` 仍是 domain-specific 轻语义，不是全站统一状态系统。
 - `favorite / rating` 是全局轻量 user meta。
 - `Collections` 当前应理解为 **saved retrieval conditions**，不是规则引擎。
@@ -148,7 +158,23 @@
    - `/library/books`
    - `/library/games`
    - `/library/software`
-3. organization and refind
+3. library objects and organize
+   - `/library/objects/scan`
+   - `/library/objects`
+   - `/library/objects/{object_id}`
+   - `/library/objects/{object_id}/members`
+   - `/library/overview`
+   - `/library/organize/candidates/scan`
+   - `/library/organize/candidates`
+   - `/library/organize/plans/generate`
+   - `/library/organize/plans`
+   - `/library/organize/plans/{plan_id}`
+   - `/library/organize/plans/{plan_id}/preflight`
+   - `/library/organize/plans/{plan_id}/execute`
+   - `/library/organize/plans/{plan_id}/logs`
+   - `/library/organize/plans/{plan_id}/mark-ready`
+   - `/library/organize/stats`
+4. organization and refind
    - `/tags`
    - `/tags/{tag_id}/files`
    - `/collections`
@@ -156,11 +182,16 @@
    - `/recent`
    - `/recent/tagged`
    - `/recent/color-tagged`
-4. batch organize
+5. tools
+   - `GET /tools`
+   - `POST /tools/video-merge/runs`
+   - `GET /tools/runs`
+   - `GET /tools/runs/{run_id}`
+6. batch organize
    - `/files/batch/tags`
    - `/files/batch/color-tag`
    - `/files/batch/placement`
-5. general browse and query
+7. general browse and query
    - `/search`
    - `/files`
    - `/sources`

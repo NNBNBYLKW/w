@@ -17,6 +17,7 @@ const pageHeaderCopy: Record<string, PageHeaderCopy> = {
   "/home": { titleKey: "pages.home.title", descriptionKey: "pages.home.description" },
   "/onboarding": { titleKey: "pages.onboarding.title", descriptionKey: "pages.onboarding.description" },
   "/search": { titleKey: "pages.search.title", descriptionKey: "pages.search.description" },
+  "/library": { titleKey: "pages.library.title", descriptionKey: "pages.library.description" },
   "/files": { titleKey: "pages.files.title", descriptionKey: "pages.files.description" },
   "/books": { titleKey: "pages.books.title", descriptionKey: "pages.books.description" },
   "/software": { titleKey: "pages.software.title", descriptionKey: "pages.software.description" },

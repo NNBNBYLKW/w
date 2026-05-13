@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t, useLocale } from "../../shared/text";
+import { EmptyState, KeyValueRow, ActionButton, StatusBadge } from "../../shared/ui/components";
 import { useRetryingThumbnail, useThumbnailWarmup } from "../../shared/ui/thumbnail";
 import type {
   ColorTagValue,
@@ -563,35 +564,31 @@ export function DetailsPanelFeature() {
     );
   } else if (selectedItemId === null) {
     content = (
-      <>
-        <span className="placeholder-pill">{t("details.placeholders.awaitingSelection.eyebrow")}</span>
-        <h3>{t("details.placeholders.awaitingSelection.title")}</h3>
-        <p>{t("details.placeholders.awaitingSelection.description")}</p>
-      </>
+      <EmptyState
+        title={t("details.placeholders.awaitingSelection.title")}
+        description={t("details.placeholders.awaitingSelection.description")}
+      />
     );
   } else if (hasInvalidSelectedId) {
     content = (
-      <>
-        <span className="placeholder-pill">{t("details.placeholders.selectionError.eyebrow")}</span>
-        <h3>{t("details.placeholders.selectionError.title")}</h3>
-        <p>{t("details.placeholders.selectionError.description")}</p>
-      </>
+      <EmptyState
+        title={t("details.placeholders.selectionError.title")}
+        description={t("details.placeholders.selectionError.description")}
+      />
     );
   } else if (detailQuery.isLoading) {
     content = (
-      <>
-        <span className="placeholder-pill">{t("details.placeholders.loading.eyebrow")}</span>
-        <h3>{t("details.placeholders.loading.title")}</h3>
-        <p>{t("details.placeholders.loading.description")}</p>
-      </>
+      <EmptyState
+        title={t("details.placeholders.loading.title")}
+        description={t("details.placeholders.loading.description")}
+      />
     );
   } else if (detailQuery.error instanceof Error) {
     content = (
-      <>
-        <span className="placeholder-pill">{t("details.placeholders.error.eyebrow")}</span>
-        <h3>{t("details.placeholders.error.title")}</h3>
-        <p>{detailQuery.error.message}</p>
-      </>
+      <EmptyState
+        title={t("details.placeholders.error.title")}
+        description={detailQuery.error.message}
+      />
     );
   } else if (detailQuery.data) {
     const { item } = detailQuery.data;
@@ -625,50 +622,18 @@ export function DetailsPanelFeature() {
         <h3 className="details-panel__title" title={item.name}>
           {item.name}
         </h3>
-        <dl className="details-list">
-          <div className="details-list__row">
-            <dt>{t("details.fields.id")}</dt>
-            <dd>{item.id}</dd>
-          </div>
-          <div className="details-list__row">
-            <dt>{t("details.fields.path")}</dt>
-            <dd className="details-list__value--truncate" title={item.path}>
-              {item.path}
-            </dd>
-          </div>
-          <div className="details-list__row">
-            <dt>{t("details.fields.type")}</dt>
-            <dd>{item.file_type}</dd>
-          </div>
-          <div className="details-list__row">
-            <dt>{t("details.fields.size")}</dt>
-            <dd>{formatBytes(item.size_bytes)}</dd>
-          </div>
-          <div className="details-list__row">
-            <dt>{t("details.fields.sourceId")}</dt>
-            <dd>{item.source_id}</dd>
-          </div>
-          <div className="details-list__row">
-            <dt>{t("details.fields.created")}</dt>
-            <dd>{formatTimestamp(item.created_at_fs)}</dd>
-          </div>
-          <div className="details-list__row">
-            <dt>{t("details.fields.modified")}</dt>
-            <dd>{formatTimestamp(item.modified_at_fs)}</dd>
-          </div>
-          <div className="details-list__row">
-            <dt>{t("details.fields.discovered")}</dt>
-            <dd>{formatTimestamp(item.discovered_at)}</dd>
-          </div>
-          <div className="details-list__row">
-            <dt>{t("details.fields.lastSeen")}</dt>
-            <dd>{formatTimestamp(item.last_seen_at)}</dd>
-          </div>
-          <div className="details-list__row">
-            <dt>{t("details.fields.deleted")}</dt>
-            <dd>{item.is_deleted ? t("details.values.yes") : t("details.values.no")}</dd>
-          </div>
-        </dl>
+        <div className="kv-list">
+          <KeyValueRow label={t("details.fields.path")} value={item.path} mono />
+          <KeyValueRow label={t("details.fields.type")} value={item.file_type} />
+          <KeyValueRow label={t("details.fields.size")} value={formatBytes(item.size_bytes)} />
+          <KeyValueRow label={t("details.fields.id")} value={String(item.id)} mono />
+          <KeyValueRow label={t("details.fields.sourceId")} value={String(item.source_id)} />
+          <KeyValueRow label={t("details.fields.modified")} value={formatTimestamp(item.modified_at_fs)} />
+          <KeyValueRow label={t("details.fields.created")} value={formatTimestamp(item.created_at_fs)} />
+          <KeyValueRow label={t("details.fields.discovered")} value={formatTimestamp(item.discovered_at)} />
+          <KeyValueRow label={t("details.fields.lastSeen")} value={formatTimestamp(item.last_seen_at)} />
+          <KeyValueRow label={t("details.fields.deleted")} value={item.is_deleted ? t("details.values.yes") : t("details.values.no")} />
+        </div>
         <section className="details-placement-section">
           <div className="details-placement-section__header">
             <h4>{t("details.sections.libraryPlacement")}</h4>
@@ -1254,9 +1219,9 @@ export function DetailsPanelFeature() {
             {isOpenActionPending ? <span className="status-pill">{t("details.actions.opening")}</span> : null}
           </div>
           <div className="open-actions-buttons">
-            <button
-              className="secondary-button"
-              type="button"
+            <ActionButton
+              variant="primary"
+              size="sm"
               onClick={() => void handleOpenAction("file", item.path)}
               disabled={isOpenActionPending || !hasDesktopOpenActions}
             >
@@ -1265,15 +1230,15 @@ export function DetailsPanelFeature() {
                 : isSoftwareContext
                   ? t("details.actions.openSoftwareFile")
                   : t("details.actions.openFile")}
-            </button>
-            <button
-              className="secondary-button"
-              type="button"
+            </ActionButton>
+            <ActionButton
+              variant="secondary"
+              size="sm"
               onClick={() => void handleOpenAction("folder", item.path)}
               disabled={isOpenActionPending || !hasDesktopOpenActions}
             >
               {t("details.actions.openContainingFolder")}
-            </button>
+            </ActionButton>
           </div>
           {!hasDesktopOpenActions ? (
             <p className="open-actions-section__note">{t("details.actions.openActionUnavailable")}</p>
@@ -1284,11 +1249,10 @@ export function DetailsPanelFeature() {
     );
   } else {
     content = (
-      <>
-        <span className="placeholder-pill">{t("details.placeholders.unavailable.eyebrow")}</span>
-        <h3>{t("details.placeholders.unavailable.title")}</h3>
-        <p>{t("details.placeholders.unavailable.description")}</p>
-      </>
+      <EmptyState
+        title={t("details.placeholders.unavailable.title")}
+        description={t("details.placeholders.unavailable.description")}
+      />
     );
   }
 
