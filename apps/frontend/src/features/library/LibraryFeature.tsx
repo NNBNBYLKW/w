@@ -188,7 +188,7 @@ function LibraryOverviewPanel() {
   const stats = overviewQuery.data;
   const organizeStats = organizeStatsQuery.data;
   return (
-    <section className="library-overview-grid">
+    <section className="library-overview-grid library-design-panel library-design-panel--overview">
       <LibraryPlaceholderPanel
         eyebrow={t("features.library.overview.eyebrow")}
         title={t("features.library.overview.title")}
@@ -301,9 +301,10 @@ function LibraryRootsPanel() {
   const managedRoots = (roots ?? []).filter((r) => r.root_kind === "managed");
 
   return (
-    <section className="library-roots-panel">
-      <div className="library-roots-panel__intro">
+    <section className="library-roots-panel library-design-panel library-design-panel--roots">
+      <div className="library-roots-panel__intro library-design-hero">
         <span className="page-header__eyebrow">{t("features.library.roots.eyebrow")}</span>
+        <h3>{t("features.library.roots.add")}</h3>
         <p>
           {t("features.library.roots.descriptionNew")}
         </p>
@@ -314,9 +315,9 @@ function LibraryRootsPanel() {
       ) : managedRoots.length === 0 ? (
         <p className="library-muted-line">{t("features.library.roots.empty")}</p>
       ) : (
-        <ul className="library-roots-list" role="list">
+        <ul className="library-roots-list library-design-card-list" role="list">
           {managedRoots.map((root) => (
-            <li key={root.id} className="library-root-card">
+            <li key={root.id} className={`library-root-card library-design-card${root.is_enabled ? " library-root-card--enabled" : " library-root-card--disabled"}`}>
               <div className="library-root-card__info">
                 <div className="library-root-card__row">
                   <strong>{root.display_name ?? root.root_path}</strong>
@@ -326,6 +327,7 @@ function LibraryRootsPanel() {
                 </div>
                 <div className="library-root-card__row library-root-card__badges">
                   <StatusBadge variant="muted">managed</StatusBadge>
+                  {root.is_enabled ? <StatusBadge variant="success">enabled</StatusBadge> : null}
                   {root.is_default ? <StatusBadge variant="accent">default</StatusBadge> : null}
                   {root.is_enabled ? null : <StatusBadge variant="danger">disabled</StatusBadge>}
                 </div>
@@ -352,19 +354,18 @@ function LibraryRootsPanel() {
       )}
 
       <button
-        className="secondary-button"
+        className="secondary-button library-root-add-toggle"
         type="button"
         onClick={() => setShowAdd(true)}
-        style={{ marginTop: 12 }}
       >
         + {t("features.library.roots.add")}
       </button>
 
       {showAdd ? (
-        <div className="library-root-add-form">
+        <div className="library-root-add-form library-design-card">
           {selectFolder ? (
-            <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-              <label style={{ flex: 1 }}>
+            <div className="library-root-add-form__path-row">
+              <label>
                 {t("features.library.roots.addPathLabel")}
                 <input
                   type="text"
@@ -402,7 +403,7 @@ function LibraryRootsPanel() {
             />
           </label>
           {addError ? <p className="form-error">{addError}</p> : null}
-          <div style={{ display: "flex", gap: 8 }}>
+          <div className="library-root-add-form__actions">
             <button
               className="primary-button"
               type="button"
@@ -437,8 +438,8 @@ function LibraryRootsPanel() {
 
 function LibraryPathBrowserPanel() {
   return (
-    <section className="library-path-panel">
-      <div className="library-path-panel__intro">
+    <section className="library-path-panel library-design-panel library-design-panel--path">
+      <div className="library-path-panel__intro library-design-hero">
         <span className="page-header__eyebrow">{t("features.library.path.eyebrow")}</span>
         <p>{t("features.library.path.description")}</p>
       </div>
@@ -457,7 +458,7 @@ function ObjectList({
   onSelect: (objectId: number) => void;
 }) {
   return (
-    <div className="library-object-list" role="list">
+    <div className="library-object-list library-candidate-list" role="list">
       {objects.map((item) => (
         <button
           key={item.id}
@@ -578,8 +579,8 @@ function LibraryObjectsPanel() {
   });
 
   return (
-    <section className="library-objects-panel">
-      <div className="library-panel-toolbar">
+    <section className="library-objects-panel library-design-panel library-design-panel--objects">
+      <div className="library-panel-toolbar library-design-hero">
         <div>
           <span className="page-header__eyebrow">{t("features.library.objects.eyebrow")}</span>
           <h3>{t("features.library.objects.title")}</h3>
@@ -676,7 +677,7 @@ function CandidateList({
       {candidates.map((item) => (
         <button
           key={item.id}
-          className={`library-object-row${selectedCandidateId === item.id ? " library-object-row--selected" : ""}`}
+          className={`library-object-row library-candidate-row${selectedCandidateId === item.id ? " library-object-row--selected" : ""}`}
           type="button"
           onClick={() => onSelect(item.id)}
         >
@@ -747,16 +748,18 @@ function CandidateDetail({
     generateSuggestionsMutation.error || acceptSuggestionMutation.error || rejectSuggestionMutation.error
   ) as Error | null;
   return (
-    <aside className="library-object-detail library-candidate-detail">
-      <span className="placeholder-pill">{t("features.library.organize.candidate")}</span>
-      <h4>{candidate.display_name}</h4>
+    <aside className="library-object-detail library-candidate-detail library-design-card">
+      <div className="library-detail-heading">
+        <span className="placeholder-pill">{t("features.library.organize.candidate")}</span>
+        <h4>{candidate.display_name}</h4>
+      </div>
       <div className="library-candidate-meta">
         <KeyValueRow label={t("features.library.organize.suggestedType")} value={candidate.detected_type} />
         <KeyValueRow label={t("features.library.organize.confidence")} value={candidate.confidence} />
         <KeyValueRow label={t("features.library.organize.reason")} value={candidate.reason} />
         <KeyValueRow label={t("features.library.organize.sourcePath")} value={candidate.source_path} mono />
       </div>
-      <section className="library-suggestions-section">
+      <section className="library-suggestions-section library-design-card">
         <div className="library-toolbar-actions">
           <ActionButton variant="primary" size="sm" onClick={() => generateSuggestionsMutation.mutate(candidate.id)} disabled={generateSuggestionsMutation.isPending}>
             {generateSuggestionsMutation.isPending ? t("features.library.organize.generatingSuggestions") : t("features.library.organize.generateSuggestions")}
@@ -774,9 +777,9 @@ function CandidateDetail({
         {suggestions.map((suggestion) => (
           <div className="library-suggestion-card" key={suggestion.id}>
             <div className="library-suggestion-card__header">
-              <span className="library-suggestion-card__type" style={{color: "var(--accent-primary)"}}>{suggestion.suggestion_type}</span>
+              <span className="library-suggestion-card__type">{suggestion.suggestion_type}</span>
               <StatusBadge variant={suggestion.status === "accepted" ? "success" : suggestion.status === "rejected" ? "danger" : "warning"}>{suggestion.status}</StatusBadge>
-              <span style={{fontSize:10,color:"var(--text-muted)",marginLeft:"auto",fontFamily:"JetBrains Mono,monospace"}}>{(suggestion.confidence ?? 0).toFixed(2)}</span>
+              <span className="library-suggestion-card__confidence">{(suggestion.confidence ?? 0).toFixed(2)}</span>
             </div>
             <span className="library-suggestion-card__reason">{suggestion.reason}</span>
             <span className="library-suggestion-card__payload">{formatSuggestionPayloadSummary(suggestion)}</span>
@@ -897,8 +900,8 @@ function LibraryPendingPanel() {
     );
   };
   return (
-    <section className="library-objects-panel">
-      <div className="library-panel-toolbar">
+    <section className="library-objects-panel library-design-panel library-design-panel--pending">
+      <div className="library-panel-toolbar library-design-hero">
         <div>
           <span className="page-header__eyebrow">{t("features.library.pending.eyebrow")}</span>
           <h3>{t("features.library.organize.candidatesTitle")}</h3>
@@ -967,8 +970,8 @@ function LibraryPendingPanel() {
       {scanMutation.isError || generateMutation.isError || ignoreMutation.isError ? (
         <p className="danger-text">{((scanMutation.error || generateMutation.error || ignoreMutation.error) as Error).message}</p>
       ) : null}
-      <div className="library-objects-layout">
-        <div className="library-object-list-panel">
+      <div className="library-objects-layout library-pending-layout">
+        <div className="library-object-list-panel library-design-card">
           {candidatesQuery.isLoading ? <p>{t("common.states.loading")}</p> : null}
           {candidatesQuery.isError ? <p>{t("features.library.scan.unableToLoad")}</p> : null}
           {candidatesQuery.data && candidatesQuery.data.items.length === 0 ? (
@@ -1198,9 +1201,12 @@ function PlanDetail({
     mergeMutation.error
   ) as Error | null;
   return (
-    <aside className="library-object-detail library-plan-detail">
-      <span className="page-header__eyebrow">{t("features.library.organize.planDetail")}</span>
-      <h4>{detail.plan.title}</h4>
+    <aside className="library-object-detail library-plan-detail library-design-card">
+      <div className="library-detail-heading">
+        <span className="page-header__eyebrow">{t("features.library.organize.planDetail")}</span>
+        <h4>{detail.plan.title}</h4>
+        <PlanStatusPill status={detail.plan.status} />
+      </div>
       <p className="library-muted-line">
         {t("features.library.organize.targetRoot")}:{" "}
         {detail.plan.target_root_path ? (
@@ -1213,7 +1219,7 @@ function PlanDetail({
         <p className="library-muted-line">{t("features.library.organize.selectTemplate")}: <strong>{detail.plan.template_key}</strong></p>
       ) : null}
       <p className="library-muted-line">{t("features.library.organize.markReadyNotice")}</p>
-      <div className="library-toolbar-actions">
+      <div className="library-toolbar-actions library-plan-command-bar">
         <button
           className="primary-button"
           type="button"
@@ -1258,7 +1264,7 @@ function PlanDetail({
           </span>
         </div>
       ) : null}
-      <dl>
+      <dl className="library-plan-meta-grid">
         <div>
           <dt>{t("common.labels.status")}</dt>
           <dd><PlanStatusPill status={detail.plan.status} /></dd>
@@ -1382,7 +1388,7 @@ function PlanDetail({
                   </li>
                 ))}
               </ul>
-              <div className="library-action-list" style={{ maxHeight: "200px", overflowY: "auto" }}>
+              <div className="library-action-list library-action-list--scroll">
                 {reconcileResult.actions.map((ra) => (
                   <div key={ra.action_id} className="library-action-row">
                     <span className="library-action-type">{ra.action_type}</span>
@@ -1572,8 +1578,8 @@ function LibraryPlansPanel() {
     queryFn: () => listOrganizePlans(queryParams),
   });
   return (
-    <section className="library-objects-panel">
-      <div className="library-panel-toolbar">
+    <section className="library-objects-panel library-design-panel library-design-panel--plans">
+      <div className="library-panel-toolbar library-design-hero">
         <div>
           <span className="page-header__eyebrow">{t("features.library.plans.eyebrow")}</span>
           <h3>{t("features.library.organize.plansTitle")}</h3>
@@ -1590,8 +1596,8 @@ function LibraryPlansPanel() {
           <option value="cancelled">cancelled</option>
         </select>
       </div>
-      <div className="library-objects-layout">
-        <div className="library-object-list-panel">
+      <div className="library-objects-layout library-plans-layout">
+        <div className="library-object-list-panel library-design-card">
           {plansQuery.isLoading ? <p>{t("common.states.loading")}</p> : null}
           {plansQuery.isError ? <p>{t("features.library.scan.unableToLoad")}</p> : null}
           {plansQuery.data && plansQuery.data.items.length === 0 ? (

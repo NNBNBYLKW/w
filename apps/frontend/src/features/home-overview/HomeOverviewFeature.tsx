@@ -325,7 +325,7 @@ export function HomeOverviewFeature() {
   });
 
   return (
-    <section className="home-overview">
+    <section className="home-overview browse-surface browse-surface--home">
       <SystemStatusFeature
         eyebrow={t("features.homeOverview.systemOverviewEyebrow")}
         title={t("settings.systemStatus.title")}

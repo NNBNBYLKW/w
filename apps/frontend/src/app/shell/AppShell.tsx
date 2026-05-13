@@ -63,7 +63,7 @@ export function AppShell() {
   }, [location.pathname, isDetailsPanelOpen, locale]);
 
   const shell = (
-    <div className={`app-shell${isSidebarCollapsed ? " app-shell--sidebar-collapsed" : ""}`}>
+    <div className={`app-shell app-shell--design-pen${isSidebarCollapsed ? " app-shell--sidebar-collapsed" : ""}`}>
       <AppSidebar />
       <div className="app-shell__main">
         <div

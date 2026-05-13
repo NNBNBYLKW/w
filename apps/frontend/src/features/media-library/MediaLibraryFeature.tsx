@@ -481,8 +481,8 @@ export function MediaLibraryFeature() {
   };
 
   return (
-    <section className="feature-shell compact-library">
-      <div className="feature-header compact-library__header">
+    <section className="feature-shell compact-library browse-surface browse-surface--media">
+      <div className="feature-header compact-library__header browse-surface__header">
         <span className="page-header__eyebrow">{t("features.media.eyebrow")}</span>
         <h3>{t("features.media.title")}</h3>
         <p>{t("features.media.description")}</p>

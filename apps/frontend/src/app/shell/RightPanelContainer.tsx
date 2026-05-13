@@ -10,7 +10,7 @@ export function RightPanelContainer() {
   }
 
   return (
-    <aside className="right-panel-container">
+    <aside className="right-panel-container right-panel-container--design-pen">
       <DetailsPanelFeature />
     </aside>
   );

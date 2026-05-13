@@ -146,8 +146,8 @@ export function SearchFeature() {
   };
 
   return (
-    <section className="feature-shell">
-      <div className="feature-header">
+    <section className="feature-shell browse-surface browse-surface--search">
+      <div className="feature-header browse-surface__header">
         <span className="page-header__eyebrow">{t("features.search.eyebrow")}</span>
         <h3>{t("features.search.title")}</h3>
       </div>
