@@ -4,6 +4,7 @@ export const navigation = {
     onboarding: "Onboarding",
     search: "Search",
     files: "Files",
+    library: "Library",
     books: "Documents",
     software: "Software",
     media: "Media",

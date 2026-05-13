@@ -29,6 +29,7 @@ export const common = {
     openMatchingBooks: "Open matching documents",
     openMatchingGames: "Open matching games",
     openMatchingSoftware: "Open matching software",
+    cancel: "Cancel",
   },
   states: {
     loading: "Loading...",

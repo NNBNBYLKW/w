@@ -29,6 +29,7 @@ export const common = {
     openMatchingBooks: "打开匹配的文档",
     openMatchingGames: "打开匹配的游戏",
     openMatchingSoftware: "打开匹配的软件",
+    cancel: "取消",
   },
   states: {
     loading: "加载中...",

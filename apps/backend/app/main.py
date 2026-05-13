@@ -4,6 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes.collections import router as collections_router
 from app.api.routes.files import router as files_router
 from app.api.routes.library import router as library_router
+from app.api.routes.library_objects import router as library_objects_router
+from app.api.routes.library_organize import router as library_organize_router
+from app.api.routes.library_roots import router as library_roots_router
 from app.api.routes.recent import router as recent_router
 from app.api.routes.search import router as search_router
 from app.api.routes.sources import router as sources_router
@@ -41,6 +44,9 @@ def create_app() -> FastAPI:
     app.include_router(collections_router)
     app.include_router(files_router)
     app.include_router(library_router)
+    app.include_router(library_objects_router)
+    app.include_router(library_organize_router)
+    app.include_router(library_roots_router)
     app.include_router(recent_router)
     app.include_router(search_router)
     app.include_router(sources_router)

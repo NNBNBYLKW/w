@@ -38,6 +38,32 @@ Document boundary:
   - `t(key, params?)`、locale 资源、`Settings` 语言切换和 Light / Dark 主题入口说明
   - 后续补文案、补语言和继续接入页面的维护入口
 
+### Library Roadmap Docs
+
+Library Phases 1-4 已实现，Phase 5A 已实现（执行后对账与重新扫描提示），Phase 5B/5C/5D 为下一阶段规划。Managed library roots（受管库根目录）及 cross-source targeting（跨来源目标定向）已实现并集成于 Phases 1-4：
+
+- [library_phase1_plan.md](library_phase1_plan.md) — Phase 1: Library shell + Path Browser
+- [library_phase2_plan.md](library_phase2_plan.md) — Phase 2: Read-only object scanner
+- [library_phase3_plan.md](library_phase3_plan.md) — Phase 3: Organize plan drafts
+- [library_phase4_plan.md](library_phase4_plan.md) — Phase 4: Plan execution (preflight → execute → logs)
+- [library_phase5_plan.md](library_phase5_plan.md) — Phase 5: Reconciliation, recovery, rollback, AI suggestions (Phase 5A implemented; 5B/5C/5D planned)
+
+### Library Specification Docs
+
+- [library_ai_revised_v2_1.md](library_ai_revised_v2_1.md) — File library structure and naming spec (canonical, AI/software-facing)
+- [library_user_revised_v2_1.md](library_user_revised_v2_1.md) — File library user guide (canonical, user-facing)
+
+Superseded versions (`library_ai.md`, `library_user.md`) have been moved to `archive/其他历史辅助文档/`.
+
+### Tools Docs
+
+- [TOOLS_VIDEO_MERGE_PLAN.md](TOOLS_VIDEO_MERGE_PLAN.md) — Tools module and Video Merge design spec (implemented)
+
+### UI Design Reference
+
+- `designs/design.pen` — Pencil UI design mockup (visual reference, not contract)
+- `result.md` (repo root) — Latest UI design preservation review or audit report (one-off, replaced on each completed task)
+
 ## API Contract Docs
 
 If you are working on frontend UI refactors or need the current backend contract, start here:
@@ -145,3 +171,40 @@ When docs need to be updated during the beta stage:
 - keep temporary drafts and local working notes in `_wip/`
 
 The top level of `docs/` should stay small and clearly beta-oriented.
+
+### After Every Code Change
+
+After every code change, check whether one of these docs must be updated:
+
+1. **`README.md`**
+   - if project entry point, startup flow, current status, or major navigation changes
+
+2. **`docs/README.md`**
+   - if document structure or current-doc index changes
+
+3. **`docs/api/*`**
+   - if backend HTTP contract changes
+
+4. **`docs/测试版当前状态总览.md`**
+   - if implemented capabilities or current product shape change
+
+5. **`docs/测试版范围与边界.md`**
+   - if scope/boundary changes
+
+6. **`docs/测试版验证准备.md`**
+   - if manual validation path or checklist changes
+
+7. **`docs/测试版发布准备.md`**
+   - if packaging, startup, bundled runtime, or beta delivery changes
+
+8. **`docs/前端文本层与语言切换.md`**
+   - if locale/theme/text runtime changes
+
+9. **Library roadmap docs (`library_phase1_plan.md` ~ `library_phase5_plan.md`)**
+   - if Library phase status changes
+
+10. **`docs/TOOLS_VIDEO_MERGE_PLAN.md`**
+    - if Tools workflow changes
+
+If no docs update is needed, the commit or PR report should explicitly say:
+**”Docs checked: no update needed.”**

@@ -4,9 +4,9 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "../shell/AppShell";
 import { BooksPage } from "../../pages/books/BooksPage";
 import { CollectionsPage } from "../../pages/collections/CollectionsPage";
-import { FilesPage } from "../../pages/files/FilesPage";
 import { GamesPage } from "../../pages/games/GamesPage";
 import { HomePage } from "../../pages/home/HomePage";
+import { LibraryPage } from "../../pages/library/LibraryPage";
 import { MediaLibraryPage } from "../../pages/media-library/MediaLibraryPage";
 import { OnboardingPage } from "../../pages/onboarding/OnboardingPage";
 import { RecentImportsPage } from "../../pages/recent/RecentImportsPage";
@@ -43,7 +43,8 @@ export function AppRouter() {
         <Route path="/home" element={<HomePage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/search" element={<SearchPage />} />
-        <Route path="/files" element={<FilesPage />} />
+        <Route path="/library" element={<LibraryPage />} />
+        <Route path="/files" element={<Navigate to="/library?tab=path" replace />} />
         <Route path="/books" element={<BooksPage />} />
         <Route path="/software" element={<SoftwarePage />} />
         <Route path="/library/games" element={<GamesPage />} />

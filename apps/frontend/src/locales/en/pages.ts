@@ -20,6 +20,11 @@ export const pages = {
     title: "Files",
     description: "Browse active indexed file records by source and exact directory.",
   },
+  library: {
+    eyebrow: "File library",
+    title: "Library",
+    description: "Manage library roots, path browsing, pending files, object recognition, and organize plans.",
+  },
   books: {
     eyebrow: "Library subset surface",
     title: "Documents",
