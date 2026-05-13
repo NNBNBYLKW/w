@@ -155,7 +155,7 @@ export function SourceManagementFeature() {
   };
 
   return (
-    <section className="source-management">
+    <section className="source-management settings-section-card">
       <form className="form-grid" onSubmit={handleSubmit}>
         <div className="field-stack">
           <label htmlFor="source-path">{t("settings.sourceManagement.sourcePath")}</label>
@@ -211,7 +211,7 @@ export function SourceManagementFeature() {
       ) : null}
 
       <div className="feature-shell">
-        <div className="feature-header">
+        <div className="feature-header utility-surface__header">
           <span className="page-header__eyebrow">{t("settings.sourceManagement.savedSources.eyebrow")}</span>
           <h3>{t("settings.sourceManagement.savedSources.title")}</h3>
         </div>

@@ -25,8 +25,8 @@ export function SystemStatusFeature({
   });
 
   return (
-    <section className={`feature-shell${variant === "compact" ? " system-status--compact" : ""}`}>
-      <div className="feature-header">
+    <section className={`feature-shell settings-section-card${variant === "compact" ? " system-status--compact" : ""}`}>
+      <div className="feature-header utility-surface__header">
         <span className="page-header__eyebrow">{eyebrow}</span>
         <h3>{title}</h3>
         <p>{description}</p>

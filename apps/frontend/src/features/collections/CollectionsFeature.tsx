@@ -490,8 +490,8 @@ export function CollectionsFeature() {
   const isFormPending = createCollectionMutation.isPending || updateCollectionMutation.isPending;
 
   return (
-    <section className="feature-shell">
-      <div className="feature-header">
+    <section className="feature-shell refind-surface refind-surface--collections">
+      <div className="feature-header refind-surface__header">
         <span className="page-header__eyebrow">{t("features.collections.eyebrow")}</span>
         <h3>{t("features.collections.title")}</h3>
         <p>{t("features.collections.description")}</p>

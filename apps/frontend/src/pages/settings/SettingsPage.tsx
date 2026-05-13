@@ -17,9 +17,9 @@ export function SettingsPage() {
   ];
 
   return (
-    <section className="page-card">
-      <section className="feature-shell">
-        <div className="feature-header">
+    <section className="page-card settings-workbench utility-surface utility-surface--settings">
+      <section className="feature-shell settings-section-card">
+        <div className="feature-header utility-surface__header">
           <span className="page-header__eyebrow">{t("settings.appearance.eyebrow")}</span>
           <h3>{t("settings.appearance.title")}</h3>
           <p>{t("settings.appearance.description")}</p>
@@ -40,8 +40,8 @@ export function SettingsPage() {
           ))}
         </div>
       </section>
-      <section className="feature-shell">
-        <div className="feature-header">
+      <section className="feature-shell settings-section-card">
+        <div className="feature-header utility-surface__header">
           <span className="page-header__eyebrow">{t("settings.locale.eyebrow")}</span>
           <h3>{t("settings.locale.title")}</h3>
           <p>{t("settings.locale.description")}</p>

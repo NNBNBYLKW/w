@@ -411,8 +411,8 @@ export function SoftwareFeature() {
   };
 
   return (
-    <section className="feature-shell software-workbench">
-      <div className="feature-header software-workbench__header">
+    <section className="feature-shell software-workbench browse-surface browse-surface--software">
+      <div className="feature-header software-workbench__header browse-surface__header">
         <span className="page-header__eyebrow">{t("features.software.eyebrow")}</span>
         <h3>{t("features.software.title")}</h3>
         <p>{t("features.software.description")}</p>

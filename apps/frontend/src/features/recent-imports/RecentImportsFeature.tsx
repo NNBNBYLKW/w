@@ -206,8 +206,8 @@ export function RecentImportsFeature() {
         : t("features.recent.descriptions.colorTagged", { range: selectedRangeLabel });
 
   return (
-    <section className="feature-shell">
-      <div className="feature-header">
+    <section className="feature-shell refind-surface refind-surface--recent">
+      <div className="feature-header refind-surface__header">
         <span className="page-header__eyebrow">{t("features.recent.eyebrow")}</span>
         <h3>{t("features.recent.title")}</h3>
         <p>{t("features.recent.description")}</p>

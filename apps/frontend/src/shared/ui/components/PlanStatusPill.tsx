@@ -1,10 +1,10 @@
 import { StatusBadge, type StatusBadgeVariant } from "./StatusBadge";
 
 const statusVariant: Record<string, StatusBadgeVariant> = {
-  draft: "secondary",
+  draft: "info",
   ready: "success",
   executing: "accent",
-  completed: "accent",
+  completed: "success",
   completed_with_errors: "warning",
   failed: "danger",
   cancelled: "muted",

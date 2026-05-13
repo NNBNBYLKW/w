@@ -27,6 +27,9 @@ export function AppSidebar() {
   return (
     <aside className={`app-sidebar${isSidebarCollapsed ? " app-sidebar--collapsed" : ""}`}>
       <div className="app-sidebar__brand">
+        <div className="app-sidebar__brand-mark" aria-hidden="true">
+          W
+        </div>
         <div className="app-sidebar__brand-copy">
           <span className="app-sidebar__eyebrow">{t("shell.sidebar.eyebrow")}</span>
           <h1>{t("shell.sidebar.title")}</h1>
@@ -62,6 +65,10 @@ export function AppSidebar() {
           </NavLink>
         ))}
       </nav>
+      <div className="app-sidebar__footer" aria-hidden={isSidebarCollapsed ? "true" : "false"}>
+        <span className="app-sidebar__footer-kicker">local-first</span>
+        <span className="app-sidebar__footer-copy">find · inspect · tag · browse</span>
+      </div>
     </aside>
   );
 }
