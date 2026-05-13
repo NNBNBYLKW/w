@@ -1,0 +1,37 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  overflow: hidden;
+  color: var(--text-strong);
+  background:
+    radial-gradient(circle at top right, var(--body-radial), transparent 26%),
+    linear-gradient(180deg, var(--body-gradient-start) 0%, var(--body-gradient-end) 100%);
+}
+
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+#root {
+  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
+}
+
+body {
+  color: var(--color-text-primary);
+}
+
+textarea:disabled {
+  background: var(--color-disabled-bg);
+  color: var(--color-disabled-text);
+  opacity: 1;
+}

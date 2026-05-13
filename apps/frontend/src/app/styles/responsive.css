@@ -1,0 +1,300 @@
+@media (max-width: 1100px) {
+  body {
+    overflow: auto;
+  }
+
+  #root,
+  .app-shell {
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .app-shell__content {
+    grid-template-columns: 1fr;
+  }
+
+  .app-shell--sidebar-collapsed {
+    grid-template-columns: 74px minmax(0, 1fr);
+  }
+
+  .right-panel-container {
+    order: 0;
+    min-height: 0;
+  }
+
+  .home-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .library-overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .library-objects-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .library-filter-row,
+  .library-object-row {
+    grid-template-columns: 1fr;
+  }
+
+  .library-object-row__meta {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .library-tabs {
+    align-self: stretch;
+  }
+
+  .system-status--compact .feature-header {
+    grid-template-columns: 1fr;
+  }
+
+  .system-status--compact .feature-header h3,
+  .system-status--compact .feature-header p {
+    grid-column: auto;
+  }
+
+  .system-status--compact .system-status-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .software-summary-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .compact-summary-strip,
+  .compact-summary-strip--five {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .software-summary-strip__item:nth-child(3n) {
+    border-right: 0;
+  }
+
+  .compact-summary-strip__item:nth-child(3n) {
+    border-right: 0;
+  }
+
+  .software-action-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .compact-action-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .software-action-bar__actions {
+    justify-content: flex-start;
+  }
+
+  .compact-action-bar__actions {
+    justify-content: flex-start;
+  }
+
+  .software-table__header,
+  .software-table__row {
+    grid-template-columns: minmax(0, 1.8fr) minmax(0, 0.7fr) minmax(0, 1fr) minmax(0, 0.9fr);
+  }
+
+  .compact-library-table__header,
+  .compact-library-table__row,
+  .compact-library-table--games .compact-library-table__header,
+  .compact-library-table--games .compact-library-table__row {
+    grid-template-columns: minmax(0, 1.8fr) minmax(0, 0.7fr) minmax(0, 1fr) minmax(0, 0.9fr);
+  }
+
+  .software-table__header span:nth-child(4),
+  .software-table__row > span:nth-child(4) {
+    display: none;
+  }
+
+  .compact-library-table__header span:nth-child(4),
+  .compact-library-table__row > span:nth-child(4) {
+    display: none;
+  }
+
+  .software-table__header span:nth-child(6),
+  .software-table__row > span:nth-child(6) {
+    display: none;
+  }
+
+  .compact-library-table__header span:nth-child(6),
+  .compact-library-table__row > span:nth-child(6),
+  .compact-library-table__header span:nth-child(7),
+  .compact-library-table__row > span:nth-child(7) {
+    display: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+    padding: 10px;
+  }
+
+  .app-shell--sidebar-collapsed {
+    grid-template-columns: 1fr;
+  }
+
+  .app-sidebar {
+    position: static;
+    height: auto;
+  }
+
+  .app-sidebar--collapsed {
+    padding: 14px 12px;
+  }
+
+  .app-sidebar--collapsed .app-sidebar__brand-copy {
+    display: flex;
+  }
+
+  .app-sidebar--collapsed .app-sidebar__nav {
+    align-items: stretch;
+  }
+
+  .app-sidebar--collapsed .app-sidebar__link {
+    justify-content: flex-start;
+    gap: 10px;
+  }
+
+  .app-sidebar--collapsed .app-sidebar__link-label {
+    display: inline;
+  }
+
+  .home-dashboard-row {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+
+  .home-dashboard-row__mark {
+    width: 40px;
+  }
+
+.home-dashboard-row__meta {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+
+  .system-status--compact .system-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tag-browser-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .collections-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .media-library-filter-summary {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .games-filter-summary {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .books-filter-summary,
+  .software-filter-summary {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .books-filter-summary__actions,
+  .software-filter-summary__actions,
+  .media-library-filter-summary__actions,
+  .files-meta-row__actions,
+  .batch-action-bar__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .recent-row-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .batch-action-bar__tag-form {
+    flex-direction: column;
+  }
+
+  .software-summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .compact-summary-strip,
+  .compact-summary-strip--five {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .software-summary-strip__item {
+    border-right: 1px solid var(--border-soft);
+  }
+
+  .compact-summary-strip__item {
+    border-right: 1px solid var(--border-soft);
+  }
+
+  .software-summary-strip__item:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .compact-summary-strip__item:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .software-table__header {
+    display: none;
+  }
+
+  .compact-library-table__header {
+    display: none;
+  }
+
+  .software-table__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .compact-library-table__row,
+  .compact-library-table--games .compact-library-table__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .software-table__kind-cell,
+  .software-table__modified-cell {
+    display: none;
+  }
+
+  .compact-library-table__kind-cell,
+  .compact-library-table__status-cell,
+  .compact-library-table__modified-cell {
+    display: none;
+  }
+
+  .software-table__type-cell,
+  .software-table__size-cell,
+  .software-table__signals-cell {
+    justify-self: end;
+  }
+
+  .compact-library-table__type-cell,
+  .compact-library-table__size-cell,
+  .compact-library-table__signals-cell {
+    justify-self: end;
+  }
+}
+
+@media (max-width: 1100px) {
+  .tools-layout,
+  .video-merge-grid,
+  .video-merge-settings {
+    grid-template-columns: 1fr;
+  }
+}

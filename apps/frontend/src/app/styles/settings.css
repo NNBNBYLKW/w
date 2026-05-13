@@ -1,0 +1,212 @@
+.source-management {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-locale-switch {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--panel-bg), var(--panel-bg-soft));
+}
+
+.settings-locale-button {
+  min-height: 34px;
+  padding: 7px 14px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.settings-locale-button:hover {
+  border-color: transparent;
+  background: var(--segmented-hover-bg);
+  color: var(--text-strong);
+}
+
+.settings-locale-button--selected:hover {
+  border-color: var(--accent-soft-strong);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  box-shadow: 0 0 0 1px var(--accent-ring) inset;
+}
+
+.settings-section {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-section__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-strong);
+  margin: 0;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.settings-row__label {
+  font-size: 12px;
+  color: var(--text-strong);
+}
+
+.settings-row__desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.system-status-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.system-status-card__indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.system-status-card__indicator--ok {
+  color: var(--accent-success, #51cf66);
+}
+
+.system-status-card__detail {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: "JetBrains Mono", monospace;
+}
+
+.system-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.system-status--compact {
+  padding: 14px;
+}
+
+.system-status--compact .feature-header {
+  display: grid;
+  grid-template-columns: minmax(0, 0.45fr) minmax(0, 1fr);
+  align-items: end;
+  gap: 8px 14px;
+  margin-bottom: 12px;
+}
+
+.system-status--compact .feature-header h3 {
+  grid-column: 1;
+}
+
+.system-status--compact .feature-header p {
+  grid-column: 2;
+  margin: 0;
+}
+
+.system-status--compact .system-status-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.system-status--compact .system-status-card {
+  padding: 9px 10px;
+  border-color: var(--border-soft);
+}
+
+.system-status--compact .system-status-card dd {
+  margin-top: 4px;
+  font-size: 15px;
+}
+
+.system-status-card {
+  padding: 14px;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  background: var(--control-bg-soft);
+}
+
+.system-status-card dt {
+  color: var(--text-soft);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.system-status-card dd {
+  margin: 8px 0 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.source-management select {
+  border: 1px solid var(--design-border);
+  border-radius: 8px;
+  background: var(--design-bg-surface);
+  color: var(--design-text-primary);
+}
+
+.settings-segmented-control {
+  padding: 5px;
+  border: 1px solid var(--design-border);
+  border-radius: 12px;
+  background: var(--design-bg-surface);
+}
+
+.settings-segmented-button {
+  border-radius: 8px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--design-text-secondary);
+}
+
+.settings-segmented-button--selected {
+  border-color: rgba(77, 171, 247, 0.38);
+  background: var(--design-accent);
+  color: #fff;
+}
+
+.settings-workbench.page-card {
+  gap: 16px;
+  padding: 0;
+  background: transparent;
+}
+
+.settings-section-card {
+  padding: 16px;
+}
+
+.settings-segmented-button--selected {
+  border-color: var(--tab-active-bg);
+  background: var(--tab-active-bg);
+  color: var(--tab-active-text);
+}
+
+.settings-segmented-control {
+  border-color: var(--color-border);
+  background: var(--color-bg-surface);
+}

@@ -1,0 +1,35 @@
+.select-input:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.field-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.text-input {
+  width: 100%;
+  min-height: 38px;
+  border-radius: 12px;
+  border: 1px solid var(--border-strong);
+  padding: 8px 11px;
+  background: var(--control-bg);
+  color: var(--text-strong);
+}
+
+.select-input {
+  min-height: 38px;
+  border-radius: 12px;
+  border: 1px solid var(--border-strong);
+  padding: 8px 11px;
+  background: var(--control-bg);
+  color: var(--text-strong);
+}
+
+.tag-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
