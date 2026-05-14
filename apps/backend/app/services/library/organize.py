@@ -863,8 +863,6 @@ class LibraryOrganizeService:
             if not source.exists():
                 return "stale", "Source path no longer exists."
 
-            source_root = self._source_root_for_path(session, source)
-
             if plan is not None and plan.target_library_root_id is not None:
                 lib_root = self.library_root_repository.get_by_id(session, plan.target_library_root_id)
                 if lib_root is None or not lib_root.is_enabled:
@@ -873,9 +871,17 @@ class LibraryOrganizeService:
                 if not _is_path_within(target, target_root):
                     return "blocked", "Target path is outside the selected managed library root."
             else:
-                target_root = self._source_root_for_path(session, target)
-                if _path_key(source_root) != _path_key(target_root):
-                    return "blocked", "Source and target must stay inside the same enabled source."
+                target_root = self._resolve_root_for_mkdir_or_asset(session, target, plan)
+                if target_root is None:
+                    return "blocked", "Target path is outside any enabled source or managed library root."
+                source_in_lib_root = self._resolve_root_for_mkdir_or_asset(session, source, plan)
+                if source_in_lib_root is None:
+                    return "blocked", "Source path is outside any enabled source or managed library root."
+                target_in_source = self._source_root_for_path_safe(session, target)
+                source_in_source = self._source_root_for_path_safe(session, source)
+                if target_in_source is not None and source_in_source is not None:
+                    if _path_key(target_in_source) != _path_key(source_in_source):
+                        return "blocked", "Source and target must stay inside the same enabled source."
                 if not _is_path_within(target, target_root):
                     return "blocked", "Target path is outside the enabled source."
 
@@ -1215,6 +1221,14 @@ class LibraryOrganizeService:
                 return source_root
         raise HTTPException(status_code=400, detail="Candidate source path is outside enabled sources.")
 
+    def _source_root_for_path_safe(self, session: Session, path: Path) -> Path | None:
+        enabled_sources = [source for source in self.source_repository.list_sources(session) if source.is_enabled]
+        for source in enabled_sources:
+            source_root = Path(source.path).resolve()
+            if _is_path_within(path, source_root):
+                return source_root
+        return None
+
     def _resolve_root_for_mkdir_or_asset(self, session: Session, path: Path, plan: OrganizePlan | None) -> Path | None:
         if plan is not None and plan.target_library_root_id is not None:
             lib_root = self.library_root_repository.get_by_id(session, plan.target_library_root_id)
@@ -1228,6 +1242,10 @@ class LibraryOrganizeService:
                 source_root = Path(source.path).resolve()
                 if _is_path_within(path, source_root):
                     return source_root
+        for lib_root in self.library_root_repository.list_enabled(session):
+            root_path = Path(lib_root.root_path).resolve()
+            if _is_path_within(path, root_path):
+                return root_path
         return None
 
     def _make_action(

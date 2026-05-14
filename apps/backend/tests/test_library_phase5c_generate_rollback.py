@@ -474,6 +474,136 @@ class LibraryPhase5CGenerateRollbackTestCase(unittest.TestCase):
             self.assertEqual(before_files, after_files,
                              "generate-rollback must not modify the filesystem")
 
+    # ── Group F: Root Containment (H3) ────────────────────────────────
+
+    def test_rollback_target_outside_all_sources_blocked_in_preflight(self) -> None:
+        """Rollback target must be within an enabled source root."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source, managed, video = self._setup_source_with_inbox_file(temp_dir)
+            root_id = self._seed_library_root(managed)
+            with TestClient(app) as client:
+                cid = self._scan_and_get_first_candidate(client)
+                plan_id = self._generate_and_mark_ready(client, cid, root_id)
+                pf = client.post(f"/library/organize/plans/{plan_id}/preflight")
+                self.assertTrue(pf.json()["can_execute"])
+                client.post(f"/library/organize/plans/{plan_id}/execute", json={"confirm": True})
+                self._wait_for_plan(client, plan_id)
+                rollback = client.post(f"/library/organize/plans/{plan_id}/generate-rollback")
+                rb_plan_id = rollback.json()["rollback_plan_id"]
+                # Patch rollback target to a path outside all sources
+                new_detail = client.get(f"/library/organize/plans/{rb_plan_id}")
+                rollback_action = new_detail.json()["actions"][0]
+                outside_path = str(Path(temp_dir) / "outside" / "no_source.mkv")
+                client.patch(f"/library/organize/actions/{rollback_action['id']}", json={
+                    "target_path": outside_path,
+                })
+                mr_resp = client.post(f"/library/organize/plans/{rb_plan_id}/mark-ready")
+            self.assertEqual(400, mr_resp.status_code)
+            self.assertIn("blocked", mr_resp.text.lower())
+
+    def test_rollback_disabled_source_blocked_in_preflight(self) -> None:
+        """When the original source root is disabled, rollback target containment fails."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source, managed, video = self._setup_source_with_inbox_file(temp_dir)
+            root_id = self._seed_library_root(managed)
+            with TestClient(app) as client:
+                cid = self._scan_and_get_first_candidate(client)
+                plan_id = self._generate_and_mark_ready(client, cid, root_id)
+                pf = client.post(f"/library/organize/plans/{plan_id}/preflight")
+                self.assertTrue(pf.json()["can_execute"])
+                client.post(f"/library/organize/plans/{plan_id}/execute", json={"confirm": True})
+                self._wait_for_plan(client, plan_id)
+                rollback = client.post(f"/library/organize/plans/{plan_id}/generate-rollback")
+                rb_plan_id = rollback.json()["rollback_plan_id"]
+                # Disable the source root
+                with SessionLocal() as session:
+                    sources = session.query(Source).filter(Source.is_enabled == True).all()
+                    for s in sources:
+                        s.is_enabled = False
+                    session.commit()
+                mr_resp = client.post(f"/library/organize/plans/{rb_plan_id}/mark-ready")
+            self.assertEqual(400, mr_resp.status_code)
+            self.assertIn("blocked", mr_resp.text.lower())
+
+    def test_rollback_managed_root_disabled_does_not_block_source_containment(self) -> None:
+        """Disabling managed root should NOT block rollback — rollback targets source root, not managed root."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source, managed, video = self._setup_source_with_inbox_file(temp_dir)
+            root_id = self._seed_library_root(managed)
+            with TestClient(app) as client:
+                cid = self._scan_and_get_first_candidate(client)
+                plan_id = self._generate_and_mark_ready(client, cid, root_id)
+                pf = client.post(f"/library/organize/plans/{plan_id}/preflight")
+                self.assertTrue(pf.json()["can_execute"])
+                client.post(f"/library/organize/plans/{plan_id}/execute", json={"confirm": True})
+                self._wait_for_plan(client, plan_id)
+                rollback = client.post(f"/library/organize/plans/{plan_id}/generate-rollback")
+                rb_plan_id = rollback.json()["rollback_plan_id"]
+                # Disable the managed root — rollback target is in source root so this should NOT block
+                client.patch(f"/library/roots/{root_id}", json={"is_enabled": False})
+                mr_resp = client.post(f"/library/organize/plans/{rb_plan_id}/mark-ready")
+            self.assertEqual(200, mr_resp.status_code,
+                             f"Rollback mark-ready should pass: rollback targets source root, not managed root. Got: {mr_resp.text}")
+
+    def test_rollback_no_delete_or_rmdir_actions(self) -> None:
+        """Rollback must only contain move/rename actions — no delete/rmdir."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source, managed, video = self._setup_source_with_inbox_file(temp_dir)
+            root_id = self._seed_library_root(managed)
+            with TestClient(app) as client:
+                cid = self._scan_and_get_first_candidate(client)
+                plan_id = self._generate_and_mark_ready(client, cid, root_id)
+                pf = client.post(f"/library/organize/plans/{plan_id}/preflight")
+                self.assertTrue(pf.json()["can_execute"])
+                client.post(f"/library/organize/plans/{plan_id}/execute", json={"confirm": True})
+                self._wait_for_plan(client, plan_id)
+                rollback = client.post(f"/library/organize/plans/{plan_id}/generate-rollback")
+            rb_plan_id = rollback.json()["rollback_plan_id"]
+            with TestClient(app) as client2:
+                detail = client2.get(f"/library/organize/plans/{rb_plan_id}")
+            for a in detail.json()["actions"]:
+                self.assertIn(a["action_type"], {"move", "rename"},
+                              f"Rollback action type must be move or rename, got {a['action_type']}")
+
+    def test_rollback_draft_requires_mark_ready_preflight(self) -> None:
+        """Rollback must go through mark-ready -> preflight -> execute. Direct execute should be rejected."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source, managed, video = self._setup_source_with_inbox_file(temp_dir)
+            root_id = self._seed_library_root(managed)
+            with TestClient(app) as client:
+                cid = self._scan_and_get_first_candidate(client)
+                plan_id = self._generate_and_mark_ready(client, cid, root_id)
+                pf = client.post(f"/library/organize/plans/{plan_id}/preflight")
+                self.assertTrue(pf.json()["can_execute"])
+                client.post(f"/library/organize/plans/{plan_id}/execute", json={"confirm": True})
+                self._wait_for_plan(client, plan_id)
+                rollback = client.post(f"/library/organize/plans/{plan_id}/generate-rollback")
+            rb_plan_id = rollback.json()["rollback_plan_id"]
+            # Direct execute on draft rollback plan should be rejected
+            with TestClient(app) as client2:
+                exe_resp = client2.post(f"/library/organize/plans/{rb_plan_id}/execute", json={"confirm": True})
+            self.assertEqual(400, exe_resp.status_code)
+
+    def test_rollback_preflight_succeeds_when_containment_valid(self) -> None:
+        """A valid rollback plan (target within enabled source) should pass preflight."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source, managed, video = self._setup_source_with_inbox_file(temp_dir)
+            root_id = self._seed_library_root(managed)
+            with TestClient(app) as client:
+                cid = self._scan_and_get_first_candidate(client)
+                plan_id = self._generate_and_mark_ready(client, cid, root_id)
+                pf = client.post(f"/library/organize/plans/{plan_id}/preflight")
+                self.assertTrue(pf.json()["can_execute"])
+                client.post(f"/library/organize/plans/{plan_id}/execute", json={"confirm": True})
+                self._wait_for_plan(client, plan_id)
+                rollback = client.post(f"/library/organize/plans/{plan_id}/generate-rollback")
+                rb_plan_id = rollback.json()["rollback_plan_id"]
+                mr = client.post(f"/library/organize/plans/{rb_plan_id}/mark-ready")
+                self.assertEqual(200, mr.status_code)
+                pf2 = client.post(f"/library/organize/plans/{rb_plan_id}/preflight")
+            self.assertEqual(200, pf2.status_code)
+            self.assertTrue(pf2.json()["can_execute"])
+
     # ── Helper methods ────────────────────────────────────────────────
 
     def _setup_source_with_inbox_file(self, temp_dir: str) -> tuple[Path, Path, Path]:
