@@ -514,15 +514,37 @@ API 文档入口在：
 
 ## 当前下一步
 
-当前 Library Phase 1-4 与 Tools 第一版已完成。下一步包括：
+Library Phase 1-5 与 Phase 6 Beta Stabilization 已完成。当前状态为 **Beta ready for testing**。
 
-1. Library Phase 5（执行后 reconciliation、失败重试、受限 rollback、asset.yaml 安全更新、模板、AI 建议层）
-2. 继续做真实测试版验证
-3. 记录用户理解偏差、主路径卡点和边界误解
-4. 按 `P0 / P1 / P2 / P3` 做问题分级
-5. 继续做体验一致性、稳定性和性能收口
+### Phase 6 完成的收口工作
 
-最近几轮前端改动也应按这个节奏理解：它们主要是在收口三栏壳层、导航 / details 控制表达、状态提示与整体视觉一致性，而不是把项目往新的功能方向继续扩张。
+1. QA Baseline（477 backend tests, 18/18 pages load, P0/P1 = 0）
+2. Packaging Build Verification（NSIS installer generated, backend PyInstaller + FFmpeg bundled）
+3. Large Library Performance Baseline（10K files tested, scan 37 files/sec, queries sub-35ms）
+4. UX States Polish（LoadingState, EmptyState action, 12 state renderings upgraded）
+5. Visual Polish Verification（light/dark token system, navigation, thumbnails — no changes needed）
+6. Beta Documentation（User Guide, Tester Checklist, Known Limitations, Recovery Guide）
+
+### Backend Hardening 完成项
+
+- H1 Managed Root System Path Exclusion
+- H2 Stale Executing Plan Startup Recovery
+- H3 Rollback Plan Root Containment
+- H4-Step1 Path Safety Helpers
+- H4-Step2 OrganizeTemplateRenderer
+
+### Beta release 前仍待补
+
+- **Clean Windows machine installer launch smoke** — installer built, not tested on fresh machine
+- **Packaged app core chain smoke** — full workflow not verified in packaged mode
+
+### 下一步建议
+
+1. Clean-machine installer + packaged app core chain smoke
+2. Beta Testing Round 1（问题收集、分级、P0/P1 fix）
+3. 决定是否在更广泛 beta 发布前优化 scan speed
+
+Phase 6 总结见 [docs/PHASE6_SUMMARY.md](docs/PHASE6_SUMMARY.md)。
 
 Library Phase 1-5 详细方案见 `docs/library_phase1_plan.md` 至 `docs/library_phase5_plan.md`。
 Tools Video Merge 方案见 `docs/TOOLS_VIDEO_MERGE_PLAN.md`。

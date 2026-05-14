@@ -38,6 +38,24 @@ Document boundary:
   - `t(key, params?)`、locale 资源、`Settings` 语言切换和 Light / Dark 主题入口说明
   - 后续补文案、补语言和继续接入页面的维护入口
 
+### Phase 6 Beta Stabilization Docs
+
+Phase 6 is complete. Beta is ready for testing.
+
+- [PHASE6_SUMMARY.md](PHASE6_SUMMARY.md)
+  - Full Phase 6 summary
+  - Completed steps, backend hardening, known limitations
+  - Beta release preflight checklist
+  - Recommended next stage
+- [BETA_USER_GUIDE.md](BETA_USER_GUIDE.md)
+  - Core concepts, first run, basic workflow, safety rules, recovery
+- [BETA_TESTER_CHECKLIST.md](BETA_TESTER_CHECKLIST.md)
+  - Step-by-step QA checklist with bug report template
+- [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md)
+  - Current constraints: packaging, performance, organize, AI, UI, platform
+- [RECOVERY_GUIDE.md](RECOVERY_GUIDE.md)
+  - Troubleshooting for 11 common scenarios
+
 ### Library Roadmap Docs
 
 Library Phases 1-4 已实现，Phase 5A 已实现（执行后对账与重新扫描提示），Phase 5B/5C/5D 为下一阶段规划。Managed library roots（受管库根目录）及 cross-source targeting（跨来源目标定向）已实现并集成于 Phases 1-4：
@@ -83,10 +101,15 @@ If you are working on frontend UI refactors or need the current backend contract
 ## Recommended Reading Order
 
 1. [../README.md](../README.md)
-2. [测试版当前状态总览](<测试版当前状态总览.md>)
-3. [测试版范围与边界](<测试版范围与边界.md>)
-4. [测试版验证准备](<测试版验证准备.md>)
-5. [测试版发布准备](<测试版发布准备.md>)
+2. [PHASE6_SUMMARY.md](PHASE6_SUMMARY.md) — current Phase 6 completion status
+3. [BETA_USER_GUIDE.md](BETA_USER_GUIDE.md) — first-time user guide
+4. [BETA_TESTER_CHECKLIST.md](BETA_TESTER_CHECKLIST.md) — QA checklist
+5. [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) — current constraints
+6. [RECOVERY_GUIDE.md](RECOVERY_GUIDE.md) — troubleshooting
+7. [测试版当前状态总览](<测试版当前状态总览.md>)
+8. [测试版范围与边界](<测试版范围与边界.md>)
+9. [测试版验证准备](<测试版验证准备.md>)
+10. [测试版发布准备](<测试版发布准备.md>)
 
 如果你这次主要在做前端 UI 协作、workbench shell 调整、details / navigation 相关收口，或确认 Documents / Games preview / dark mode / i18n 当前状态，应优先以：
 
