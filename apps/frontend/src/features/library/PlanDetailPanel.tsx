@@ -5,7 +5,7 @@ import { queryKeys } from "../../services/query/queryKeys";
 import { invalidateLibraryOrganizeSurfaces } from "../../services/query/invalidation";
 import type { OrganizePlanListQueryInput, PreflightResponseVM, CopyFailedActionsResponseVM, GenerateAssetYamlMergeResponseVM, GenerateRollbackResponseVM, ReconcilePlanResponseVM, OrganizeActionItemVM, OrganizeActionLogItemVM } from "../../entities/library/types";
 import { getOrganizePlan, markOrganizePlanReady, preflightOrganizePlan, executeOrganizePlan, cancelOrganizePlan, getOrganizePlanLogs, reconcileOrganizePlan, copyFailedActions, generateRollbackPlan, generateAssetYamlMerge, updateOrganizeAction } from "../../services/api/libraryObjectsApi";
-import { PlanStatusPill, StatusBadge, ActionButton, KeyValueRow } from "../../shared/ui/components";
+import { EmptyState, LoadingState, PlanStatusPill, StatusBadge, ActionButton, KeyValueRow } from "../../shared/ui/components";
 import { formatTimestamp } from "./shared/helpers";
 
 
@@ -54,10 +54,10 @@ function PlanActionRow({
 
 function PlanLogList({ logs, isLoading }: { logs: OrganizeActionLogItemVM[]; isLoading: boolean }) {
   if (isLoading) {
-    return <p>{t("common.states.loading")}</p>;
+    return <LoadingState message={t("common.states.loading")} />;
   }
   if (logs.length === 0) {
-    return <p className="library-empty-state">{t("features.library.organize.noLogs")}</p>;
+    return <EmptyState title={t("features.library.organize.noLogs")} />;
   }
   return (
     <div className="library-log-list">
@@ -177,10 +177,26 @@ export function PlanDetail({
   }, [planId]);
 
   if (planId === null) {
-    return <aside className="library-object-detail library-empty-state">{t("features.library.organize.selectPlan")}</aside>;
+    return (
+      <aside className="library-object-detail">
+        <EmptyState title={t("features.library.organize.selectPlan")} />
+      </aside>
+    );
   }
-  if (detailQuery.isLoading) return <aside className="library-object-detail">{t("common.states.loading")}</aside>;
-  if (detailQuery.isError || !detailQuery.data) return <aside className="library-object-detail">{t("features.library.scan.unableToLoad")}</aside>;
+  if (detailQuery.isLoading) {
+    return (
+      <aside className="library-object-detail">
+        <LoadingState message={t("common.states.loading")} />
+      </aside>
+    );
+  }
+  if (detailQuery.isError || !detailQuery.data) {
+    return (
+      <aside className="library-object-detail">
+        <EmptyState title={t("features.library.scan.unableToLoad")} description={detailQuery.error instanceof Error ? detailQuery.error.message : undefined} />
+      </aside>
+    );
+  }
 
   const detail = detailQuery.data;
   const canExecute = detail.plan.status === "ready" && preflightResult?.can_execute === true;

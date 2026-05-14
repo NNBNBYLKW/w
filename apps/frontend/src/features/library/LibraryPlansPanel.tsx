@@ -4,7 +4,7 @@ import { t } from "../../shared/text";
 import { queryKeys } from "../../services/query/queryKeys";
 import type { OrganizePlanListQueryInput } from "../../entities/library/types";
 import { listOrganizePlans } from "../../services/api/libraryObjectsApi";
-import { PlanStatusPill } from "../../shared/ui/components";
+import { EmptyState, LoadingState, PlanStatusPill } from "../../shared/ui/components";
 import { formatTimestamp } from "./shared/helpers";
 import { PlanDetail } from "./PlanDetailPanel";
 
@@ -41,10 +41,12 @@ export function LibraryPlansPanel() {
       </div>
       <div className="library-objects-layout library-plans-layout">
         <div className="library-object-list-panel library-design-card">
-          {plansQuery.isLoading ? <p>{t("common.states.loading")}</p> : null}
-          {plansQuery.isError ? <p>{t("features.library.scan.unableToLoad")}</p> : null}
+          {plansQuery.isLoading ? <LoadingState message={t("common.states.loading")} /> : null}
+          {plansQuery.isError ? (
+            <EmptyState title={t("features.library.scan.unableToLoad")} description={String(plansQuery.error)} />
+          ) : null}
           {plansQuery.data && plansQuery.data.items.length === 0 ? (
-            <p className="library-empty-state">{t("features.library.organize.noPlans")}</p>
+            <EmptyState title={t("features.library.organize.noPlans")} description={t("features.library.organize.phase3Safety")} />
           ) : null}
           <div className="library-object-list">
             {plansQuery.data?.items.map((plan) => (

@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t, useLocale } from "../../shared/text";
-import { EmptyState } from "../../shared/ui/components";
+import { EmptyState, LoadingState } from "../../shared/ui/components";
 import { DetailsIdentitySection } from "./sections/DetailsIdentitySection";
 import { DetailsPlacementSection } from "./sections/DetailsPlacementSection";
 import { DetailsRatingSection } from "./sections/DetailsRatingSection";
@@ -407,10 +407,7 @@ export function DetailsPanelFeature() {
   } else if (detailQuery.isLoading) {
     content = (
       <div className="details-panel details-panel--state">
-        <EmptyState
-          title={t("details.placeholders.loading.title")}
-          description={t("details.placeholders.loading.description")}
-        />
+        <LoadingState message={t("details.placeholders.loading.description")} />
       </div>
     );
   } else if (detailQuery.error instanceof Error) {

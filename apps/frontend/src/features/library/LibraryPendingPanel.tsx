@@ -5,7 +5,7 @@ import { queryKeys } from "../../services/query/queryKeys";
 import { invalidateLibraryCandidateSurfaces, invalidateLibrarySuggestionSurfaces } from "../../services/query/invalidation";
 import type { OrganizeCandidateItemVM, OrganizeCandidateListQueryInput, OrganizeSuggestionItemVM } from "../../entities/library/types";
 import { listOrganizeCandidates, scanOrganizeCandidates, generateOrganizePlan, ignoreOrganizeCandidate, listLibraryRoots, listOrganizeTemplates, generateOrganizeSuggestions, listOrganizeSuggestions, acceptOrganizeSuggestion, rejectOrganizeSuggestion } from "../../services/api/libraryObjectsApi";
-import { StatusBadge, ActionButton, KeyValueRow } from "../../shared/ui/components";
+import { EmptyState, LoadingState, StatusBadge, ActionButton, KeyValueRow } from "../../shared/ui/components";
 import { formatSuggestionPayloadSummary } from "./shared/helpers";
 import { organizeDetectedTypes } from "./LibraryFeature";
 
@@ -314,14 +314,16 @@ export function LibraryPendingPanel() {
       </div>
       {scanMutation.isSuccess ? <p className="library-muted-line">{t("features.library.organize.scanResult", { count: String(scanMutation.data.scanned_count) })}</p> : null}
       {scanMutation.isError || generateMutation.isError || ignoreMutation.isError ? (
-        <p className="danger-text">{((scanMutation.error || generateMutation.error || ignoreMutation.error) as Error).message}</p>
+        <EmptyState title={t("features.library.scan.unableToLoad")} description={String(((scanMutation.error || generateMutation.error || ignoreMutation.error) as Error).message)} />
       ) : null}
       <div className="library-objects-layout library-pending-layout">
         <div className="library-object-list-panel library-design-card">
-          {candidatesQuery.isLoading ? <p>{t("common.states.loading")}</p> : null}
-          {candidatesQuery.isError ? <p>{t("features.library.scan.unableToLoad")}</p> : null}
+          {candidatesQuery.isLoading ? <LoadingState message={t("common.states.loading")} /> : null}
+          {candidatesQuery.isError ? (
+            <EmptyState title={t("features.library.scan.unableToLoad")} description={String(candidatesQuery.error)} />
+          ) : null}
           {candidatesQuery.data && candidatesQuery.data.items.length === 0 ? (
-            <p className="library-empty-state">{t("features.library.pending.empty")}</p>
+            <EmptyState title={t("features.library.pending.empty")} description={t("features.library.organize.scanCandidates")} action={{ label: t("features.library.organize.scanCandidates"), onClick: () => scanMutation.mutate() }} />
           ) : null}
           {candidatesQuery.data ? (
             <CandidateList
