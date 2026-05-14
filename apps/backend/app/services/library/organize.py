@@ -679,6 +679,11 @@ class LibraryOrganizeService:
     def organize_stats(self, session: Session) -> OrganizeStatsResponse:
         return OrganizeStatsResponse(**self.repository.organize_stats(session))
 
+    def mark_stale_executing_plans_failed(self, session: Session) -> int:
+        count = self.repository.mark_stale_executing_plans_failed(session, now=_now())
+        session.commit()
+        return count
+
     def _execute_plan_worker(self, plan_id: int) -> None:
         try:
             with SessionLocal() as session:
@@ -1836,6 +1841,8 @@ class LibraryOrganizeService:
 
         return "unknown"
 
+
+organize_service = LibraryOrganizeService()
 
 def _serialize_diff_val(val: object) -> str | None:
     if val is None:

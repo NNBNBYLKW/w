@@ -639,6 +639,143 @@ class LibraryRootsAndCrossSourceTestCase(unittest.TestCase):
             self.assertFalse(pf.json()["can_execute"])
             self.assertGreater(pf.json()["blocked_count"], 0)
 
+    # ── Group I: System Path Exclusion (H1) ───────────────────────────
+
+    def test_create_root_rejects_drive_root(self) -> None:
+        import sys
+        if sys.platform != "win32":
+            self.skipTest("Windows-specific test")
+        with TestClient(app) as client:
+            resp = client.post("/library/roots", json={"root_path": "C:\\"})
+        self.assertEqual(400, resp.status_code)
+
+    def test_create_root_rejects_windows_system_dir(self) -> None:
+        import os
+        import sys
+        if sys.platform != "win32":
+            self.skipTest("Windows-specific test")
+        windir = os.environ.get("SystemRoot", "C:\\Windows")
+        with TestClient(app) as client:
+            resp = client.post("/library/roots", json={"root_path": windir})
+        self.assertEqual(400, resp.status_code)
+
+    def test_create_root_rejects_program_files(self) -> None:
+        import os
+        import sys
+        if sys.platform != "win32":
+            self.skipTest("Windows-specific test")
+        pf = os.environ.get("ProgramFiles", "C:\\Program Files")
+        with TestClient(app) as client:
+            resp = client.post("/library/roots", json={"root_path": pf})
+        self.assertEqual(400, resp.status_code)
+
+    def test_create_root_rejects_backend_base_dir(self) -> None:
+        from app.core.config.settings import settings
+        with TestClient(app) as client:
+            resp = client.post("/library/roots", json={"root_path": str(settings.base_dir)})
+        self.assertEqual(400, resp.status_code)
+
+    def test_create_root_rejects_backend_data_dir(self) -> None:
+        from app.core.config.settings import settings
+        with TestClient(app) as client:
+            resp = client.post("/library/roots", json={"root_path": str(settings.data_dir)})
+        self.assertEqual(400, resp.status_code)
+
+    def test_create_root_rejects_node_modules_in_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            nm = Path(temp_dir) / "project" / "node_modules" / "somepkg"
+            nm.mkdir(parents=True)
+            with TestClient(app) as client:
+                resp = client.post("/library/roots", json={"root_path": str(nm)})
+            self.assertEqual(400, resp.status_code)
+
+    def test_create_root_rejects_dotgit_in_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            gitdir = Path(temp_dir) / "repo" / ".git" / "objects"
+            gitdir.mkdir(parents=True)
+            with TestClient(app) as client:
+                resp = client.post("/library/roots", json={"root_path": str(gitdir)})
+            self.assertEqual(400, resp.status_code)
+
+    def test_create_root_rejects_dotgit_subpath(self) -> None:
+        r"""D:\Repo\.git\objects should be rejected (not just leaf name)."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            git_objects = repo / ".git" / "objects"
+            git_objects.mkdir(parents=True)
+            with TestClient(app) as client:
+                resp = client.post("/library/roots", json={"root_path": str(git_objects)})
+            self.assertEqual(400, resp.status_code)
+
+    def test_create_root_accepts_normal_user_temp_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            lib = Path(temp_dir) / "my_media_library"
+            lib.mkdir()
+            with TestClient(app) as client:
+                resp = client.post("/library/roots", json={"root_path": str(lib)})
+            self.assertEqual(201, resp.status_code)
+
+    def test_enable_disabled_unsafe_existing_root_rejected(self) -> None:
+        from app.core.config.settings import settings
+        # Create a root with a temp path first (so it exists), then modify its
+        # root_path in DB to point to an unsafe location (simulating pre-H1 root).
+        with tempfile.TemporaryDirectory() as temp_dir:
+            lib = Path(temp_dir) / "normal_lib"
+            lib.mkdir()
+            root_id = self._seed_library_root(lib, is_enabled=False)
+            # Manually change root_path to unsafe path in DB
+            with SessionLocal() as session:
+                root = session.get(LibraryRoot, root_id)
+                root.root_path = str(settings.base_dir)
+                session.commit()
+            with TestClient(app) as client:
+                resp = client.patch(f"/library/roots/{root_id}", json={"is_enabled": True})
+            self.assertEqual(400, resp.status_code)
+
+    def test_set_default_existing_enabled_unsafe_root_rejected(self) -> None:
+        from app.core.config.settings import settings
+        # Simulate a pre-H1 enabled unsafe root in the DB.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            lib = Path(temp_dir) / "normal_lib"
+            lib.mkdir()
+            root_id = self._seed_library_root(lib, is_enabled=True)
+            with SessionLocal() as session:
+                root = session.get(LibraryRoot, root_id)
+                root.root_path = str(settings.base_dir)
+                session.commit()
+            with TestClient(app) as client:
+                resp = client.post(f"/library/roots/{root_id}/set-default")
+            self.assertEqual(400, resp.status_code)
+
+    def test_disable_root_always_allowed(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            lib = Path(temp_dir) / "disable_test_lib"
+            lib.mkdir()
+            root_id = self._seed_library_root(lib, is_enabled=True)
+            with TestClient(app) as client:
+                resp = client.patch(f"/library/roots/{root_id}", json={"is_enabled": False})
+            self.assertEqual(200, resp.status_code)
+            self.assertFalse(resp.json()["is_enabled"])
+
+    def test_create_duplicate_still_rejected_after_h1(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            lib = Path(temp_dir) / "dup_test"
+            lib.mkdir()
+            self._seed_library_root(lib)
+            with TestClient(app) as client:
+                resp = client.post("/library/roots", json={"root_path": str(lib)})
+            self.assertEqual(409, resp.status_code)
+
+    def test_create_overlap_still_rejected_after_h1(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            parent = Path(temp_dir) / "parent_overlap"
+            child = parent / "child"
+            child.mkdir(parents=True)
+            self._seed_library_root(child)
+            with TestClient(app) as client:
+                resp = client.post("/library/roots", json={"root_path": str(parent)})
+            self.assertEqual(400, resp.status_code)
+
     # ── Seed Helpers ──────────────────────────────────────────────────
 
     def _seed_source(self, path: Path) -> int:

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models.library_root import LibraryRoot
 from app.db.session.session import get_db
+from app.core.config.settings import settings
 from app.repositories.library_roots.repository import LibraryRootRepository
 from app.schemas.library_root import (
     CreateLibraryRootRequest,
@@ -13,6 +14,7 @@ from app.schemas.library_root import (
     LibraryRootListResponse,
     UpdateLibraryRootRequest,
 )
+from app.services.library.root_safety import validate_managed_library_root_path
 
 
 router = APIRouter(prefix="/library/roots", tags=["library"])
@@ -21,6 +23,13 @@ repository = LibraryRootRepository()
 
 def _now() -> datetime:
     return datetime.now(UTC)
+
+
+def _check_root_path_safety(resolved: Path) -> None:
+    try:
+        validate_managed_library_root_path(resolved, settings=settings)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def _resolve_path(raw: str) -> Path:
@@ -64,7 +73,8 @@ def list_roots(db: Session = Depends(get_db)) -> LibraryRootListResponse:
 
 @router.post("", response_model=LibraryRootItem, status_code=201)
 def create_root(payload: CreateLibraryRootRequest, db: Session = Depends(get_db)) -> LibraryRootItem:
-    _resolve_path(payload.root_path)
+    resolved = _resolve_path(payload.root_path)
+    _check_root_path_safety(resolved)
     _check_overlap(db, payload.root_path)
 
     now = _now()
@@ -104,6 +114,8 @@ def update_root(
     if payload.display_name is not None:
         root.display_name = payload.display_name
     if payload.is_enabled is not None:
+        if payload.is_enabled:
+            _check_root_path_safety(Path(root.root_path).resolve())
         root.is_enabled = payload.is_enabled
         if not payload.is_enabled and root.is_default:
             root.is_default = False
@@ -119,6 +131,7 @@ def set_default_root(root_id: int = FastapiPath(..., ge=1), db: Session = Depend
     root = repository.get_by_id(db, root_id)
     if root is None:
         raise HTTPException(status_code=404, detail="Library root not found.")
+    _check_root_path_safety(Path(root.root_path).resolve())
     if not root.is_enabled:
         raise HTTPException(status_code=400, detail="Cannot set disabled root as default.")
 

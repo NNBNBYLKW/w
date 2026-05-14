@@ -27,11 +27,10 @@ from app.schemas.library_organize import (
     PreflightResponse,
     ReconcilePlanResponse,
 )
-from app.services.library.organize import LibraryOrganizeService
+from app.services.library.organize import organize_service
 
 
 router = APIRouter(prefix="/library/organize", tags=["library"])
-organize_service = LibraryOrganizeService()
 
 
 @router.post("/candidates/scan", response_model=CandidateScanResponse)

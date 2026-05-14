@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+from datetime import datetime
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -245,6 +247,44 @@ class LibraryOrganizeRepository:
             elif status == "skipped":
                 bucket["skipped"] += int(count)
         return counts
+
+    def mark_stale_executing_plans_failed(self, session: Session, now: datetime) -> int:
+        stale_plans = list(
+            session.scalars(
+                select(OrganizePlan).where(OrganizePlan.status == "executing")
+            )
+        )
+        interrupted_message = "Interrupted on application startup; previous execution did not finish."
+        for plan in stale_plans:
+            plan.status = "failed"
+            plan.execution_finished_at = now
+            plan.execution_summary_json = json.dumps({"error": "interrupted", "message": interrupted_message})
+            plan.updated_at = now
+            session.add(
+                OrganizeActionLog(
+                    plan_id=plan.id,
+                    action_id=None,
+                    event_type="startup_recovery",
+                    message=interrupted_message,
+                    created_at=now,
+                )
+            )
+        stale_actions = list(
+            session.scalars(
+                select(OrganizeAction)
+                .where(
+                    OrganizeAction.plan_id.in_([p.id for p in stale_plans]),
+                    OrganizeAction.status == "executing",
+                )
+            )
+        ) if stale_plans else []
+        for action in stale_actions:
+            action.status = "failed"
+            action.error_message = interrupted_message
+            action.finished_at = now
+            action.updated_at = now
+        session.flush()
+        return len(stale_plans)
 
     def organize_stats(self, session: Session) -> dict[str, int]:
         return {
