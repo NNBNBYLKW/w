@@ -28,6 +28,9 @@ apps/desktop/release/
 # Bundled/generated binary resources
 apps/desktop/build-resources/ffmpeg/
 
+# Claude local workspace
+.claude/
+
 # Temporary docs
 docs/_wip/*
 !docs/_wip/.gitkeep
