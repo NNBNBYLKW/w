@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t, useLocale } from "../../shared/text";
-import { EmptyState, KeyValueRow, ActionButton, StatusBadge } from "../../shared/ui/components";
+import { EmptyState } from "../../shared/ui/components";
 import { DetailsIdentitySection } from "./sections/DetailsIdentitySection";
 import { DetailsPlacementSection } from "./sections/DetailsPlacementSection";
 import { DetailsRatingSection } from "./sections/DetailsRatingSection";
@@ -12,6 +12,15 @@ import { DetailsGameStatusSection } from "./sections/DetailsGameStatusSection";
 import { DetailsColorTagSection } from "./sections/DetailsColorTagSection";
 import { DetailsTagsSection } from "./sections/DetailsTagsSection";
 import { DetailsActionsSection } from "./sections/DetailsActionsSection";
+import { DetailsFactListSection } from "./sections/DetailsFactListSection";
+import { DetailsMetadataSection } from "./sections/DetailsMetadataSection";
+import { DetailsPreviewSection } from "./sections/DetailsPreviewSection";
+import { DetailsBookInfoSection } from "./sections/DetailsBookInfoSection";
+import { DetailsSoftwareInfoSection } from "./sections/DetailsSoftwareInfoSection";
+import { DetailsMediaRetrievalSection } from "./sections/DetailsMediaRetrievalSection";
+import { DetailsBookRetrievalSection } from "./sections/DetailsBookRetrievalSection";
+import { DetailsSoftwareRetrievalSection } from "./sections/DetailsSoftwareRetrievalSection";
+import { DetailsGameRetrievalSection } from "./sections/DetailsGameRetrievalSection";
 import { useRetryingThumbnail, useThumbnailWarmup } from "../../shared/ui/thumbnail";
 import type {
   ColorTagValue,
@@ -19,7 +28,6 @@ import type {
   FileRatingValue,
   FileStatusValue,
   ManualPlacementValue,
-  PlacementValue,
 } from "../../entities/file/types";
 import { updateFileColorTag } from "../../services/api/colorTagsApi";
 import {
@@ -39,179 +47,18 @@ import { invalidateDetailsPanelFileDetail, invalidateFileOrganizationSurfaces } 
 import { updateFileStatus } from "../../services/api/statusApi";
 import { attachTagToFile, removeTagFromFile } from "../../services/api/tagsApi";
 import { updateFilePlacement, updateFileUserMeta } from "../../services/api/userMetaApi";
-
-
-function formatTimestamp(value: string | null): string {
-  return value ? new Date(value).toLocaleString() : t("details.values.unavailable");
-}
-
-
-function formatBytes(value: number | null): string {
-  return value === null ? t("details.values.unavailable") : `${value.toLocaleString()} bytes`;
-}
-
-function formatMetadataValue(value: number | null, suffix?: string): string {
-  if (value === null) {
-    return t("details.values.unavailable");
-  }
-
-  return suffix ? `${value.toLocaleString()} ${suffix}` : value.toLocaleString();
-}
-
-function formatDurationMs(value: number | null | undefined): string {
-  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
-    return "—";
-  }
-
-  const totalSeconds = Math.round(value / 1000);
-  if (totalSeconds <= 0) {
-    return "—";
-  }
-
-  if (totalSeconds < 60) {
-    return `${totalSeconds}秒`;
-  }
-
-  const totalMinutes = Math.floor(totalSeconds / 60);
-  if (totalMinutes < 60) {
-    return `${totalMinutes}分钟${totalSeconds % 60}秒`;
-  }
-
-  return `${Math.floor(totalMinutes / 60)}小时${totalMinutes % 60}分`;
-}
-
-function formatDimensions(width: number | null, height: number | null): string {
-  if (width === null && height === null) {
-    return t("details.values.unavailable");
-  }
-
-  const widthLabel = width === null ? "?" : width.toLocaleString();
-  const heightLabel = height === null ? "?" : height.toLocaleString();
-  return `${widthLabel} × ${heightLabel} px`;
-}
-
-
-const COLOR_TAG_OPTIONS: ColorTagValue[] = ["red", "yellow", "green", "blue", "purple"];
-const GAME_STATUS_OPTIONS: FileStatusValue[] = ["playing", "completed", "shelved"];
-const PLACEMENT_OPTIONS = [
-  { labelKey: "details.placement.options.auto", value: "auto" },
-  { labelKey: "details.placement.options.media", value: "media" },
-  { labelKey: "details.placement.options.books", value: "books" },
-  { labelKey: "details.placement.options.games", value: "games" },
-  { labelKey: "details.placement.options.software", value: "software" },
-  { labelKey: "details.placement.options.filesOnly", value: "files_only" },
-] as const satisfies ReadonlyArray<{ labelKey: Parameters<typeof t>[0]; value: ManualPlacementValue | "auto" }>;
-
-function formatStatusLabel(value: FileStatusValue): string {
-  return value === "playing" ? "Playing" : value === "completed" ? "Completed" : "Shelved";
-}
-
-const DOCUMENT_DETAIL_EXTENSIONS = ["azw3", "csv", "doc", "docx", "epub", "md", "mobi", "odp", "ods", "odt", "pdf", "ppt", "pptx", "rtf", "txt", "xls", "xlsx"] as const;
-
-function inferBookFormat(name: string, path: string): string | null {
-  const candidate = `${name} ${path}`.toLowerCase();
-  const matchedExtension = DOCUMENT_DETAIL_EXTENSIONS.find((extension) => candidate.includes(`.${extension}`));
-  return matchedExtension ?? null;
-}
-
-function buildBookDisplayTitle(name: string): string {
-  const withoutExtension = name.replace(/\.(azw3|csv|doc|docx|epub|md|mobi|odp|ods|odt|pdf|ppt|pptx|rtf|txt|xls|xlsx)$/i, "");
-  const normalized = withoutExtension.replace(/_/g, " ").replace(/\s+/g, " ").trim();
-  return normalized || name;
-}
-
-function formatBookFormatLabel(value: string): string {
-  return value.toUpperCase();
-}
-
-function inferSoftwareFormat(name: string, path: string): "exe" | "msi" | "zip" | null {
-  const candidate = `${name} ${path}`.toLowerCase();
-  if (candidate.includes(".exe")) {
-    return "exe";
-  }
-  if (candidate.includes(".msi")) {
-    return "msi";
-  }
-  if (candidate.includes(".zip")) {
-    return "zip";
-  }
-  return null;
-}
-
-function buildSoftwareDisplayTitle(name: string): string {
-  const withoutExtension = name.replace(/\.(exe|msi|zip)$/i, "");
-  const normalized = withoutExtension.replace(/_/g, " ").replace(/\s+/g, " ").trim();
-  return normalized || name;
-}
-
-function formatSoftwareFormatLabel(value: "exe" | "msi" | "zip"): string {
-  return value.toUpperCase();
-}
-
-function buildSoftwareEntryTypeLabel(value: "exe" | "msi" | "zip"): string {
-  if (value === "exe") {
-    return "Executable entry";
-  }
-  if (value === "msi") {
-    return "Installer package";
-  }
-  return "Archive package";
-}
-
-function inferGameEntry(name: string, path: string): boolean {
-  const candidate = `${name} ${path}`.toLowerCase();
-  if (candidate.includes(".lnk")) {
-    return true;
-  }
-  if (!candidate.includes(".exe")) {
-    return false;
-  }
-  return [
-    "\\games\\",
-    "\\game\\",
-    "\\steam\\",
-    "\\steamapps\\",
-    "\\gog\\",
-    "\\epic games\\",
-    "\\itch\\",
-    "\\riot games\\",
-    "\\blizzard\\",
-    "\\battle.net\\",
-    "\\ubisoft\\",
-    "\\rockstar games\\",
-    "\\ea games\\",
-  ].some((hint) => candidate.includes(hint));
-}
-
-function formatFavoriteLabel(isFavorite: boolean): string {
-  return isFavorite ? t("details.values.markedFavorite") : t("details.values.notMarked");
-}
-
-function formatRatingLabel(value: FileRatingValue | null): string {
-  return value === null ? t("details.values.none") : `${value} / 5`;
-}
-
-function formatPlacementLabel(value: PlacementValue | ManualPlacementValue | null): string {
-  if (value === null) {
-    return t("details.placement.options.auto");
-  }
-  if (value === "media") {
-    return t("details.placement.options.media");
-  }
-  if (value === "books") {
-    return t("details.placement.options.books");
-  }
-  if (value === "games") {
-    return t("details.placement.options.games");
-  }
-  if (value === "software") {
-    return t("details.placement.options.software");
-  }
-  if (value === "files_only") {
-    return t("details.placement.options.filesOnly");
-  }
-  return t("details.placement.options.none");
-}
+import {
+  COLOR_TAG_OPTIONS,
+  GAME_STATUS_OPTIONS,
+  PLACEMENT_OPTIONS,
+  formatFavoriteLabel,
+  formatPlacementLabel,
+  formatRatingLabel,
+  formatStatusLabel,
+  inferBookFormat,
+  inferGameEntry,
+  inferSoftwareFormat,
+} from "./shared/detailsHelpers";
 
 
 export function DetailsPanelFeature() {
@@ -604,18 +451,18 @@ export function DetailsPanelFeature() {
     content = (
       <div className="details-panel details-panel--file">
         <DetailsIdentitySection name={item.name} fileType={item.file_type} id={item.id} />
-        <div className="kv-list details-panel__fact-list">
-          <KeyValueRow label={t("details.fields.path")} value={item.path} mono />
-          <KeyValueRow label={t("details.fields.type")} value={item.file_type} />
-          <KeyValueRow label={t("details.fields.size")} value={formatBytes(item.size_bytes)} />
-          <KeyValueRow label={t("details.fields.id")} value={String(item.id)} mono />
-          <KeyValueRow label={t("details.fields.sourceId")} value={String(item.source_id)} />
-          <KeyValueRow label={t("details.fields.modified")} value={formatTimestamp(item.modified_at_fs)} />
-          <KeyValueRow label={t("details.fields.created")} value={formatTimestamp(item.created_at_fs)} />
-          <KeyValueRow label={t("details.fields.discovered")} value={formatTimestamp(item.discovered_at)} />
-          <KeyValueRow label={t("details.fields.lastSeen")} value={formatTimestamp(item.last_seen_at)} />
-          <KeyValueRow label={t("details.fields.deleted")} value={item.is_deleted ? t("details.values.yes") : t("details.values.no")} />
-        </div>
+        <DetailsFactListSection
+          path={item.path}
+          fileType={item.file_type}
+          sizeBytes={item.size_bytes}
+          id={item.id}
+          sourceId={item.source_id}
+          modifiedAtFs={item.modified_at_fs}
+          createdAtFs={item.created_at_fs}
+          discoveredAt={item.discovered_at}
+          lastSeenAt={item.last_seen_at}
+          isDeleted={item.is_deleted}
+        />
         <DetailsPlacementSection
           manualPlacement={item.manual_placement}
           fileKind={item.file_kind}
@@ -627,144 +474,58 @@ export function DetailsPanelFeature() {
           onChange={(value) => placementMutation.mutate(value === "auto" ? null : (value as ManualPlacementValue))}
         />
         {isBookContext && inferredBookFormat ? (
-          <section className="details-book-info-section">
-            <div className="details-book-info-section__header">
-              <h4>{t("details.sections.bookInfo")}</h4>
-            </div>
-            <p className="details-book-info-section__note">{t("details.notes.bookInfo")}</p>
-            <dl className="details-list">
-              <div className="details-list__row">
-                <dt>{t("details.fields.displayTitle")}</dt>
-                <dd>{buildBookDisplayTitle(item.name)}</dd>
-              </div>
-              <div className="details-list__row">
-                <dt>{t("details.fields.format")}</dt>
-                <dd>{formatBookFormatLabel(inferredBookFormat)}</dd>
-              </div>
-              <div className="details-list__row">
-                <dt>{t("details.fields.pageCount")}</dt>
-                <dd>{formatMetadataValue(metadata?.page_count ?? null)}</dd>
-              </div>
-            </dl>
-          </section>
+          <DetailsBookInfoSection
+            name={item.name}
+            format={inferredBookFormat}
+            pageCount={metadata?.page_count ?? null}
+          />
         ) : null}
         {isSoftwareContext && inferredSoftwareFormat ? (
-          <section className="details-software-info-section">
-            <div className="details-software-info-section__header">
-              <h4>{t("details.sections.softwareInfo")}</h4>
-            </div>
-            <p className="details-software-info-section__note">{t("details.notes.softwareInfo")}</p>
-            <dl className="details-list">
-              <div className="details-list__row">
-                <dt>{t("details.fields.displayTitle")}</dt>
-                <dd>{buildSoftwareDisplayTitle(item.name)}</dd>
-              </div>
-              <div className="details-list__row">
-                <dt>{t("details.fields.format")}</dt>
-                <dd>{formatSoftwareFormatLabel(inferredSoftwareFormat)}</dd>
-              </div>
-              <div className="details-list__row">
-                <dt>{t("details.fields.entryType")}</dt>
-                <dd>{buildSoftwareEntryTypeLabel(inferredSoftwareFormat)}</dd>
-              </div>
-            </dl>
-          </section>
+          <DetailsSoftwareInfoSection
+            name={item.name}
+            format={inferredSoftwareFormat}
+          />
         ) : null}
-        <section className="metadata-section">
-          <div className="metadata-section__header">
-            <h4>
-              {isMediaFile
-                ? t("details.sections.mediaInfo")
-                : isBookContext
-                  ? t("details.sections.documentMetadata")
-                  : t("details.sections.metadata")}
-            </h4>
-          </div>
-          {isMediaFile ? (
-            <dl className="details-list">
-              <div className="details-list__row">
-                <dt>{t("details.fields.dimensions")}</dt>
-                <dd>{formatDimensions(metadata?.width ?? null, metadata?.height ?? null)}</dd>
-              </div>
-              {isVideoFile ? (
-                <div className="details-list__row">
-                  <dt>{t("details.fields.duration")}</dt>
-                  <dd>{formatDurationMs(metadata?.duration_ms)}</dd>
-                </div>
-              ) : null}
-            </dl>
-          ) : item.metadata === null ? (
-            <p>{t("details.notes.noMetadata")}</p>
-          ) : (
-            <dl className="details-list">
-              <div className="details-list__row">
-                <dt>{t("details.fields.pageCount")}</dt>
-                <dd>{formatMetadataValue(item.metadata.page_count)}</dd>
-              </div>
-              {isBookContext ? null : (
-                <div className="details-list__row">
-                  <dt>{t("details.fields.width")}</dt>
-                  <dd>{formatMetadataValue(item.metadata.width, "px")}</dd>
-                </div>
-              )}
-              {isBookContext ? null : (
-                <div className="details-list__row">
-                  <dt>{t("details.fields.height")}</dt>
-                  <dd>{formatMetadataValue(item.metadata.height, "px")}</dd>
-                </div>
-              )}
-              <div className="details-list__row">
-                <dt>{t("details.fields.duration")}</dt>
-                <dd>{formatDurationMs(item.metadata.duration_ms)}</dd>
-              </div>
-            </dl>
-          )}
-        </section>
+        <DetailsMetadataSection
+          isMediaFile={isMediaFile}
+          isVideoFile={isVideoFile}
+          isBookContext={isBookContext}
+          metadata={
+            metadata
+              ? {
+                  width: metadata.width ?? null,
+                  height: metadata.height ?? null,
+                  duration_ms: metadata.duration_ms ?? null,
+                  page_count: metadata.page_count ?? null,
+                }
+              : null
+          }
+        />
         {isImageFile || isVideoFile || isExeSoftwareFile || isPdfBookFile ? (
-          <section className="details-preview-section">
-            <div className="details-preview-section__header">
-              <h4>{t("details.sections.preview")}</h4>
-            </div>
-            {!previewLoadFailed && (isVideoPreviewActive || previewThumbnail.shouldRenderImage) && previewImageSrc ? (
-              <div
-                className={`details-preview-frame${isVideoPreviewActive ? " details-preview-frame--looping" : ""}${
-                  isExeSoftwareFile ? " details-preview-frame--software-icon" : ""
-                }`}
-                ref={previewThumbnail.ref}
-              >
-                <img
-                  className={`details-preview-image${isExeSoftwareFile ? " details-preview-image--software-icon" : ""}`}
-                  src={previewImageSrc}
-                  alt={`Preview for ${item.name}`}
-                  onError={() => {
-                    if (isVideoPreviewActive) {
-                      setVideoPreviewPlaybackFailed(true);
-                      return;
-                    }
-                    previewThumbnail.onError();
-                  }}
-                  onLoad={() => {
-                    if (!isVideoPreviewActive) {
-                      setSinglePreviewLoaded(true);
-                      previewThumbnail.onLoad();
-                    }
-                  }}
-                />
-              </div>
-            ) : (
-              <div className="details-preview-frame details-preview-frame--empty">
-                <p className="details-preview-state">
-                  {isImageFile
-                    ? t("details.notes.imagePreviewUnavailable")
-                    : isVideoFile
-                      ? t("details.notes.videoPreviewUnavailable")
-                      : isPdfBookFile
-                        ? t("details.notes.pdfPreviewUnavailable")
-                        : t("details.notes.softwareIconUnavailable")}
-                </p>
-              </div>
-            )}
-          </section>
+          <DetailsPreviewSection
+            isImageFile={isImageFile}
+            isVideoFile={isVideoFile}
+            isExeSoftwareFile={isExeSoftwareFile}
+            isPdfBookFile={isPdfBookFile}
+            isVideoPreviewActive={isVideoPreviewActive}
+            previewLoadFailed={previewLoadFailed}
+            previewImageSrc={previewImageSrc}
+            name={item.name}
+            previewRef={previewThumbnail.ref}
+            onImageError={() => {
+              if (isVideoPreviewActive) {
+                setVideoPreviewPlaybackFailed(true);
+                return;
+              }
+              previewThumbnail.onError();
+            }}
+            onImageLoad={() => {
+              if (!isVideoPreviewActive) {
+                setSinglePreviewLoaded(true);
+                previewThumbnail.onLoad();
+              }
+            }}
+          />
         ) : null}
         <DetailsRatingSection
           isFavorite={item.is_favorite}
@@ -808,259 +569,41 @@ export function DetailsPanelFeature() {
           onRemoveTag={(tagId) => removeTagMutation.mutate(tagId)}
         />
         {isMediaFile && (firstTag || item.color_tag || (retrievalHint !== null && retrievalHint.kind !== "status")) ? (
-          <section className="details-retrieval-section">
-            <div className="details-retrieval-section__header">
-              <h4>Re-find this media</h4>
-            </div>
-            <p>{retrievalHint?.message ?? "Use the shared retrieval surfaces to come back to this media after organizing it."}</p>
-            <div className="details-retrieval-actions">
-              {firstTag ? (
-                <button
-                  className="ghost-button"
-                  type="button"
-                  onClick={() => {
-                    const params = new URLSearchParams({
-                      tag_id: String(firstTag.id),
-                      focus: String(item.id),
-                    });
-                    navigate(`/tags?${params.toString()}`);
-                  }}
-                >
-                  Find in Tags
-                </button>
-              ) : null}
-              {item.color_tag ? (
-                <button
-                  className="ghost-button"
-                  type="button"
-                  onClick={() => {
-                    const params = new URLSearchParams({
-                      color_tag: item.color_tag,
-                      focus: String(item.id),
-                      entry: "details",
-                    });
-                    navigate(`/library/media?${params.toString()}`);
-                  }}
-                >
-                  Filter in Media
-                </button>
-              ) : null}
-            </div>
-          </section>
+          <DetailsMediaRetrievalSection
+            fileId={item.id}
+            firstTag={firstTag}
+            colorTag={item.color_tag}
+            retrievalMessage={retrievalHint?.message ?? null}
+          />
         ) : null}
         {isBookContext && (firstTag || item.color_tag || retrievalHint?.kind === "tag" || retrievalHint?.kind === "color") ? (
-          <section className="details-retrieval-section">
-            <div className="details-retrieval-section__header">
-              <h4>Re-find this book</h4>
-            </div>
-            <p>
-              {retrievalHint?.kind === "color"
-                ? retrievalHint.message
-                : retrievalHint?.kind === "tag"
-                  ? "Tags updated. Use Tags or Books to land back on this ebook naturally."
-                  : "Use the shared retrieval surfaces to come back to this ebook after organizing it."}
-            </p>
-            <div className="details-retrieval-actions">
-              {firstTag ? (
-                <button
-                  className="ghost-button"
-                  type="button"
-                  onClick={() => {
-                    const params = new URLSearchParams({
-                      tag_id: String(firstTag.id),
-                      focus: String(item.id),
-                    });
-                    navigate(`/tags?${params.toString()}`);
-                  }}
-                >
-                  Find in Tags
-                </button>
-              ) : null}
-              {firstTag ? (
-                <button
-                  className="ghost-button"
-                  type="button"
-                  onClick={() => {
-                    const params = new URLSearchParams({
-                      tag_id: String(firstTag.id),
-                      focus: String(item.id),
-                      entry: "details",
-                    });
-                    navigate(`/library/books?${params.toString()}`);
-                  }}
-                >
-                  Open matching books
-                </button>
-              ) : null}
-              {item.color_tag ? (
-                <button
-                  className="ghost-button"
-                  type="button"
-                  onClick={() => {
-                    const params = new URLSearchParams({
-                      color_tag: item.color_tag,
-                      focus: String(item.id),
-                      entry: "details",
-                    });
-                    navigate(`/library/books?${params.toString()}`);
-                  }}
-                >
-                  Filter in Books
-                </button>
-              ) : null}
-            </div>
-          </section>
+          <DetailsBookRetrievalSection
+            fileId={item.id}
+            firstTag={firstTag}
+            colorTag={item.color_tag}
+            retrievalHintKind={retrievalHint?.kind ?? null}
+            retrievalHintMessage={retrievalHint?.message ?? null}
+          />
         ) : null}
         {isSoftwareContextForMutations &&
         (firstTag || item.color_tag || retrievalHint?.kind === "tag" || retrievalHint?.kind === "color") ? (
-          <section className="details-retrieval-section">
-            <div className="details-retrieval-section__header">
-              <h4>Re-find this software</h4>
-            </div>
-            <p>
-              {retrievalHint?.kind === "color"
-                ? retrievalHint.message
-                : retrievalHint?.kind === "tag"
-                  ? "Tags updated. Use Tags or Software to land back on this software-related file naturally."
-                  : "Use the shared retrieval surfaces to come back to this software-related file after organizing it."}
-            </p>
-            <div className="details-retrieval-actions">
-              {firstTag ? (
-                <button
-                  className="ghost-button"
-                  type="button"
-                  onClick={() => {
-                    const params = new URLSearchParams({
-                      tag_id: String(firstTag.id),
-                      focus: String(item.id),
-                    });
-                    navigate(`/tags?${params.toString()}`);
-                  }}
-                >
-                  Find in Tags
-                </button>
-              ) : null}
-              {firstTag ? (
-                <button
-                  className="ghost-button"
-                  type="button"
-                  onClick={() => {
-                    const params = new URLSearchParams({
-                      tag_id: String(firstTag.id),
-                      focus: String(item.id),
-                      entry: "details",
-                    });
-                    navigate(`/software?${params.toString()}`);
-                  }}
-                >
-                  Open matching software
-                </button>
-              ) : null}
-              {item.color_tag ? (
-                <button
-                  className="ghost-button"
-                  type="button"
-                  onClick={() => {
-                    const params = new URLSearchParams({
-                      color_tag: item.color_tag,
-                      focus: String(item.id),
-                      entry: "details",
-                    });
-                    navigate(`/software?${params.toString()}`);
-                  }}
-                >
-                  Filter in Software
-                </button>
-              ) : null}
-            </div>
-          </section>
+          <DetailsSoftwareRetrievalSection
+            fileId={item.id}
+            firstTag={firstTag}
+            colorTag={item.color_tag}
+            retrievalHintKind={retrievalHint?.kind ?? null}
+            retrievalHintMessage={retrievalHint?.message ?? null}
+          />
         ) : null}
         {isGameContext ? (
-          <section className="details-retrieval-section">
-            <div className="details-retrieval-section__header">
-              <h4>Re-find this game</h4>
-            </div>
-            <p>
-              {retrievalHint?.kind === "status"
-                ? retrievalHint.message
-                : retrievalHint?.kind === "color"
-                  ? retrievalHint.message
-                  : retrievalHint?.kind === "tag"
-                    ? "Tags updated. Use Tags or Games to land back on this game entry naturally."
-                : "Use the Games subset to come back to this game entry after opening or lightly organizing it."}
-            </p>
-            <div className="details-retrieval-actions">
-              {firstTag ? (
-                <button
-                  className="ghost-button"
-                  type="button"
-                  onClick={() => {
-                    const params = new URLSearchParams({
-                      tag_id: String(firstTag.id),
-                      focus: String(item.id),
-                    });
-                    navigate(`/tags?${params.toString()}`);
-                  }}
-                >
-                  Find in Tags
-                </button>
-              ) : null}
-              {firstTag ? (
-                <button
-                  className="ghost-button"
-                  type="button"
-                  onClick={() => {
-                    const params = new URLSearchParams({
-                      tag_id: String(firstTag.id),
-                      focus: String(item.id),
-                      entry: "details",
-                    });
-                    if (item.status) {
-                      params.set("status", item.status);
-                    }
-                    navigate(`/library/games?${params.toString()}`);
-                  }}
-                >
-                  Open matching games
-                </button>
-              ) : null}
-              {item.color_tag ? (
-                <button
-                  className="ghost-button"
-                  type="button"
-                  onClick={() => {
-                    const params = new URLSearchParams({
-                      color_tag: item.color_tag,
-                      focus: String(item.id),
-                      entry: "details",
-                    });
-                    if (item.status) {
-                      params.set("status", item.status);
-                    }
-                    navigate(`/library/games?${params.toString()}`);
-                  }}
-                >
-                  Filter in Games
-                </button>
-              ) : null}
-              <button
-                className="ghost-button"
-                type="button"
-                onClick={() => {
-                  const params = new URLSearchParams({
-                    focus: String(item.id),
-                    entry: "details",
-                  });
-                  if (item.status) {
-                    params.set("status", item.status);
-                  }
-                  navigate(`/library/games?${params.toString()}`);
-                }}
-              >
-                Back to Games
-              </button>
-            </div>
-          </section>
+          <DetailsGameRetrievalSection
+            fileId={item.id}
+            firstTag={firstTag}
+            colorTag={item.color_tag}
+            status={item.status}
+            retrievalHintKind={retrievalHint?.kind ?? null}
+            retrievalHintMessage={retrievalHint?.message ?? null}
+          />
         ) : null}
         <DetailsActionsSection
           isOpenActionPending={isOpenActionPending}
