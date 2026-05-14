@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { t } from "../../shared/text";
 import { queryKeys } from "../../services/query/queryKeys";
+import { invalidateLibraryRootSurfaces } from "../../services/query/invalidation";
 import type { LibraryRootVM, OrganizeCandidateItemVM, OrganizePlanListQueryInput, OrganizeTemplateItemVM, OrganizeSuggestionItemVM, ReconcilePlanResponseVM } from "../../entities/library/types";
 import { listLibraryRoots, createLibraryRoot, updateLibraryRoot, setDefaultLibraryRoot, listOrganizeCandidates, scanOrganizeCandidates, generateOrganizePlan, listOrganizeTemplates, generateOrganizeSuggestions, listOrganizeSuggestions, acceptOrganizeSuggestion, rejectOrganizeSuggestion } from "../../services/api/libraryObjectsApi";
 import { PlanStatusPill, StatusBadge, ActionButton, KeyValueRow } from "../../shared/ui/components";
@@ -38,7 +39,7 @@ export function LibraryRootsPanel() {
   const createMutation = useMutation({
     mutationFn: createLibraryRoot,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.libraryRoots });
+      invalidateLibraryRootSurfaces(queryClient);
       setShowAdd(false);
       setAddPath("");
       setAddDisplayName("");
@@ -49,17 +50,17 @@ export function LibraryRootsPanel() {
 
   const setDefaultMutation = useMutation({
     mutationFn: setDefaultLibraryRoot,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.libraryRoots }),
+    onSuccess: () => invalidateLibraryRootSurfaces(queryClient),
   });
 
   const disableMutation = useMutation({
     mutationFn: (rootId: number) => updateLibraryRoot(rootId, { is_enabled: false }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.libraryRoots }),
+    onSuccess: () => invalidateLibraryRootSurfaces(queryClient),
   });
 
   const enableMutation = useMutation({
     mutationFn: (rootId: number) => updateLibraryRoot(rootId, { is_enabled: true }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.libraryRoots }),
+    onSuccess: () => invalidateLibraryRootSurfaces(queryClient),
   });
 
   const managedRoots = (roots ?? []).filter((r) => r.root_kind === "managed");

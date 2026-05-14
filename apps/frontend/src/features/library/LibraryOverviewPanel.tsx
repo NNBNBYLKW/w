@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { t } from "../../shared/text";
 import { queryKeys } from "../../services/query/queryKeys";
+import { invalidateLibraryObjectSurfaces } from "../../services/query/invalidation";
 import { getLibraryOverview, getOrganizeStats, scanLibraryObjects } from "../../services/api/libraryObjectsApi";
 import { formatTimestamp } from "./shared/helpers";
 
@@ -45,10 +46,7 @@ function ScanObjectsButton() {
           review: String(result.needs_review),
         }),
       );
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.libraryOverview }),
-        queryClient.invalidateQueries({ queryKey: ["library-objects"] }),
-      ]);
+      await invalidateLibraryObjectSurfaces(queryClient);
     },
   });
 

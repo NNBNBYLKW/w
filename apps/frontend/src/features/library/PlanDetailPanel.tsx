@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { t } from "../../shared/text";
 import { queryKeys } from "../../services/query/queryKeys";
+import { invalidateLibraryOrganizeSurfaces } from "../../services/query/invalidation";
 import type { OrganizePlanListQueryInput, PreflightResponseVM, CopyFailedActionsResponseVM, GenerateAssetYamlMergeResponseVM, GenerateRollbackResponseVM, ReconcilePlanResponseVM, OrganizeActionItemVM, OrganizeActionLogItemVM } from "../../entities/library/types";
 import { getOrganizePlan, markOrganizePlanReady, preflightOrganizePlan, executeOrganizePlan, cancelOrganizePlan, getOrganizePlanLogs, reconcileOrganizePlan, copyFailedActions, generateRollbackPlan, generateAssetYamlMerge, updateOrganizeAction } from "../../services/api/libraryObjectsApi";
 import { PlanStatusPill, StatusBadge, ActionButton, KeyValueRow } from "../../shared/ui/components";
@@ -97,22 +98,14 @@ export function PlanDetail({
     mutationFn: markOrganizePlanReady,
     onSuccess: async (detail) => {
       setPreflightResult(null);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.organizePlan(detail.plan.id) }),
-        queryClient.invalidateQueries({ queryKey: ["organize-plans"] }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.organizeStats }),
-      ]);
+      await invalidateLibraryOrganizeSurfaces(queryClient, detail.plan.id, { stats: true });
     },
   });
   const preflightMutation = useMutation({
     mutationFn: preflightOrganizePlan,
     onSuccess: async (result) => {
       setPreflightResult(result);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.organizePlan(result.plan_id) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.organizePlanLogs(result.plan_id) }),
-        queryClient.invalidateQueries({ queryKey: ["organize-plans"] }),
-      ]);
+      await invalidateLibraryOrganizeSurfaces(queryClient, result.plan_id, { logs: true });
     },
   });
   const executeMutation = useMutation({
@@ -121,23 +114,14 @@ export function PlanDetail({
       setConfirmOpen(false);
       setConfirmChecked(false);
       setPreflightResult(null);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.organizePlan(result.plan_id) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.organizePlanLogs(result.plan_id) }),
-        queryClient.invalidateQueries({ queryKey: ["organize-plans"] }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.organizeStats }),
-      ]);
+      await invalidateLibraryOrganizeSurfaces(queryClient, result.plan_id, { logs: true, stats: true });
     },
   });
   const cancelMutation = useMutation({
     mutationFn: cancelOrganizePlan,
     onSuccess: async (detail) => {
       setPreflightResult(null);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.organizePlan(detail.plan.id) }),
-        queryClient.invalidateQueries({ queryKey: ["organize-plans"] }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.organizeStats }),
-      ]);
+      await invalidateLibraryOrganizeSurfaces(queryClient, detail.plan.id, { stats: true });
     },
   });
   const updateActionMutation = useMutation({
@@ -145,7 +129,7 @@ export function PlanDetail({
       updateOrganizeAction(actionId, { target_path: targetPath }),
     onSuccess: async (detail) => {
       setPreflightResult(null);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.organizePlan(detail.plan.id) });
+      await invalidateLibraryOrganizeSurfaces(queryClient, detail.plan.id, { plansList: false });
     },
   });
   const [reconcileResult, setReconcileResult] = useState<ReconcilePlanResponseVM | null>(null);
@@ -153,11 +137,7 @@ export function PlanDetail({
     mutationFn: reconcileOrganizePlan,
     onSuccess: async (result) => {
       setReconcileResult(result);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.organizePlan(result.plan_id) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.organizePlanLogs(result.plan_id) }),
-        queryClient.invalidateQueries({ queryKey: ["organize-plans"] }),
-      ]);
+      await invalidateLibraryOrganizeSurfaces(queryClient, result.plan_id, { logs: true });
     },
   });
   const [copyFailedResult, setCopyFailedResult] = useState<CopyFailedActionsResponseVM | null>(null);
@@ -165,10 +145,7 @@ export function PlanDetail({
     mutationFn: copyFailedActions,
     onSuccess: async (result) => {
       setCopyFailedResult(result);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.organizePlan(detail.plan.id) }),
-        queryClient.invalidateQueries({ queryKey: ["organize-plans"] }),
-      ]);
+      await invalidateLibraryOrganizeSurfaces(queryClient, detail.plan.id);
     },
   });
   const [generateRollbackResult, setGenerateRollbackResult] = useState<GenerateRollbackResponseVM | null>(null);
@@ -176,10 +153,7 @@ export function PlanDetail({
     mutationFn: generateRollbackPlan,
     onSuccess: async (result) => {
       setGenerateRollbackResult(result);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.organizePlan(detail.plan.id) }),
-        queryClient.invalidateQueries({ queryKey: ["organize-plans"] }),
-      ]);
+      await invalidateLibraryOrganizeSurfaces(queryClient, detail.plan.id);
     },
   });
 
@@ -188,10 +162,7 @@ export function PlanDetail({
     mutationFn: generateAssetYamlMerge,
     onSuccess: async (result) => {
       setMergeResult(result);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.organizePlan(detail.plan.id) }),
-        queryClient.invalidateQueries({ queryKey: ["organize-plans"] }),
-      ]);
+      await invalidateLibraryOrganizeSurfaces(queryClient, detail.plan.id);
     },
   });
 

@@ -12,10 +12,6 @@ import { DetailsGameStatusSection } from "./sections/DetailsGameStatusSection";
 import { DetailsColorTagSection } from "./sections/DetailsColorTagSection";
 import { DetailsTagsSection } from "./sections/DetailsTagsSection";
 import { DetailsActionsSection } from "./sections/DetailsActionsSection";
-import { DetailsRatingSection } from "./sections/DetailsRatingSection";
-import { DetailsGameStatusSection } from "./sections/DetailsGameStatusSection";
-import { DetailsColorTagSection } from "./sections/DetailsColorTagSection";
-import { DetailsTagsSection } from "./sections/DetailsTagsSection";
 import { useRetryingThumbnail, useThumbnailWarmup } from "../../shared/ui/thumbnail";
 import type {
   ColorTagValue,
@@ -39,6 +35,7 @@ import {
 } from "../../services/desktop/openActions";
 import { getFileDetails } from "../../services/api/fileDetailsApi";
 import { queryKeys } from "../../services/query/queryKeys";
+import { invalidateDetailsPanelFileDetail, invalidateFileOrganizationSurfaces } from "../../services/query/invalidation";
 import { updateFileStatus } from "../../services/api/statusApi";
 import { attachTagToFile, removeTagFromFile } from "../../services/api/tagsApi";
 import { updateFilePlacement, updateFileUserMeta } from "../../services/api/userMetaApi";
@@ -258,21 +255,6 @@ export function DetailsPanelFeature() {
     setVideoPreviewPlaybackFailed(false);
   }, [selectedItemId]);
 
-  const invalidateRetrievalQueries = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.tags }),
-      queryClient.invalidateQueries({ queryKey: ["tag-files"] }),
-      queryClient.invalidateQueries({ queryKey: ["media-library"] }),
-      queryClient.invalidateQueries({ queryKey: ["books-list"] }),
-      queryClient.invalidateQueries({ queryKey: ["games-list"] }),
-      queryClient.invalidateQueries({ queryKey: ["software-list"] }),
-      queryClient.invalidateQueries({ queryKey: ["recent"] }),
-      queryClient.invalidateQueries({ queryKey: ["search"] }),
-      queryClient.invalidateQueries({ queryKey: ["files-list"] }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.collections }),
-      queryClient.invalidateQueries({ queryKey: ["collection-files"] }),
-    ]);
-  };
 
   const detailQuery = useQuery({
     queryKey: parsedFileId !== null ? queryKeys.fileDetail(parsedFileId) : ["file-detail", "idle"],
@@ -335,10 +317,8 @@ export function DetailsPanelFeature() {
     onMutate: () => setTagMutationError(null),
     onSuccess: async () => {
       setTagInput("");
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.fileDetail(parsedFileId as number),
-      });
-      await invalidateRetrievalQueries();
+      await invalidateDetailsPanelFileDetail(queryClient, parsedFileId as number);
+      await invalidateFileOrganizationSurfaces(queryClient);
       setRetrievalHint({
         kind: "tag",
         message: isGameContextForMutations
@@ -357,10 +337,8 @@ export function DetailsPanelFeature() {
     mutationFn: (tagId: number) => removeTagFromFile(parsedFileId as number, tagId),
     onMutate: () => setTagMutationError(null),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.fileDetail(parsedFileId as number),
-      });
-      await invalidateRetrievalQueries();
+      await invalidateDetailsPanelFileDetail(queryClient, parsedFileId as number);
+      await invalidateFileOrganizationSurfaces(queryClient);
       setRetrievalHint({
         kind: "tag",
         message: isGameContextForMutations
@@ -393,7 +371,7 @@ export function DetailsPanelFeature() {
           };
         },
       );
-      void invalidateRetrievalQueries();
+      void invalidateFileOrganizationSurfaces(queryClient);
       setRetrievalHint({
         kind: "color",
         message: response.item.color_tag
@@ -469,19 +447,7 @@ export function DetailsPanelFeature() {
           };
         },
       );
-      void Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["media-library"] }),
-        queryClient.invalidateQueries({ queryKey: ["books-list"] }),
-        queryClient.invalidateQueries({ queryKey: ["games-list"] }),
-        queryClient.invalidateQueries({ queryKey: ["software-list"] }),
-        queryClient.invalidateQueries({ queryKey: ["recent"] }),
-        queryClient.invalidateQueries({ queryKey: ["recent-tagged"] }),
-        queryClient.invalidateQueries({ queryKey: ["recent-color-tagged"] }),
-        queryClient.invalidateQueries({ queryKey: ["search"] }),
-        queryClient.invalidateQueries({ queryKey: ["files-list"] }),
-        queryClient.invalidateQueries({ queryKey: ["tag-files"] }),
-        queryClient.invalidateQueries({ queryKey: ["collection-files"] }),
-      ]);
+      void invalidateFileOrganizationSurfaces(queryClient);
     },
     onError: (error) => {
       setUserMetaMutationError(error instanceof Error ? error.message : t("details.errors.updateUserMetaFailed"));
@@ -509,7 +475,7 @@ export function DetailsPanelFeature() {
           };
         },
       );
-      void invalidateRetrievalQueries();
+      void invalidateFileOrganizationSurfaces(queryClient);
       setRetrievalHint({
         kind: "placement",
         message: t("details.placement.updatedHint"),

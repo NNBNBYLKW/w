@@ -2,10 +2,12 @@ import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { t } from "../../shared/text";
 import { queryKeys } from "../../services/query/queryKeys";
+import { invalidateLibraryCandidateSurfaces, invalidateLibrarySuggestionSurfaces } from "../../services/query/invalidation";
 import type { OrganizeCandidateItemVM, OrganizeCandidateListQueryInput, OrganizeSuggestionItemVM } from "../../entities/library/types";
 import { listOrganizeCandidates, scanOrganizeCandidates, generateOrganizePlan, ignoreOrganizeCandidate, listLibraryRoots, listOrganizeTemplates, generateOrganizeSuggestions, listOrganizeSuggestions, acceptOrganizeSuggestion, rejectOrganizeSuggestion } from "../../services/api/libraryObjectsApi";
 import { StatusBadge, ActionButton, KeyValueRow } from "../../shared/ui/components";
 import { formatSuggestionPayloadSummary } from "./shared/helpers";
+import { organizeDetectedTypes } from "./LibraryFeature";
 
 
 function CandidateList({
@@ -74,19 +76,19 @@ function CandidateDetail({
   const generateSuggestionsMutation = useMutation({
     mutationFn: generateOrganizeSuggestions,
     onSuccess: async (_data, id) => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.organizeSuggestions(id) });
+      await invalidateLibrarySuggestionSurfaces(queryClient, id);
     },
   });
   const acceptSuggestionMutation = useMutation({
     mutationFn: acceptOrganizeSuggestion,
     onSuccess: async () => {
-      if (candidate) await queryClient.invalidateQueries({ queryKey: queryKeys.organizeSuggestions(candidate.id) });
+      if (candidate) await invalidateLibrarySuggestionSurfaces(queryClient, candidate.id);
     },
   });
   const rejectSuggestionMutation = useMutation({
     mutationFn: rejectOrganizeSuggestion,
     onSuccess: async () => {
-      if (candidate) await queryClient.invalidateQueries({ queryKey: queryKeys.organizeSuggestions(candidate.id) });
+      if (candidate) await invalidateLibrarySuggestionSurfaces(queryClient, candidate.id);
     },
   });
   if (!candidate) {
@@ -206,16 +208,13 @@ export function LibraryPendingPanel() {
     mutationFn: scanOrganizeCandidates,
     onSuccess: async () => {
       setSelectedIds([]);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["organize-candidates"] }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.organizeStats }),
-      ]);
+      await invalidateLibraryCandidateSurfaces(queryClient, { stats: true });
     },
   });
   const ignoreMutation = useMutation({
     mutationFn: ignoreOrganizeCandidate,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["organize-candidates"] });
+      await invalidateLibraryCandidateSurfaces(queryClient);
     },
   });
   const generateMutation = useMutation({
@@ -223,11 +222,7 @@ export function LibraryPendingPanel() {
       generateOrganizePlan(ids, rootId, tplKey),
     onSuccess: async () => {
       setSelectedIds([]);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["organize-candidates"] }),
-        queryClient.invalidateQueries({ queryKey: ["organize-plans"] }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.organizeStats }),
-      ]);
+      await invalidateLibraryCandidateSurfaces(queryClient, { stats: true, plansList: true });
     },
   });
   const handleGenerateClick = () => {

@@ -2,9 +2,11 @@ import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { t } from "../../shared/text";
 import { queryKeys } from "../../services/query/queryKeys";
+import { invalidateLibraryObjectSurfaces } from "../../services/query/invalidation";
 import type { LibraryObjectListItemVM, LibraryObjectListQueryInput } from "../../entities/library/types";
 import { listLibraryObjects, scanLibraryObjects, getLibraryObject } from "../../services/api/libraryObjectsApi";
 import { normalizeObjectTypeLabel, formatTimestamp } from "./shared/helpers";
+import { objectTypes } from "./LibraryFeature";
 
 
 function ObjectList({
@@ -131,10 +133,7 @@ export function LibraryObjectsPanel() {
   const scanMutation = useMutation({
     mutationFn: () => scanLibraryObjects({ dry_run: false }),
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.libraryOverview }),
-        queryClient.invalidateQueries({ queryKey: ["library-objects"] }),
-      ]);
+      await invalidateLibraryObjectSurfaces(queryClient);
     },
   });
 

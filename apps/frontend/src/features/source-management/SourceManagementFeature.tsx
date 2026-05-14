@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { t } from "../../shared/text";
 import { createSource, getSources, SourcesApiError, triggerSourceScan } from "../../services/api/sourcesApi";
 import { queryKeys } from "../../services/query/queryKeys";
+import { invalidateSourceSurfaces } from "../../services/query/invalidation";
 
 
 export function SourceManagementFeature() {
@@ -41,8 +42,7 @@ export function SourceManagementFeature() {
       setPath("");
       setDisplayName("");
       setCreateFeedback(t("settings.sourceManagement.createSuccess"));
-      await queryClient.invalidateQueries({ queryKey: queryKeys.sources });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.systemStatus });
+      await invalidateSourceSurfaces(queryClient);
     },
   });
 
@@ -61,8 +61,7 @@ export function SourceManagementFeature() {
           taskId: result.task_id,
         }),
       });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.sources });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.systemStatus });
+      await invalidateSourceSurfaces(queryClient);
     },
     onError: async (error, sourceId) => {
       const message =
@@ -76,8 +75,7 @@ export function SourceManagementFeature() {
         kind: "error",
         message,
       });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.sources });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.systemStatus });
+      await invalidateSourceSurfaces(queryClient);
     },
     onSettled: async (_data, _error, sourceId) => {
       setPendingSourceIds((current) => current.filter((pendingId) => pendingId !== sourceId));

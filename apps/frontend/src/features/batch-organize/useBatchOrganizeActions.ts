@@ -6,7 +6,7 @@ import type { ColorTagValue, ManualPlacementValue } from "../../entities/file/ty
 import { updateFilesColorTagBatch } from "../../services/api/colorTagsApi";
 import { attachTagToFilesBatch } from "../../services/api/tagsApi";
 import { updateFilesPlacementBatch } from "../../services/api/userMetaApi";
-import { queryKeys } from "../../services/query/queryKeys";
+import { invalidateFileOrganizationSurfaces } from "../../services/query/invalidation";
 
 
 type UseBatchOrganizeActionsOptions = {
@@ -17,28 +17,10 @@ export function useBatchOrganizeActions({ onSuccess }: UseBatchOrganizeActionsOp
   const queryClient = useQueryClient();
   const pushToast = useUIStore((state) => state.pushToast);
 
-  const invalidateQueries = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.tags }),
-      queryClient.invalidateQueries({ queryKey: ["tag-files"] }),
-      queryClient.invalidateQueries({ queryKey: ["recent"] }),
-      queryClient.invalidateQueries({ queryKey: ["recent-tagged"] }),
-      queryClient.invalidateQueries({ queryKey: ["recent-color-tagged"] }),
-      queryClient.invalidateQueries({ queryKey: ["media-library"] }),
-      queryClient.invalidateQueries({ queryKey: ["books-list"] }),
-      queryClient.invalidateQueries({ queryKey: ["games-list"] }),
-      queryClient.invalidateQueries({ queryKey: ["software-list"] }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.collections }),
-      queryClient.invalidateQueries({ queryKey: ["collection-files"] }),
-      queryClient.invalidateQueries({ queryKey: ["search"] }),
-      queryClient.invalidateQueries({ queryKey: ["files-list"] }),
-    ]);
-  };
-
   const addTagMutation = useMutation({
     mutationFn: ({ fileIds, name }: { fileIds: number[]; name: string }) => attachTagToFilesBatch(fileIds, name),
     onSuccess: async (response) => {
-      await invalidateQueries();
+      await invalidateFileOrganizationSurfaces(queryClient);
       pushToast(t("features.toasts.tagApplied", { count: response.updated_count, name: response.tag.name }));
       onSuccess();
     },
@@ -48,7 +30,7 @@ export function useBatchOrganizeActions({ onSuccess }: UseBatchOrganizeActionsOp
     mutationFn: ({ colorTag, fileIds }: { colorTag: ColorTagValue | null; fileIds: number[] }) =>
       updateFilesColorTagBatch(fileIds, colorTag),
     onSuccess: async (response) => {
-      await invalidateQueries();
+      await invalidateFileOrganizationSurfaces(queryClient);
       pushToast(
         response.color_tag
           ? t("features.toasts.colorApplied", { color: response.color_tag, count: response.updated_count })
@@ -62,7 +44,7 @@ export function useBatchOrganizeActions({ onSuccess }: UseBatchOrganizeActionsOp
     mutationFn: ({ fileIds, manualPlacement }: { fileIds: number[]; manualPlacement: ManualPlacementValue | null }) =>
       updateFilesPlacementBatch(fileIds, manualPlacement),
     onSuccess: async (response) => {
-      await invalidateQueries();
+      await invalidateFileOrganizationSurfaces(queryClient);
       pushToast(
         response.manual_placement
           ? t("features.toasts.placementApplied", { count: response.updated_count })

@@ -18,6 +18,7 @@ import {
 import { getSources } from "../../services/api/sourcesApi";
 import { listTags } from "../../services/api/tagsApi";
 import { queryKeys } from "../../services/query/queryKeys";
+import { invalidateCollectionSurfaces } from "../../services/query/invalidation";
 
 function formatBytes(value: number | null): string {
   return value === null ? t("common.states.sizeUnavailable") : `${value.toLocaleString()} bytes`;
@@ -251,7 +252,7 @@ export function CollectionsFeature() {
   const createCollectionMutation = useMutation({
     mutationFn: (input: CreateCollectionInput) => createCollection(input),
     onSuccess: async (createdCollection) => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.collections });
+      await invalidateCollectionSurfaces(queryClient);
       setSelectedCollectionId(createdCollection.id);
       setPage(1);
       setIsEditingSelected(false);
@@ -268,8 +269,7 @@ export function CollectionsFeature() {
     mutationFn: ({ collectionId, input }: { collectionId: number; input: UpdateCollectionInput }) =>
       updateCollection(collectionId, input),
     onSuccess: async (updatedCollection) => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.collections });
-      await queryClient.invalidateQueries({ queryKey: ["collection-files"] });
+      await invalidateCollectionSurfaces(queryClient);
       setSelectedCollectionId(updatedCollection.id);
       setPage(1);
     },
@@ -278,8 +278,7 @@ export function CollectionsFeature() {
   const deleteCollectionMutation = useMutation({
     mutationFn: (collectionId: number) => deleteCollection(collectionId),
     onSuccess: async (_, deletedCollectionId) => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.collections });
-      await queryClient.invalidateQueries({ queryKey: ["collection-files"] });
+      await invalidateCollectionSurfaces(queryClient);
 
       if (selectedCollectionId === deletedCollectionId) {
         setPage(1);

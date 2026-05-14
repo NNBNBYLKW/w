@@ -9,6 +9,7 @@ import { listIndexedFiles } from "../../services/api/filesApi";
 import { createVideoMergeRun, getToolRun, listToolRuns, listTools } from "../../services/api/toolsApi";
 import { getDroppedFilePath, hasDesktopDropPathBridge } from "../../services/desktop/dropPaths";
 import { queryKeys } from "../../services/query/queryKeys";
+import { invalidateToolRunSurfaces } from "../../services/query/invalidation";
 import { getWorkbenchFileDragData } from "../../services/tools/videoMergeDrag";
 
 
@@ -204,7 +205,7 @@ export function ToolsFeature() {
     onSuccess: (response) => {
       setActiveRunId(response.run_id);
       setActiveTab("inProgress");
-      void queryClient.invalidateQueries({ queryKey: queryKeys.toolRuns({ page: 1, page_size: 10 }) });
+      void invalidateToolRunSurfaces(queryClient);
     },
   });
 
