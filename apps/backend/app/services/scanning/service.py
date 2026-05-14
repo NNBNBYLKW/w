@@ -8,6 +8,7 @@ from app.db.models.source import Source
 from app.db.models.task import Task
 from app.repositories.file.repository import FileRepository
 from app.repositories.source.repository import SourceRepository
+from app.services.library.path_safety import paths_overlap
 from app.services.metadata.service import MetadataService
 from app.services.tasks.service import TaskService
 from app.workers.scanning.scanner import ScannerWorker
@@ -74,16 +75,12 @@ class ScanningService:
         current_parts = self._normalized_path_parts(source.path)
         for other_source in self.source_repository.list_other_sources(session, source.id):
             other_parts = self._normalized_path_parts(other_source.path)
-            if self._parts_overlap(current_parts, other_parts):
+            if paths_overlap(current_parts, other_parts):
                 raise ValueError("Overlapping source roots are not supported in Phase 1A.")
 
     def _normalized_path_parts(self, raw_path: str) -> tuple[str, ...]:
         normalized = os.path.normcase(str(Path(raw_path).resolve(strict=False)))
         return tuple(Path(normalized).parts)
-
-    def _parts_overlap(self, left: tuple[str, ...], right: tuple[str, ...]) -> bool:
-        shorter, longer = (left, right) if len(left) <= len(right) else (right, left)
-        return shorter == longer[: len(shorter)]
 
     def _next_scan_marker(self, session: Session, source: Source) -> datetime:
         candidate = _utcnow()

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -11,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.db.models.library_object import AssetMetadataCache, LibraryObject, LibraryObjectMember
 from app.repositories.library_objects.repository import LibraryObjectListFilters, LibraryObjectRepository
 from app.repositories.source.repository import SourceRepository
+from app.services.library.path_safety import is_path_within
 from app.schemas.library_objects import (
     AssetMetadataSummary,
     LibraryObjectDetailResponse,
@@ -232,7 +232,7 @@ class LibraryObjectScannerService:
             if not root.exists() or not root.is_dir():
                 raise HTTPException(status_code=400, detail="Scan root must exist and be a directory.")
             resolved_root = root.resolve()
-            if not any(_is_path_within(resolved_root, Path(source.path).resolve()) for source in sources):
+            if not any(is_path_within(resolved_root, Path(source.path).resolve()) for source in sources):
                 raise HTTPException(status_code=400, detail="Scan root must be inside an enabled source.")
             return [ScanRoot(path=resolved_root)]
 
@@ -349,15 +349,6 @@ class LibraryObjectScannerService:
             parse_error=metadata.parse_error,
         )
 
-
-def _is_path_within(path: Path, root: Path) -> bool:
-    normalized_path = os.path.normcase(os.path.abspath(path))
-    normalized_root = os.path.normcase(os.path.abspath(root))
-    try:
-        common = os.path.commonpath([normalized_path, normalized_root])
-    except ValueError:
-        return False
-    return common == normalized_root
 
 
 def _json_list(value: str | None) -> list[str]:

@@ -47,6 +47,7 @@ from app.schemas.library_organize import (
     ReconcilePlanResponse,
 )
 from app.services.library.object_parser import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, SUPPORTED_OBJECT_TYPES, VIDEO_EXTENSIONS
+from app.services.library.path_safety import is_path_within, path_key
 
 
 INBOX_NAMES = {"00_inbox", "_to_sort", "inbox"}
@@ -210,7 +211,7 @@ class LibraryOrganizeService:
             if file.path in member_paths:
                 continue
             source_root = sources.get(file.source_id)
-            if source_root is None or not _is_path_within(Path(file.path), source_root):
+            if source_root is None or not is_path_within(Path(file.path), source_root):
                 continue
             if not self._is_candidate_file(file, source_root):
                 continue
@@ -830,7 +831,7 @@ class LibraryOrganizeService:
             action.conflict_message = conflict_message
             action.updated_at = _now()
             if action.action_type == "mkdir" and action.target_path and conflict_status in {"ok", "warning"}:
-                planned_dirs.add(_path_key(Path(action.target_path)))
+                planned_dirs.add(path_key(Path(action.target_path)))
         plan.updated_at = _now()
         return actions
 
@@ -868,7 +869,7 @@ class LibraryOrganizeService:
                 if lib_root is None or not lib_root.is_enabled:
                     return "blocked", "Target library root is missing or disabled."
                 target_root = Path(lib_root.root_path).resolve()
-                if not _is_path_within(target, target_root):
+                if not is_path_within(target, target_root):
                     return "blocked", "Target path is outside the selected managed library root."
             else:
                 target_root = self._resolve_root_for_mkdir_or_asset(session, target, plan)
@@ -880,12 +881,12 @@ class LibraryOrganizeService:
                 target_in_source = self._source_root_for_path_safe(session, target)
                 source_in_source = self._source_root_for_path_safe(session, source)
                 if target_in_source is not None and source_in_source is not None:
-                    if _path_key(target_in_source) != _path_key(source_in_source):
+                    if path_key(target_in_source) != path_key(source_in_source):
                         return "blocked", "Source and target must stay inside the same enabled source."
-                if not _is_path_within(target, target_root):
+                if not is_path_within(target, target_root):
                     return "blocked", "Target path is outside the enabled source."
 
-            if action.action_type == "rename" and _path_key(source.parent) != _path_key(target.parent):
+            if action.action_type == "rename" and path_key(source.parent) != path_key(target.parent):
                 return "blocked", "Rename target must stay in the same folder."
             if target.exists():
                 return "blocked", "Target path already exists and would be overwritten."
@@ -1045,7 +1046,7 @@ class LibraryOrganizeService:
         return Path(action.target_path).resolve()
 
     def _parent_available(self, target: Path, planned_dirs: set[str]) -> bool:
-        return target.parent.exists() or _path_key(target.parent) in planned_dirs
+        return target.parent.exists() or path_key(target.parent) in planned_dirs
 
     def _render_asset_yaml(self, payload_json: str | None) -> str:
         if not payload_json:
@@ -1217,7 +1218,7 @@ class LibraryOrganizeService:
         enabled_sources = [source for source in self.source_repository.list_sources(session) if source.is_enabled]
         for source in enabled_sources:
             source_root = Path(source.path).resolve()
-            if _is_path_within(path, source_root):
+            if is_path_within(path, source_root):
                 return source_root
         raise HTTPException(status_code=400, detail="Candidate source path is outside enabled sources.")
 
@@ -1225,7 +1226,7 @@ class LibraryOrganizeService:
         enabled_sources = [source for source in self.source_repository.list_sources(session) if source.is_enabled]
         for source in enabled_sources:
             source_root = Path(source.path).resolve()
-            if _is_path_within(path, source_root):
+            if is_path_within(path, source_root):
                 return source_root
         return None
 
@@ -1234,17 +1235,17 @@ class LibraryOrganizeService:
             lib_root = self.library_root_repository.get_by_id(session, plan.target_library_root_id)
             if lib_root and lib_root.is_enabled:
                 root_path = Path(lib_root.root_path).resolve()
-                if _is_path_within(path, root_path):
+                if is_path_within(path, root_path):
                     return root_path
             return None
         for source in self.source_repository.list_sources(session):
             if source.is_enabled:
                 source_root = Path(source.path).resolve()
-                if _is_path_within(path, source_root):
+                if is_path_within(path, source_root):
                     return source_root
         for lib_root in self.library_root_repository.list_enabled(session):
             root_path = Path(lib_root.root_path).resolve()
-            if _is_path_within(path, root_path):
+            if is_path_within(path, root_path):
                 return root_path
         return None
 
@@ -1297,7 +1298,7 @@ class LibraryOrganizeService:
                 action.conflict_status = "blocked"
                 action.conflict_message = "Target path is outside any enabled source or managed library root."
                 return
-            if not _is_path_within(target, target_root):
+            if not is_path_within(target, target_root):
                 action.conflict_status = "blocked"
                 action.conflict_message = "Target path is outside the enabled source."
                 return
@@ -2084,19 +2085,6 @@ def _year_from_text(value: str) -> int | None:
     match = re.search(r"(19\d{2}|20\d{2})", value)
     return int(match.group(1)) if match else None
 
-
-def _path_key(path: Path) -> str:
-    return os.path.normcase(os.path.abspath(path))
-
-
-def _is_path_within(path: Path, root: Path) -> bool:
-    normalized_path = os.path.normcase(os.path.abspath(path))
-    normalized_root = os.path.normcase(os.path.abspath(root))
-    try:
-        common = os.path.commonpath([normalized_path, normalized_root])
-    except ValueError:
-        return False
-    return common == normalized_root
 
 
 def _now() -> datetime:

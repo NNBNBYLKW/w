@@ -9,6 +9,7 @@ from app.core.errors.exceptions import ConflictError, NotFoundError
 from app.db.models.source import Source
 from app.db.models.task import Task
 from app.repositories.source.repository import SourceRepository
+from app.services.library.path_safety import paths_overlap
 from app.services.scanning.service import ScanningService
 from app.services.tasks.service import TaskService
 
@@ -134,7 +135,7 @@ class SourceManagementService:
 
             if candidate_parts == existing_parts:
                 raise ConflictError("SOURCE_ALREADY_EXISTS", "Source path already exists.")
-            if self._paths_overlap(candidate_parts, existing_parts):
+            if paths_overlap(candidate_parts, existing_parts):
                 raise ConflictError(
                     "SOURCE_ROOT_OVERLAP",
                     "Overlapping source roots are not supported in Phase 1A.",
@@ -143,7 +144,3 @@ class SourceManagementService:
     def _normalized_path_parts(self, canonical_path: str) -> tuple[str, ...]:
         normalized = os.path.normcase(os.path.normpath(canonical_path))
         return tuple(Path(normalized).parts)
-
-    def _paths_overlap(self, left: tuple[str, ...], right: tuple[str, ...]) -> bool:
-        shorter, longer = (left, right) if len(left) <= len(right) else (right, left)
-        return shorter == longer[: len(shorter)]
