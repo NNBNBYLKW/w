@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 
 export function FileRow({
   name,
@@ -34,15 +34,29 @@ export function FileRow({
   ]
     .filter(Boolean)
     .join(" ");
+  const isInteractive = !disabled && Boolean(onClick || onDoubleClick);
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!isInteractive || !onClick) {
+      return;
+    }
+
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onClick();
+    }
+  };
 
   return (
     <div
       className={cls}
       onClick={disabled ? undefined : onClick}
       onDoubleClick={disabled ? undefined : onDoubleClick}
+      onKeyDown={handleKeyDown}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
       aria-disabled={disabled}
+      aria-selected={selected}
     >
       {thumbnail ? <div className="file-row__thumbnail">{thumbnail}</div> : null}
       <div className="file-row__info">

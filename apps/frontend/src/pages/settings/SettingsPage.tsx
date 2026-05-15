@@ -2,6 +2,7 @@ import { SourceManagementFeature } from "../../features/source-management/Source
 import { SystemStatusFeature } from "../../features/system-status/SystemStatusFeature";
 import { useTheme, type ThemeMode } from "../../shared/theme";
 import { t, useLocale, type LocaleCode } from "../../shared/text";
+import { WorkbenchMasthead, WorkbenchPage } from "../../shared/ui/components";
 
 
 export function SettingsPage() {
@@ -17,8 +18,15 @@ export function SettingsPage() {
   ];
 
   return (
-    <section className="page-card settings-workbench utility-surface utility-surface--settings">
-      <section className="feature-shell settings-section-card">
+    <WorkbenchPage className="settings-workbench utility-surface utility-surface--settings" variant="settings">
+      <WorkbenchMasthead
+        eyebrow={t("pages.settings.title")}
+        title={t("settings.appearance.title")}
+        description={t("pages.settings.description")}
+      />
+      <div className="settings-operations-grid">
+        <div className="settings-operations-grid__preferences">
+          <section className="feature-shell settings-section-card">
         <div className="feature-header utility-surface__header">
           <span className="page-header__eyebrow">{t("settings.appearance.eyebrow")}</span>
           <h3>{t("settings.appearance.title")}</h3>
@@ -39,8 +47,8 @@ export function SettingsPage() {
             </button>
           ))}
         </div>
-      </section>
-      <section className="feature-shell settings-section-card">
+          </section>
+          <section className="feature-shell settings-section-card">
         <div className="feature-header utility-surface__header">
           <span className="page-header__eyebrow">{t("settings.locale.eyebrow")}</span>
           <h3>{t("settings.locale.title")}</h3>
@@ -61,13 +69,17 @@ export function SettingsPage() {
             </button>
           ))}
         </div>
-      </section>
-      <SystemStatusFeature
-        eyebrow={t("settings.systemStatus.eyebrow")}
-        title={t("settings.systemStatus.title")}
-        description={t("settings.systemStatus.description")}
-      />
-      <SourceManagementFeature />
-    </section>
+          </section>
+        </div>
+        <div className="settings-operations-grid__system">
+          <SystemStatusFeature
+            eyebrow={t("settings.systemStatus.eyebrow")}
+            title={t("settings.systemStatus.title")}
+            description={t("settings.systemStatus.description")}
+          />
+          <SourceManagementFeature />
+        </div>
+      </div>
+    </WorkbenchPage>
   );
 }

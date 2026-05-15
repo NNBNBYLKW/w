@@ -5,7 +5,7 @@ import { queryKeys } from "../../services/query/queryKeys";
 import { invalidateLibraryObjectSurfaces } from "../../services/query/invalidation";
 import type { LibraryObjectListItemVM, LibraryObjectListQueryInput } from "../../entities/library/types";
 import { listLibraryObjects, scanLibraryObjects, getLibraryObject } from "../../services/api/libraryObjectsApi";
-import { normalizeObjectTypeLabel, formatTimestamp } from "./shared/helpers";
+import { normalizeObjectTypeLabel, formatTimestamp, formatBytes } from "./shared/helpers";
 import { objectTypes } from "./LibraryFeature";
 
 

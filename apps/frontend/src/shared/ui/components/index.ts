@@ -9,3 +9,12 @@ export { KeyValueRow } from "./KeyValueRow";
 export { ActionButton } from "./ActionButton";
 export type { ActionButtonVariant } from "./ActionButton";
 export { FileRow } from "./FileRow";
+export {
+  InspectorSection,
+  MetricStrip,
+  WorkbenchFilterPanel,
+  WorkbenchMasthead,
+  WorkbenchPage,
+  WorkbenchResultFrame,
+  WorkbenchToolbar,
+} from "./WorkbenchLayout";

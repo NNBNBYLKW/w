@@ -4,19 +4,41 @@ import { t, useLocale } from "../../shared/text";
 import { SidebarIcon, type NavigationIconName } from "../../shared/ui/icons";
 import { useUIStore } from "../providers/uiStore";
 
-const navItems: Array<{ to: string; labelKey: Parameters<typeof t>[0]; icon: NavigationIconName }> = [
-  { to: "/home", labelKey: "navigation.items.home", icon: "home" },
-  { to: "/search", labelKey: "navigation.items.search", icon: "search" },
-  { to: "/library", labelKey: "navigation.items.library", icon: "files" },
-  { to: "/books", labelKey: "navigation.items.books", icon: "books" },
-  { to: "/software", labelKey: "navigation.items.software", icon: "software" },
-  { to: "/library/media", labelKey: "navigation.items.media", icon: "media" },
-  { to: "/library/games", labelKey: "navigation.items.games", icon: "games" },
-  { to: "/tools", labelKey: "navigation.items.tools", icon: "tools" },
-  { to: "/recent", labelKey: "navigation.items.recent", icon: "recent" },
-  { to: "/tags", labelKey: "navigation.items.tags", icon: "tags" },
-  { to: "/collections", labelKey: "navigation.items.collections", icon: "collections" },
-  { to: "/settings", labelKey: "navigation.items.settings", icon: "settings" },
+type NavItem = { to: string; labelKey: Parameters<typeof t>[0]; icon: NavigationIconName };
+
+const navGroups: Array<{ labelKey: Parameters<typeof t>[0]; items: NavItem[] }> = [
+  {
+    labelKey: "shell.sidebar.groups.operate",
+    items: [
+      { to: "/home", labelKey: "navigation.items.home", icon: "home" },
+      { to: "/search", labelKey: "navigation.items.search", icon: "search" },
+      { to: "/library", labelKey: "navigation.items.library", icon: "files" },
+    ],
+  },
+  {
+    labelKey: "shell.sidebar.groups.browse",
+    items: [
+      { to: "/library/media", labelKey: "navigation.items.media", icon: "media" },
+      { to: "/books", labelKey: "navigation.items.books", icon: "books" },
+      { to: "/software", labelKey: "navigation.items.software", icon: "software" },
+      { to: "/library/games", labelKey: "navigation.items.games", icon: "games" },
+    ],
+  },
+  {
+    labelKey: "shell.sidebar.groups.refind",
+    items: [
+      { to: "/recent", labelKey: "navigation.items.recent", icon: "recent" },
+      { to: "/tags", labelKey: "navigation.items.tags", icon: "tags" },
+      { to: "/collections", labelKey: "navigation.items.collections", icon: "collections" },
+    ],
+  },
+  {
+    labelKey: "shell.sidebar.groups.system",
+    items: [
+      { to: "/tools", labelKey: "navigation.items.tools", icon: "tools" },
+      { to: "/settings", labelKey: "navigation.items.settings", icon: "settings" },
+    ],
+  },
 ];
 
 export function AppSidebar() {
@@ -46,28 +68,33 @@ export function AppSidebar() {
           </span>
         </button>
       </div>
-      <nav className="app-sidebar__nav">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === "/library"}
-            aria-label={t(item.labelKey)}
-            title={t(item.labelKey)}
-            className={({ isActive }) =>
-              isActive ? "app-sidebar__link app-sidebar__link--active" : "app-sidebar__link"
-            }
-          >
-            <span className="app-sidebar__link-icon">
-              <SidebarIcon name={item.icon} />
-            </span>
-            <span className="app-sidebar__link-label">{t(item.labelKey)}</span>
-          </NavLink>
+      <nav className="app-sidebar__nav" aria-label={t("shell.sidebar.navigationLabel")}>
+        {navGroups.map((group) => (
+          <div className="app-sidebar__nav-group" key={group.labelKey}>
+            <span className="app-sidebar__nav-heading">{t(group.labelKey)}</span>
+            {group.items.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === "/library"}
+                aria-label={t(item.labelKey)}
+                title={t(item.labelKey)}
+                className={({ isActive }) =>
+                  isActive ? "app-sidebar__link app-sidebar__link--active" : "app-sidebar__link"
+                }
+              >
+                <span className="app-sidebar__link-icon" aria-hidden="true">
+                  <SidebarIcon name={item.icon} />
+                </span>
+                <span className="app-sidebar__link-label">{t(item.labelKey)}</span>
+              </NavLink>
+            ))}
+          </div>
         ))}
       </nav>
       <div className="app-sidebar__footer" aria-hidden={isSidebarCollapsed ? "true" : "false"}>
-        <span className="app-sidebar__footer-kicker">local-first</span>
-        <span className="app-sidebar__footer-copy">find · inspect · tag · browse</span>
+        <span className="app-sidebar__footer-kicker">{t("shell.sidebar.footerKicker")}</span>
+        <span className="app-sidebar__footer-copy">{t("shell.sidebar.footerCopy")}</span>
       </div>
     </aside>
   );

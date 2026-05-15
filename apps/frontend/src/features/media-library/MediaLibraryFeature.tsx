@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t, useLocale } from "../../shared/text";
+import { MetricStrip, WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
 import { AssetIconGrid, ViewModeToggle, useViewMode, type AssetIconCardItem } from "../../shared/ui/view-mode";
 import { useRetryingThumbnail, useThumbnailWarmup } from "../../shared/ui/thumbnail";
 import { BatchActionBar } from "../batch-organize/BatchActionBar";
@@ -140,6 +141,8 @@ function MediaInlinePreview({
         className={`compact-library-table__thumb-image${thumbnailLoaded ? " compact-library-table__thumb-image--ready" : ""}`}
         src={thumbnail.imageSrc}
         alt={t("features.media.thumbnailAlt", { name })}
+        width={44}
+        height={44}
         loading="lazy"
         onError={thumbnail.onError}
         onLoad={() => {
@@ -481,37 +484,25 @@ export function MediaLibraryFeature() {
   };
 
   return (
-    <section className="feature-shell compact-library browse-surface browse-surface--media">
-      <div className="feature-header compact-library__header browse-surface__header">
-        <span className="page-header__eyebrow">{t("features.media.eyebrow")}</span>
-        <h3>{t("features.media.title")}</h3>
-        <p>{t("features.media.description")}</p>
-      </div>
+    <WorkbenchPage className="compact-library browse-surface browse-surface--media" variant="media">
+      <WorkbenchMasthead
+        eyebrow={t("features.media.eyebrow")}
+        title={t("features.media.title")}
+        description={t("features.media.description")}
+      >
+        <MetricStrip
+          className="compact-summary-strip compact-summary-strip--five"
+          items={[
+            { label: t("features.media.summary.total"), value: summaryStats.total.toLocaleString(), tone: "primary" },
+            { label: t("features.media.summary.visible"), value: summaryStats.visible.toLocaleString(), tone: "info" },
+            { label: t("features.media.summary.images"), value: summaryStats.images.toLocaleString() },
+            { label: t("features.media.summary.videos"), value: summaryStats.videos.toLocaleString() },
+            { label: t("features.media.summary.filters"), value: summaryStats.filters.toLocaleString(), tone: "warning" },
+          ]}
+        />
+      </WorkbenchMasthead>
 
-      <div className="compact-summary-strip compact-summary-strip--five" aria-label={t("features.media.summary.ariaLabel")}>
-        <div className="compact-summary-strip__item">
-          <span>{t("features.media.summary.total")}</span>
-          <strong>{summaryStats.total.toLocaleString()}</strong>
-        </div>
-        <div className="compact-summary-strip__item">
-          <span>{t("features.media.summary.visible")}</span>
-          <strong>{summaryStats.visible.toLocaleString()}</strong>
-        </div>
-        <div className="compact-summary-strip__item">
-          <span>{t("features.media.summary.images")}</span>
-          <strong>{summaryStats.images.toLocaleString()}</strong>
-        </div>
-        <div className="compact-summary-strip__item">
-          <span>{t("features.media.summary.videos")}</span>
-          <strong>{summaryStats.videos.toLocaleString()}</strong>
-        </div>
-        <div className="compact-summary-strip__item">
-          <span>{t("features.media.summary.filters")}</span>
-          <strong>{summaryStats.filters.toLocaleString()}</strong>
-        </div>
-      </div>
-
-      <div className="compact-action-bar">
+      <WorkbenchToolbar className="compact-action-bar media-command-bar">
         <div className="compact-action-bar__copy">
           <span className="page-header__eyebrow">{t("features.media.quickActions.eyebrow")}</span>
           <p>{t("features.media.quickActions.description")}</p>
@@ -539,12 +530,12 @@ export function MediaLibraryFeature() {
             </button>
           ) : null}
         </div>
-      </div>
+      </WorkbenchToolbar>
 
-      <div className="subset-filter-block compact-filter-block">
+      <WorkbenchFilterPanel className="subset-filter-block compact-filter-block media-filter-panel">
         {entryCopy ? <div className="media-library-flow-note">{entryCopy}</div> : null}
 
-        <div className="media-library-toolbar compact-filter-toolbar">
+        <WorkbenchToolbar className="media-library-toolbar compact-filter-toolbar">
           <div className="field-stack media-library-toolbar__field media-library-toolbar__field--wide compact-filter-toolbar__field compact-filter-toolbar__field--wide">
             <span>{t("common.labels.scope")}</span>
             <div className="media-library-scope-switch" aria-label={t("features.media.scopeAria")}>
@@ -633,11 +624,11 @@ export function MediaLibraryFeature() {
           <div className="compact-filter-toolbar__view-mode">
             <ViewModeToggle value={viewMode} onChange={setViewMode} />
           </div>
-        </div>
+        </WorkbenchToolbar>
         <div className="media-library-filter-summary compact-filter-summary">
           <p>{filterSummary}</p>
         </div>
-      </div>
+      </WorkbenchFilterPanel>
 
       {isBatchMode ? (
         <div className="subset-batch-block">
@@ -655,47 +646,52 @@ export function MediaLibraryFeature() {
         </div>
       ) : null}
 
-      <div className="media-library-meta-row">
-        <p>
-          {viewScope === "all"
-            ? t("features.media.metaAll")
-            : t("features.media.metaScoped", { scope: viewScope })}
-        </p>
-        {mediaQuery.data ? <span>{t("common.labels.mediaItems", { count: mediaQuery.data.total })}</span> : null}
-      </div>
+      <WorkbenchResultFrame
+        className="media-result-frame"
+        title={t("features.media.title")}
+        meta={
+          <div className="media-library-meta-row">
+            <p>
+              {viewScope === "all"
+                ? t("features.media.metaAll")
+                : t("features.media.metaScoped", { scope: viewScope })}
+            </p>
+            {mediaQuery.data ? <span>{t("common.labels.mediaItems", { count: mediaQuery.data.total })}</span> : null}
+          </div>
+        }
+      >
+        {showLoadingSkeleton ? (
+          <div className="compact-library-table compact-library-table--loading" aria-label={t("features.media.loadingAria")}>
+            {Array.from({ length: 8 }, (_, index) => (
+              <MediaRowSkeleton key={index} />
+            ))}
+          </div>
+        ) : null}
 
-      {showLoadingSkeleton ? (
-        <div className="compact-library-table compact-library-table--loading" aria-label={t("features.media.loadingAria")}>
-          {Array.from({ length: 8 }, (_, index) => (
-            <MediaRowSkeleton key={index} />
-          ))}
-        </div>
-      ) : null}
+        {mediaQuery.error instanceof Error ? (
+          <div className="status-block page-card">
+            <strong>{t("features.media.failedTitle")}</strong>
+            <p>{mediaQuery.error.message}</p>
+          </div>
+        ) : null}
 
-      {mediaQuery.error instanceof Error ? (
-        <div className="status-block page-card">
-          <strong>{t("features.media.failedTitle")}</strong>
-          <p>{mediaQuery.error.message}</p>
-        </div>
-      ) : null}
+        {tagsQuery.error instanceof Error ? (
+          <div className="status-block page-card">
+            <strong>{t("features.search.tagsUnavailableTitle")}</strong>
+            <p>{tagsQuery.error.message}</p>
+          </div>
+        ) : null}
 
-      {tagsQuery.error instanceof Error ? (
-        <div className="status-block page-card">
-          <strong>{t("features.search.tagsUnavailableTitle")}</strong>
-          <p>{tagsQuery.error.message}</p>
-        </div>
-      ) : null}
+        {showEmptyState ? (
+          <div className="future-frame">{t("features.media.empty")}</div>
+        ) : null}
 
-      {showEmptyState ? (
-        <div className="future-frame">{t("features.media.empty")}</div>
-      ) : null}
+        {showNoResultsState ? (
+          <div className="future-frame">{t("features.media.noResults")}</div>
+        ) : null}
 
-      {showNoResultsState ? (
-        <div className="future-frame">{t("features.media.noResults")}</div>
-      ) : null}
-
-      {mediaQuery.data && mediaQuery.data.items.length > 0 ? (
-        <>
+        {mediaQuery.data && mediaQuery.data.items.length > 0 ? (
+          <>
           {viewMode === "icons" ? (
             <AssetIconGrid
               ariaLabel={t("features.media.table.ariaLabel")}
@@ -779,8 +775,9 @@ export function MediaLibraryFeature() {
               {t("common.actions.next")}
             </button>
           </div>
-        </>
-      ) : null}
-    </section>
+          </>
+        ) : null}
+      </WorkbenchResultFrame>
+    </WorkbenchPage>
   );
 }

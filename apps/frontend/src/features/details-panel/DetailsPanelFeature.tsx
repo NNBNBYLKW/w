@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t, useLocale } from "../../shared/text";
-import { EmptyState, LoadingState } from "../../shared/ui/components";
+import { EmptyState, InspectorSection, LoadingState } from "../../shared/ui/components";
 import { DetailsIdentitySection } from "./sections/DetailsIdentitySection";
 import { DetailsPlacementSection } from "./sections/DetailsPlacementSection";
 import { DetailsRatingSection } from "./sections/DetailsRatingSection";
@@ -92,7 +92,7 @@ export function DetailsPanelFeature() {
     selectedItemId !== null && (!Number.isInteger(parsedFileId) || parsedFileId === null || parsedFileId <= 0);
   const hasDesktopOpenActions = hasDesktopOpenActionsBridge();
   const isGamesRoute = location.pathname.startsWith("/library/games");
-  const isBooksRoute = location.pathname.startsWith("/library/books");
+  const isBooksRoute = location.pathname.startsWith("/books") || location.pathname.startsWith("/library/books");
   const isSoftwareRoute = location.pathname.startsWith("/software");
 
   useEffect(() => {
@@ -379,16 +379,18 @@ export function DetailsPanelFeature() {
 
   if (batchSelectionSummary) {
     content = (
-      <div className="details-panel details-panel--batch">
-        <span className="placeholder-pill">{t("details.placeholders.batch.eyebrow")}</span>
-        <h3>{batchSelectionSummary.pageLabel}</h3>
-        <p>{t("details.placeholders.batch.selectedCount", { count: batchSelectionSummary.selectedCount })}</p>
-        <p>{t("details.placeholders.batch.description")}</p>
+      <div className="details-panel details-inspector details-panel--batch">
+        <InspectorSection>
+          <span className="placeholder-pill">{t("details.placeholders.batch.eyebrow")}</span>
+          <h3>{batchSelectionSummary.pageLabel}</h3>
+          <p>{t("details.placeholders.batch.selectedCount", { count: batchSelectionSummary.selectedCount })}</p>
+          <p>{t("details.placeholders.batch.description")}</p>
+        </InspectorSection>
       </div>
     );
   } else if (selectedItemId === null) {
     content = (
-      <div className="details-panel details-panel--state">
+      <div className="details-panel details-inspector details-panel--state">
         <EmptyState
           title={t("details.placeholders.awaitingSelection.title")}
           description={t("details.placeholders.awaitingSelection.description")}
@@ -397,7 +399,7 @@ export function DetailsPanelFeature() {
     );
   } else if (hasInvalidSelectedId) {
     content = (
-      <div className="details-panel details-panel--state">
+      <div className="details-panel details-inspector details-panel--state">
         <EmptyState
           title={t("details.placeholders.selectionError.title")}
           description={t("details.placeholders.selectionError.description")}
@@ -406,13 +408,13 @@ export function DetailsPanelFeature() {
     );
   } else if (detailQuery.isLoading) {
     content = (
-      <div className="details-panel details-panel--state">
+      <div className="details-panel details-inspector details-panel--state">
         <LoadingState message={t("details.placeholders.loading.description")} />
       </div>
     );
   } else if (detailQuery.error instanceof Error) {
     content = (
-      <div className="details-panel details-panel--state">
+      <div className="details-panel details-inspector details-panel--state">
         <EmptyState
           title={t("details.placeholders.error.title")}
           description={detailQuery.error.message}
@@ -446,30 +448,33 @@ export function DetailsPanelFeature() {
         ? getFileVideoPreviewFrameUrl(item.id, activeVideoPreviewFrameIndex)
         : previewThumbnail.imageSrc;
     content = (
-      <div className="details-panel details-panel--file">
-        <DetailsIdentitySection name={item.name} fileType={item.file_type} id={item.id} />
-        <DetailsFactListSection
-          path={item.path}
-          fileType={item.file_type}
-          sizeBytes={item.size_bytes}
-          id={item.id}
-          sourceId={item.source_id}
-          modifiedAtFs={item.modified_at_fs}
-          createdAtFs={item.created_at_fs}
-          discoveredAt={item.discovered_at}
-          lastSeenAt={item.last_seen_at}
-          isDeleted={item.is_deleted}
-        />
-        <DetailsPlacementSection
-          manualPlacement={item.manual_placement}
-          fileKind={item.file_kind}
-          autoPlacementLabel={formatPlacementLabel(item.auto_placement)}
-          effectivePlacementLabel={formatPlacementLabel(item.effective_placement)}
-          isPending={isPlacementMutationPending}
-          error={placementMutationError}
-          placementOptions={PLACEMENT_OPTIONS}
-          onChange={(value) => placementMutation.mutate(value === "auto" ? null : (value as ManualPlacementValue))}
-        />
+      <div className="details-panel details-inspector details-panel--file">
+        <div className="details-inspector__group details-inspector__group--identity">
+          <DetailsIdentitySection name={item.name} fileType={item.file_type} id={item.id} />
+          <DetailsFactListSection
+            path={item.path}
+            fileType={item.file_type}
+            sizeBytes={item.size_bytes}
+            id={item.id}
+            sourceId={item.source_id}
+            modifiedAtFs={item.modified_at_fs}
+            createdAtFs={item.created_at_fs}
+            discoveredAt={item.discovered_at}
+            lastSeenAt={item.last_seen_at}
+            isDeleted={item.is_deleted}
+          />
+        </div>
+        <div className="details-inspector__group details-inspector__group--organization">
+          <DetailsPlacementSection
+            manualPlacement={item.manual_placement}
+            fileKind={item.file_kind}
+            autoPlacementLabel={formatPlacementLabel(item.auto_placement)}
+            effectivePlacementLabel={formatPlacementLabel(item.effective_placement)}
+            isPending={isPlacementMutationPending}
+            error={placementMutationError}
+            placementOptions={PLACEMENT_OPTIONS}
+            onChange={(value) => placementMutation.mutate(value === "auto" ? null : (value as ManualPlacementValue))}
+          />
         {isBookContext && inferredBookFormat ? (
           <DetailsBookInfoSection
             name={item.name}
@@ -483,88 +488,93 @@ export function DetailsPanelFeature() {
             format={inferredSoftwareFormat}
           />
         ) : null}
-        <DetailsMetadataSection
-          isMediaFile={isMediaFile}
-          isVideoFile={isVideoFile}
-          isBookContext={isBookContext}
-          metadata={
-            metadata
-              ? {
-                  width: metadata.width ?? null,
-                  height: metadata.height ?? null,
-                  duration_ms: metadata.duration_ms ?? null,
-                  page_count: metadata.page_count ?? null,
-                }
-              : null
-          }
-        />
-        {isImageFile || isVideoFile || isExeSoftwareFile || isPdfBookFile ? (
-          <DetailsPreviewSection
-            isImageFile={isImageFile}
+          <DetailsMetadataSection
+            isMediaFile={isMediaFile}
             isVideoFile={isVideoFile}
-            isExeSoftwareFile={isExeSoftwareFile}
-            isPdfBookFile={isPdfBookFile}
-            isVideoPreviewActive={isVideoPreviewActive}
-            previewLoadFailed={previewLoadFailed}
-            previewImageSrc={previewImageSrc}
-            name={item.name}
-            previewRef={previewThumbnail.ref}
-            onImageError={() => {
-              if (isVideoPreviewActive) {
-                setVideoPreviewPlaybackFailed(true);
-                return;
-              }
-              previewThumbnail.onError();
-            }}
-            onImageLoad={() => {
-              if (!isVideoPreviewActive) {
-                setSinglePreviewLoaded(true);
-                previewThumbnail.onLoad();
-              }
-            }}
+            isBookContext={isBookContext}
+            metadata={
+              metadata
+                ? {
+                    width: metadata.width ?? null,
+                    height: metadata.height ?? null,
+                    duration_ms: metadata.duration_ms ?? null,
+                    page_count: metadata.page_count ?? null,
+                  }
+                : null
+            }
           />
+        </div>
+        {isImageFile || isVideoFile || isExeSoftwareFile || isPdfBookFile ? (
+          <div className="details-inspector__group details-inspector__group--preview">
+            <DetailsPreviewSection
+              isImageFile={isImageFile}
+              isVideoFile={isVideoFile}
+              isExeSoftwareFile={isExeSoftwareFile}
+              isPdfBookFile={isPdfBookFile}
+              isVideoPreviewActive={isVideoPreviewActive}
+              previewLoadFailed={previewLoadFailed}
+              previewImageSrc={previewImageSrc}
+              name={item.name}
+              previewRef={previewThumbnail.ref}
+              onImageError={() => {
+                if (isVideoPreviewActive) {
+                  setVideoPreviewPlaybackFailed(true);
+                  return;
+                }
+                previewThumbnail.onError();
+              }}
+              onImageLoad={() => {
+                if (!isVideoPreviewActive) {
+                  setSinglePreviewLoaded(true);
+                  previewThumbnail.onLoad();
+                }
+              }}
+            />
+          </div>
         ) : null}
-        <DetailsRatingSection
-          isFavorite={item.is_favorite}
-          rating={item.rating}
-          isPending={isUserMetaMutationPending}
-          error={userMetaMutationError}
-          favoriteLabel={formatFavoriteLabel(item.is_favorite)}
-          ratingLabel={formatRatingLabel(item.rating)}
-          onToggleFavorite={() => userMetaMutation.mutate({ is_favorite: !item.is_favorite })}
-          onSetRating={(value) => userMetaMutation.mutate({ rating: value })}
-          onClearRating={() => userMetaMutation.mutate({ rating: null })}
-        />
-        {isGameContext ? (
-          <DetailsGameStatusSection
-            status={item.status}
-            isPending={isStatusMutationPending}
-            error={statusMutationError}
-            statusLabel={item.status ? formatStatusLabel(item.status) : t("details.values.none")}
-            statusOptions={GAME_STATUS_OPTIONS}
-            onChange={(value) => statusMutation.mutate(value)}
+        <div className="details-inspector__group details-inspector__group--signals">
+          <DetailsRatingSection
+            isFavorite={item.is_favorite}
+            rating={item.rating}
+            isPending={isUserMetaMutationPending}
+            error={userMetaMutationError}
+            favoriteLabel={formatFavoriteLabel(item.is_favorite)}
+            ratingLabel={formatRatingLabel(item.rating)}
+            onToggleFavorite={() => userMetaMutation.mutate({ is_favorite: !item.is_favorite })}
+            onSetRating={(value) => userMetaMutation.mutate({ rating: value })}
+            onClearRating={() => userMetaMutation.mutate({ rating: null })}
           />
-        ) : null}
-        <DetailsColorTagSection
-          colorTag={item.color_tag}
-          isPending={isColorTagMutationPending}
-          error={colorTagMutationError}
-          colorOptions={COLOR_TAG_OPTIONS}
-          currentColorLabel={item.color_tag ?? t("details.values.none")}
-          onChange={(value) => colorTagMutation.mutate(value)}
-        />
-        <DetailsTagsSection
-          tags={item.tags}
-          tagInput={tagInput}
-          isPending={isTagMutationPending}
-          error={tagMutationError}
-          onTagInputChange={setTagInput}
-          onAddTag={(event) => {
-            event.preventDefault();
-            addTagMutation.mutate(tagInput);
-          }}
-          onRemoveTag={(tagId) => removeTagMutation.mutate(tagId)}
-        />
+          {isGameContext ? (
+            <DetailsGameStatusSection
+              status={item.status}
+              isPending={isStatusMutationPending}
+              error={statusMutationError}
+              statusLabel={item.status ? formatStatusLabel(item.status) : t("details.values.none")}
+              statusOptions={GAME_STATUS_OPTIONS}
+              onChange={(value) => statusMutation.mutate(value)}
+            />
+          ) : null}
+          <DetailsColorTagSection
+            colorTag={item.color_tag}
+            isPending={isColorTagMutationPending}
+            error={colorTagMutationError}
+            colorOptions={COLOR_TAG_OPTIONS}
+            currentColorLabel={item.color_tag ?? t("details.values.none")}
+            onChange={(value) => colorTagMutation.mutate(value)}
+          />
+          <DetailsTagsSection
+            tags={item.tags}
+            tagInput={tagInput}
+            isPending={isTagMutationPending}
+            error={tagMutationError}
+            onTagInputChange={setTagInput}
+            onAddTag={(event) => {
+              event.preventDefault();
+              addTagMutation.mutate(tagInput);
+            }}
+            onRemoveTag={(tagId) => removeTagMutation.mutate(tagId)}
+          />
+        </div>
         {isMediaFile && (firstTag || item.color_tag || (retrievalHint !== null && retrievalHint.kind !== "status")) ? (
           <DetailsMediaRetrievalSection
             fileId={item.id}
@@ -602,25 +612,27 @@ export function DetailsPanelFeature() {
             retrievalHintMessage={retrievalHint?.message ?? null}
           />
         ) : null}
-        <DetailsActionsSection
-          isOpenActionPending={isOpenActionPending}
-          hasDesktopOpenActions={hasDesktopOpenActions}
-          openActionError={openActionError}
-          onOpenFile={() => void handleOpenAction("file", item.path)}
-          onOpenFolder={() => void handleOpenAction("folder", item.path)}
-          openFileLabel={
-            isGameContext
-              ? t("details.actions.openGameEntry")
-              : isSoftwareContext
-                ? t("details.actions.openSoftwareFile")
-                : t("details.actions.openFile")
-          }
-        />
+        <div className="details-inspector__group details-inspector__group--actions">
+          <DetailsActionsSection
+            isOpenActionPending={isOpenActionPending}
+            hasDesktopOpenActions={hasDesktopOpenActions}
+            openActionError={openActionError}
+            onOpenFile={() => void handleOpenAction("file", item.path)}
+            onOpenFolder={() => void handleOpenAction("folder", item.path)}
+            openFileLabel={
+              isGameContext
+                ? t("details.actions.openGameEntry")
+                : isSoftwareContext
+                  ? t("details.actions.openSoftwareFile")
+                  : t("details.actions.openFile")
+            }
+          />
+        </div>
       </div>
     );
   } else {
     content = (
-      <div className="details-panel details-panel--state">
+      <div className="details-panel details-inspector details-panel--state">
         <EmptyState
           title={t("details.placeholders.unavailable.title")}
           description={t("details.placeholders.unavailable.description")}

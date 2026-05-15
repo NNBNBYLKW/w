@@ -1,4 +1,5 @@
 export const details = {
+  previewAlt: "Preview for {name}",
   placeholders: {
     batch: {
       eyebrow: "Batch mode",

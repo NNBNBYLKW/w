@@ -25,7 +25,7 @@ export function DetailsColorTagSection({
         {isPending ? <span className="status-pill">{t("details.actions.updating")}</span> : null}
       </div>
       <p>{t("details.fields.currentColorTag", { color: currentColorLabel })}</p>
-      <div className="color-tag-actions">
+      <div className="color-tag-actions" role="group" aria-label={t("details.sections.colorTag")}>
         {colorOptions.map((color) => (
           <button
             key={color}
@@ -33,6 +33,7 @@ export function DetailsColorTagSection({
             type="button"
             onClick={() => onChange(colorTag === color ? null : color)}
             disabled={isPending}
+            aria-pressed={colorTag === color}
           >
             {color}
           </button>
@@ -42,11 +43,16 @@ export function DetailsColorTagSection({
           type="button"
           onClick={() => onChange(null)}
           disabled={isPending}
+          aria-pressed={colorTag === null}
         >
           {t("details.actions.clear")}
         </button>
       </div>
-      {error ? <p className="color-tag-section__error">{error}</p> : null}
+      {error ? (
+        <p className="color-tag-section__error" role="alert">
+          {error}
+        </p>
+      ) : null}
     </section>
   );
 }

@@ -169,6 +169,7 @@ function AssetIconCard({
       onDoubleClick={() => {
         onOpen?.();
       }}
+      aria-pressed={item.selected}
     >
       <span className="asset-icon-card__preview" ref={thumbnail.ref}>
         {thumbnail.shouldRenderImage ? (
@@ -176,6 +177,8 @@ function AssetIconCard({
             className={`asset-icon-card__thumbnail asset-icon-card__thumbnail--${item.thumbnailFit ?? "cover"}`}
             src={thumbnail.imageSrc}
             alt={item.thumbnailAlt ?? item.title}
+            width={160}
+            height={110}
             loading="lazy"
             onError={thumbnail.onError}
             onLoad={thumbnail.onLoad}

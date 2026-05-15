@@ -33,3 +33,66 @@
   gap: 10px;
   margin-bottom: 12px;
 }
+
+.field-stack {
+  gap: 5px;
+}
+
+.field-stack > span,
+.field-stack > label,
+.form-label,
+.compact-filter-toolbar__field span,
+.search-toolbar__field span,
+.media-library-toolbar__field span,
+.recent-toolbar__field span,
+.files-toolbar__field span {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.text-input,
+.select-input,
+.textarea-input,
+input[type="text"],
+input[type="search"],
+input[type="number"],
+select,
+textarea {
+  min-height: var(--control-height);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-sm);
+  color: var(--input-text);
+  background: var(--input-bg);
+  box-shadow: none;
+}
+
+.text-input:hover,
+.select-input:hover,
+.textarea-input:hover,
+input[type="text"]:hover,
+input[type="search"]:hover,
+input[type="number"]:hover,
+select:hover,
+textarea:hover {
+  border-color: var(--color-border-strong);
+}
+
+.text-input::placeholder,
+.textarea-input::placeholder,
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
+.text-input:disabled,
+.select-input:disabled,
+.textarea-input:disabled,
+button:disabled {
+  color: var(--color-disabled-text);
+  background: var(--color-disabled-bg);
+  cursor: not-allowed;
+  opacity: 1;
+}

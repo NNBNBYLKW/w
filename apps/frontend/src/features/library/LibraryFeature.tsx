@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t } from "../../shared/text";
+import { WorkbenchMasthead, WorkbenchPage } from "../../shared/ui/components";
 import { LibraryOverviewPanel } from "./LibraryOverviewPanel";
 import { LibraryRootsPanel } from "./LibraryRootsPanel";
 import { LibraryPathBrowserPanel } from "./LibraryPathBrowserPanel";
@@ -51,37 +52,44 @@ export function LibraryFeature() {
   };
 
   return (
-    <section className="feature-shell library-feature">
-      <div className="feature-header">
-        <span className="page-header__eyebrow">{t("features.library.eyebrow")}</span>
-        <h3>{t("features.library.title")}</h3>
-        <p>{t("features.library.description")}</p>
-      </div>
+    <WorkbenchPage className="library-feature" variant="library">
+      <WorkbenchMasthead
+        eyebrow={t("features.library.eyebrow")}
+        title={t("features.library.title")}
+        description={t("features.library.description")}
+      />
 
-      <div className="settings-segmented-control library-tabs" role="tablist" aria-label={t("features.library.tabsAriaLabel")}>
-        {libraryTabs.map((tab) => (
-          <button
-            key={tab.value}
-            className={`secondary-button settings-segmented-button${activeTab === tab.value ? " settings-segmented-button--selected" : ""}`}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === tab.value}
-            onClick={() => setActiveTab(tab.value)}
-          >
-            {t(tab.labelKey)}
-          </button>
-        ))}
-      </div>
+      <div className="library-workspace">
+        <aside className="library-tab-rail" aria-label={t("features.library.tabsAriaLabel")}>
+          <div className="library-tab-rail__header">
+            <span className="workbench-eyebrow">{t("features.library.tabsAriaLabel")}</span>
+          </div>
+          <div className="settings-segmented-control library-tabs" role="tablist" aria-label={t("features.library.tabsAriaLabel")}>
+            {libraryTabs.map((tab) => (
+              <button
+                key={tab.value}
+                className={`secondary-button settings-segmented-button${activeTab === tab.value ? " settings-segmented-button--selected" : ""}`}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab.value}
+                onClick={() => setActiveTab(tab.value)}
+              >
+                {t(tab.labelKey)}
+              </button>
+            ))}
+          </div>
+        </aside>
 
-      <div className="library-tab-panel" role="tabpanel">
-        {activeTab === "overview" ? <LibraryOverviewPanel /> : null}
-        {activeTab === "roots" ? <LibraryRootsPanel /> : null}
-        {activeTab === "path" ? <LibraryPathBrowserPanel /> : null}
-        {activeTab === "pending" ? <LibraryPendingPanel /> : null}
-        {activeTab === "objects" ? <LibraryObjectsPanel /> : null}
-        {activeTab === "plans" ? <LibraryPlansPanel /> : null}
+        <div className="library-tab-panel" role="tabpanel">
+          {activeTab === "overview" ? <LibraryOverviewPanel /> : null}
+          {activeTab === "roots" ? <LibraryRootsPanel /> : null}
+          {activeTab === "path" ? <LibraryPathBrowserPanel /> : null}
+          {activeTab === "pending" ? <LibraryPendingPanel /> : null}
+          {activeTab === "objects" ? <LibraryObjectsPanel /> : null}
+          {activeTab === "plans" ? <LibraryPlansPanel /> : null}
+        </div>
       </div>
-    </section>
+    </WorkbenchPage>
   );
 }
 

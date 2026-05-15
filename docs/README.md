@@ -12,6 +12,10 @@ Document boundary:
 
 ## Current Main Docs
 
+- [Workbench 小白使用说明书](USER_MANUAL_BEGINNER.md)
+  - 面向非技术用户的完整使用说明
+  - 中文，覆盖从安装到常见问题的全部内容
+  - 软件是什么/不是什么、安全规则、操作步骤、当前限制、推荐测试流程
 - [测试版当前状态总览](<测试版当前状态总览.md>)
   - What the project currently is
   - What capability lines already exist
@@ -21,6 +25,11 @@ Document boundary:
   - Current beta boundary
   - Must-have scope
   - Deferred and explicitly out-of-scope items
+- [文件分类规则](FILE_CLASSIFICATION_RULES.md)
+  - 当前文件分类规则的完整说明
+  - 扩展名 → file_kind / placement 映射表
+  - Library organize 检测逻辑与全局分类的区别
+  - 脚本文件分类、已知限制和未来演进方向
 - [测试版验证准备](<测试版验证准备.md>)
   - Validation goals
   - Suggested walkthroughs
@@ -100,6 +109,10 @@ If you are working on frontend UI refactors or need the current backend contract
 
 ## Recommended Reading Order
 
+**For new users (non-technical):**
+1. [USER_MANUAL_BEGINNER.md](USER_MANUAL_BEGINNER.md) — the only doc you need to get started
+
+**For developers and testers:**
 1. [../README.md](../README.md)
 2. [PHASE6_SUMMARY.md](PHASE6_SUMMARY.md) — current Phase 6 completion status
 3. [BETA_USER_GUIDE.md](BETA_USER_GUIDE.md) — first-time user guide

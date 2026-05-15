@@ -43,7 +43,9 @@ export function DetailsPreviewSection({
           <img
             className={`details-preview-image${isExeSoftwareFile ? " details-preview-image--software-icon" : ""}`}
             src={previewImageSrc}
-            alt={`Preview for ${name}`}
+            alt={t("details.previewAlt", { name })}
+            width={320}
+            height={180}
             onError={onImageError}
             onLoad={onImageLoad}
           />

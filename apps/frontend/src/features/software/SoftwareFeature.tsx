@@ -173,6 +173,8 @@ function SoftwareLibraryRow({
               className="software-table__format-icon"
               src={thumbnail.imageSrc}
               alt=""
+              width={40}
+              height={40}
               onError={thumbnail.onError}
               onLoad={thumbnail.onLoad}
             />

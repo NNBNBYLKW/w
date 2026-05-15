@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 
 import { hasDesktopWindowControlsBridge } from "../../services/desktop/windowControls";
-import { useLocale } from "../../shared/text";
+import { t, useLocale } from "../../shared/text";
 import { useUIStore } from "../providers/uiStore";
 import { AppSidebar } from "./AppSidebar";
 import { DesktopTitleBar } from "./DesktopTitleBar";
@@ -64,6 +64,9 @@ export function AppShell() {
 
   const shell = (
     <div className={`app-shell app-shell--design-pen${isSidebarCollapsed ? " app-shell--sidebar-collapsed" : ""}`}>
+      <a className="skip-link" href="#workbench-main-content">
+        {t("shell.skipToContent")}
+      </a>
       <AppSidebar />
       <div className="app-shell__main">
         <div
@@ -72,9 +75,11 @@ export function AppShell() {
           }`}
         >
           <main
+            id="workbench-main-content"
             className="page-content-shell"
             data-show-top-fade={showTopFade ? "true" : "false"}
             data-show-bottom-fade={showBottomFade ? "true" : "false"}
+            tabIndex={-1}
           >
             <PageContentHeader />
             <div className="page-content" ref={pageContentRef}>

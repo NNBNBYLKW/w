@@ -46,11 +46,12 @@ export function DetailsRatingSection({
           type="button"
           onClick={onToggleFavorite}
           disabled={isPending}
+          aria-pressed={isFavorite}
         >
           {isFavorite ? t("details.actions.removeFavorite") : t("details.actions.markFavorite")}
         </button>
       </div>
-      <div className="details-user-meta-rating-actions">
+      <div className="details-user-meta-rating-actions" role="group" aria-label={t("details.fields.rating")}>
         {[1, 2, 3, 4, 5].map((value) => (
           <button
             key={value}
@@ -58,6 +59,7 @@ export function DetailsRatingSection({
             type="button"
             onClick={() => onSetRating(value as FileRatingValue)}
             disabled={isPending}
+            aria-pressed={rating === value}
           >
             ★ {value}
           </button>
@@ -67,11 +69,16 @@ export function DetailsRatingSection({
           type="button"
           onClick={onClearRating}
           disabled={isPending}
+          aria-pressed={rating === null}
         >
           {t("details.actions.clearRating")}
         </button>
       </div>
-      {error ? <p className="color-tag-section__error">{error}</p> : null}
+      {error ? (
+        <p className="color-tag-section__error" role="alert">
+          {error}
+        </p>
+      ) : null}
     </section>
   );
 }

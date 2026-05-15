@@ -1,4 +1,5 @@
 export const details = {
+  previewAlt: "{name} 的预览",
   placeholders: {
     batch: {
       eyebrow: "批量模式",

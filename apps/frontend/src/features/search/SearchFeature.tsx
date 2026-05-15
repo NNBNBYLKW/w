@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t } from "../../shared/text";
+import { WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
 import { AssetIconGrid, ViewModeToggle, useViewMode, type AssetIconCardItem } from "../../shared/ui/view-mode";
 import { useThumbnailWarmup } from "../../shared/ui/thumbnail";
 import type {
@@ -145,25 +146,42 @@ export function SearchFeature() {
     setPage(1);
   };
 
+  const resultMeta = (
+    <>
+      <p>
+        {appliedQuery ? t("features.search.matches", { query: appliedQuery }) : t("features.search.emptyQuery")}
+      </p>
+      {searchQuery.data ? <span>{t("common.labels.results", { count: searchQuery.data.total })}</span> : null}
+    </>
+  );
+
   return (
-    <section className="feature-shell browse-surface browse-surface--search">
-      <div className="feature-header browse-surface__header">
-        <span className="page-header__eyebrow">{t("features.search.eyebrow")}</span>
-        <h3>{t("features.search.title")}</h3>
-      </div>
-      <form className="search-controls" onSubmit={handleSubmit}>
-        <div className="search-input-row">
+    <WorkbenchPage className="browse-surface browse-surface--search" variant="search">
+      <WorkbenchMasthead
+        eyebrow={t("features.search.eyebrow")}
+        title={t("features.search.title")}
+        description={t("pages.search.description")}
+      />
+
+      <form className="search-workbench-form" onSubmit={handleSubmit}>
+        <div className="search-command-row">
           <input
-            className="text-input"
+            className="text-input search-command-row__input"
+            type="search"
+            name="search"
+            autoComplete="off"
             value={inputQuery}
             onChange={(event) => setInputQuery(event.target.value)}
             placeholder={t("features.search.placeholder")}
+            aria-label={t("features.search.placeholder")}
           />
-          <button className="secondary-button" type="submit">
+          <button className="primary-button" type="submit">
             {t("common.actions.search")}
           </button>
         </div>
-        <div className="search-toolbar">
+
+        <WorkbenchFilterPanel className="search-filter-panel" label={t("features.search.title")}>
+          <WorkbenchToolbar className="search-toolbar">
           <label className="field-stack search-toolbar__field">
             <span>{t("common.labels.type")}</span>
             <select
@@ -268,38 +286,37 @@ export function SearchFeature() {
           <div className="compact-filter-toolbar__view-mode">
             <ViewModeToggle value={viewMode} onChange={setViewMode} />
           </div>
-        </div>
+          </WorkbenchToolbar>
+        </WorkbenchFilterPanel>
       </form>
 
-      <div className="search-meta-row">
-        <p>
-          {appliedQuery ? t("features.search.matches", { query: appliedQuery }) : t("features.search.emptyQuery")}
-        </p>
-        {searchQuery.data ? <span>{t("common.labels.results", { count: searchQuery.data.total })}</span> : null}
-      </div>
+      <WorkbenchResultFrame className="search-result-frame" title={t("features.search.title")} meta={resultMeta}>
+        {searchQuery.isLoading ? (
+          <p role="status" aria-live="polite">
+            {t("features.search.loading")}
+          </p>
+        ) : null}
 
-      {searchQuery.isLoading ? <p>{t("features.search.loading")}</p> : null}
+        {searchQuery.error instanceof Error ? (
+          <div className="status-block page-card">
+            <strong>{t("features.search.failedTitle")}</strong>
+            <p>{searchQuery.error.message}</p>
+          </div>
+        ) : null}
 
-      {searchQuery.error instanceof Error ? (
-        <div className="status-block page-card">
-          <strong>{t("features.search.failedTitle")}</strong>
-          <p>{searchQuery.error.message}</p>
-        </div>
-      ) : null}
+        {tagsQuery.error instanceof Error ? (
+          <div className="status-block page-card">
+            <strong>{t("features.search.tagsUnavailableTitle")}</strong>
+            <p>{tagsQuery.error.message}</p>
+          </div>
+        ) : null}
 
-      {tagsQuery.error instanceof Error ? (
-        <div className="status-block page-card">
-          <strong>{t("features.search.tagsUnavailableTitle")}</strong>
-          <p>{tagsQuery.error.message}</p>
-        </div>
-      ) : null}
+        {searchQuery.data && searchQuery.data.items.length === 0 ? (
+          <div className="future-frame">{t("features.search.empty")}</div>
+        ) : null}
 
-      {searchQuery.data && searchQuery.data.items.length === 0 ? (
-        <div className="future-frame">{t("features.search.empty")}</div>
-      ) : null}
-
-      {searchQuery.data && searchQuery.data.items.length > 0 ? (
-        <>
+        {searchQuery.data && searchQuery.data.items.length > 0 ? (
+          <>
           {viewMode === "icons" ? (
             <AssetIconGrid
               ariaLabel={t("features.search.title")}
@@ -376,8 +393,9 @@ export function SearchFeature() {
               {t("common.actions.next")}
             </button>
           </div>
-        </>
-      ) : null}
-    </section>
+          </>
+        ) : null}
+      </WorkbenchResultFrame>
+    </WorkbenchPage>
   );
 }

@@ -20,6 +20,7 @@ export function ActionButton({
   onClick,
   type = "button",
   className,
+  ariaLabel,
 }: {
   children?: ReactNode;
   icon?: ReactNode;
@@ -29,6 +30,7 @@ export function ActionButton({
   onClick?: () => void;
   type?: "button" | "submit";
   className?: string;
+  ariaLabel?: string;
 }) {
   const cls = [
     "action-button",
@@ -40,7 +42,7 @@ export function ActionButton({
     .join(" ");
 
   return (
-    <button className={cls} type={type} disabled={disabled} onClick={onClick}>
+    <button className={cls} type={type} disabled={disabled} onClick={onClick} aria-label={ariaLabel}>
       {icon ? <span className="action-button__icon">{icon}</span> : null}
       {children ? <span className="action-button__label">{children}</span> : null}
     </button>

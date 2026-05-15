@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t } from "../../shared/text";
+import { WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
 import type { FileListSortBy, FileListSortOrder } from "../../entities/file/types";
 import { listFilesForTag, listTags, TagsApiError } from "../../services/api/tagsApi";
 import { queryKeys } from "../../services/query/queryKeys";
@@ -102,12 +103,12 @@ export function TagBrowserFeature() {
   }, [requestedFocusId, selectItem, tagFilesQuery.data]);
 
   return (
-    <section className="feature-shell refind-surface refind-surface--tags">
-      <div className="feature-header refind-surface__header">
-        <span className="page-header__eyebrow">{t("features.tags.eyebrow")}</span>
-        <h3>{t("features.tags.title")}</h3>
-        <p>{t("features.tags.description")}</p>
-      </div>
+    <WorkbenchPage className="refind-surface refind-surface--tags" variant="tags">
+      <WorkbenchMasthead
+        eyebrow={t("features.tags.eyebrow")}
+        title={t("features.tags.title")}
+        description={t("features.tags.description")}
+      />
 
       {tagsQuery.isLoading ? <p>{t("features.tags.loading")}</p> : null}
 
@@ -148,7 +149,8 @@ export function TagBrowserFeature() {
           </aside>
 
           <div className="tag-browser-content">
-            <div className="files-toolbar">
+            <WorkbenchFilterPanel className="tag-browser-filter-panel">
+              <WorkbenchToolbar className="files-toolbar">
               <label className="field-stack files-toolbar__field">
                 <span>{t("common.labels.sortBy")}</span>
                 <select
@@ -178,9 +180,10 @@ export function TagBrowserFeature() {
                   <option value="asc">{t("common.sortOrder.ascending")}</option>
                 </select>
               </label>
-            </div>
+              </WorkbenchToolbar>
+            </WorkbenchFilterPanel>
 
-              <div className="files-meta-row">
+              <WorkbenchToolbar className="files-meta-row">
                 <p>{t("features.tags.matchingMeta")}</p>
                 <div className="files-meta-row__actions">
                   {tagFilesQuery.data ? <span>{t("common.labels.files", { count: tagFilesQuery.data.total })}</span> : null}
@@ -241,11 +244,12 @@ export function TagBrowserFeature() {
                     </>
                   ) : null}
                 </div>
-              </div>
+              </WorkbenchToolbar>
 
             {tagFlowNote ? <div className="context-flow-note">{tagFlowNote}</div> : null}
 
-            {tagFilesQuery.isLoading ? <p>{t("features.tags.loading")}</p> : null}
+            <WorkbenchResultFrame className="tag-browser-result-frame" title={selectedTag?.name ?? t("features.tags.title")}>
+            {tagFilesQuery.isLoading ? <p role="status" aria-live="polite">{t("features.tags.loading")}</p> : null}
 
             {missingSelectedTag ? (
               <div className="status-block page-card">
@@ -308,9 +312,10 @@ export function TagBrowserFeature() {
                 </div>
               </>
             ) : null}
+            </WorkbenchResultFrame>
           </div>
         </div>
       ) : null}
-    </section>
+    </WorkbenchPage>
   );
 }

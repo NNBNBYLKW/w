@@ -59,6 +59,8 @@ export function PageContentHeader() {
             isBackendConnected ? " page-content-header__connection-status--connected" : ""
           }`}
           aria-label={connectionLabel}
+          aria-live="polite"
+          role="status"
           title={connectionLabel}
         >
           <span className="page-content-header__connection-icon" aria-hidden="true">

@@ -1,3 +1,5 @@
+import { useId, type FormEvent } from "react";
+
 import { t } from "../../../shared/text";
 
 export interface DetailsTagsSectionProps {
@@ -6,7 +8,7 @@ export interface DetailsTagsSectionProps {
   isPending: boolean;
   error: string | null;
   onTagInputChange: (value: string) => void;
-  onAddTag: (event: React.FormEvent) => void;
+  onAddTag: (event: FormEvent) => void;
   onRemoveTag: (tagId: number) => void;
 }
 
@@ -19,6 +21,9 @@ export function DetailsTagsSection({
   onAddTag,
   onRemoveTag,
 }: DetailsTagsSectionProps) {
+  const tagInputId = useId();
+  const tagErrorId = useId();
+
   return (
     <section className="tag-section">
       <div className="tag-section__header">
@@ -26,18 +31,28 @@ export function DetailsTagsSection({
         {isPending ? <span className="status-pill">{t("details.actions.updating")}</span> : null}
       </div>
       <form className="tag-form" onSubmit={onAddTag}>
+        <label className="sr-only" htmlFor={tagInputId}>
+          {t("details.actions.addTagPlaceholder")}
+        </label>
         <input
+          id={tagInputId}
           className="text-input"
           value={tagInput}
           onChange={(event) => onTagInputChange(event.target.value)}
           placeholder={t("details.actions.addTagPlaceholder")}
           disabled={isPending}
+          aria-invalid={error ? "true" : undefined}
+          aria-describedby={error ? tagErrorId : undefined}
         />
         <button className="secondary-button" type="submit" disabled={isPending}>
           {t("common.actions.addTag")}
         </button>
       </form>
-      {error ? <p className="tag-section__error">{error}</p> : null}
+      {error ? (
+        <p className="tag-section__error" id={tagErrorId} role="alert">
+          {error}
+        </p>
+      ) : null}
       {tags.length === 0 ? (
         <p>{t("details.notes.noTags")}</p>
       ) : (

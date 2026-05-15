@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import type { SVGProps } from "react";
+import type { ComponentType, SVGProps } from "react";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import SevenZipIcon from "../../assets/icons/navigation/7Z.svg?react";
@@ -15,6 +15,7 @@ import WavIcon from "../../assets/icons/navigation/wav.svg?react";
 import WordIcon from "../../assets/icons/navigation/Word.svg?react";
 import ZipIcon from "../../assets/icons/navigation/zip.svg?react";
 import { t } from "../../shared/text";
+import { MetricStrip, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame } from "../../shared/ui/components";
 import { SidebarIcon, type NavigationIconName } from "../../shared/ui/icons";
 import type { BookListItemVM } from "../../entities/book/types";
 import type { GameListItemVM } from "../../entities/game/types";
@@ -30,7 +31,7 @@ import { SystemStatusFeature } from "../system-status/SystemStatusFeature";
 
 const HOME_MODULE_PAGE_SIZE = 8;
 
-type HomeRowIcon = (props: SVGProps<SVGSVGElement>) => JSX.Element;
+type HomeRowIcon = ComponentType<SVGProps<SVGSVGElement>>;
 
 type HomeDashboardItem = {
   id: number;
@@ -323,54 +324,150 @@ export function HomeOverviewFeature() {
     queryKey: queryKeys.gamesList(gamesQueryParams),
     queryFn: () => listGames(gamesQueryParams),
   });
+  const moduleStats = [
+    {
+      label: t("features.homeOverview.dashboard.modules.documents.title"),
+      value: booksQuery.data?.total ?? 0,
+      tone: "info" as const,
+    },
+    {
+      label: t("features.homeOverview.dashboard.modules.media.title"),
+      value: mediaQuery.data?.total ?? 0,
+      tone: "primary" as const,
+    },
+    {
+      label: t("features.homeOverview.dashboard.modules.software.title"),
+      value: softwareQuery.data?.total ?? 0,
+      tone: "success" as const,
+    },
+    {
+      label: t("features.homeOverview.dashboard.modules.games.title"),
+      value: gamesQuery.data?.total ?? 0,
+      tone: "warning" as const,
+    },
+  ];
 
   return (
-    <section className="home-overview browse-surface browse-surface--home">
-      <SystemStatusFeature
-        eyebrow={t("features.homeOverview.systemOverviewEyebrow")}
-        title={t("settings.systemStatus.title")}
-        description={t("features.homeOverview.systemOverviewDescription")}
-        variant="compact"
-      />
+    <WorkbenchPage className="home-overview" variant="home">
+      <WorkbenchMasthead
+        eyebrow={t("features.homeOverview.launch.eyebrow")}
+        title={t("features.homeOverview.launch.title")}
+        description={t("features.homeOverview.launch.description")}
+        actions={
+          <>
+            <Link className="primary-button" to="/search">
+              {t("features.homeOverview.launch.primaryAction")}
+            </Link>
+            <Link className="secondary-button" to="/library">
+              {t("features.homeOverview.launch.secondaryAction")}
+            </Link>
+          </>
+        }
+      >
+        <MetricStrip className="home-launch-metrics" items={moduleStats} />
+      </WorkbenchMasthead>
 
-      <div className="home-dashboard-grid">
-        <HomeDashboardModule
-          emptyLabel={t("features.homeOverview.dashboard.modules.documents.empty")}
-          error={booksQuery.error instanceof Error ? booksQuery.error : null}
-          icon="books"
-          isLoading={booksQuery.isLoading}
-          items={(booksQuery.data?.items ?? []).map(mapBookItem)}
-          title={t("features.homeOverview.dashboard.modules.documents.title")}
-          viewAllTo="/books"
-        />
-        <HomeDashboardModule
-          emptyLabel={t("features.homeOverview.dashboard.modules.software.empty")}
-          error={softwareQuery.error instanceof Error ? softwareQuery.error : null}
-          icon="software"
-          isLoading={softwareQuery.isLoading}
-          items={(softwareQuery.data?.items ?? []).map(mapSoftwareItem)}
-          title={t("features.homeOverview.dashboard.modules.software.title")}
-          viewAllTo="/software"
-        />
-        <HomeDashboardModule
-          emptyLabel={t("features.homeOverview.dashboard.modules.media.empty")}
-          error={mediaQuery.error instanceof Error ? mediaQuery.error : null}
-          icon="media"
-          isLoading={mediaQuery.isLoading}
-          items={(mediaQuery.data?.items ?? []).map(mapMediaItem)}
-          title={t("features.homeOverview.dashboard.modules.media.title")}
-          viewAllTo="/library/media"
-        />
-        <HomeDashboardModule
-          emptyLabel={t("features.homeOverview.dashboard.modules.games.empty")}
-          error={gamesQuery.error instanceof Error ? gamesQuery.error : null}
-          icon="games"
-          isLoading={gamesQuery.isLoading}
-          items={(gamesQuery.data?.items ?? []).map(mapGameItem)}
-          title={t("features.homeOverview.dashboard.modules.games.title")}
-          viewAllTo="/library/games"
-        />
+      <div className="home-launch-grid">
+        <section className="home-workflow-panel" aria-label={t("features.homeOverview.workflow.ariaLabel")}>
+          <div className="home-workflow-panel__header">
+            <span className="workbench-eyebrow">{t("features.homeOverview.workflow.eyebrow")}</span>
+            <h4>{t("features.homeOverview.workflow.title")}</h4>
+          </div>
+          <div className="home-workflow-lane">
+            {[
+              {
+                to: "/search",
+                icon: "search" as const,
+                titleKey: "features.homeOverview.workflow.steps.find.title" as const,
+                descriptionKey: "features.homeOverview.workflow.steps.find.description" as const,
+              },
+              {
+                to: "/library",
+                icon: "files" as const,
+                titleKey: "features.homeOverview.workflow.steps.inspect.title" as const,
+                descriptionKey: "features.homeOverview.workflow.steps.inspect.description" as const,
+              },
+              {
+                to: "/tags",
+                icon: "tags" as const,
+                titleKey: "features.homeOverview.workflow.steps.tag.title" as const,
+                descriptionKey: "features.homeOverview.workflow.steps.tag.description" as const,
+              },
+              {
+                to: "/library/media",
+                icon: "media" as const,
+                titleKey: "features.homeOverview.workflow.steps.browse.title" as const,
+                descriptionKey: "features.homeOverview.workflow.steps.browse.description" as const,
+              },
+            ].map((step, index) => (
+              <Link className="home-workflow-step" key={step.to} to={step.to}>
+                <span className="home-workflow-step__index">{String(index + 1).padStart(2, "0")}</span>
+                <span className="home-workflow-step__icon" aria-hidden="true">
+                  <SidebarIcon name={step.icon} />
+                </span>
+                <span className="home-workflow-step__copy">
+                  <strong>{t(step.titleKey)}</strong>
+                  <span>{t(step.descriptionKey)}</span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <div className="home-launch-grid__status">
+          <SystemStatusFeature
+            eyebrow={t("features.homeOverview.systemOverviewEyebrow")}
+            title={t("settings.systemStatus.title")}
+            description={t("features.homeOverview.systemOverviewDescription")}
+            variant="compact"
+          />
+        </div>
       </div>
-    </section>
+
+      <WorkbenchResultFrame
+        className="home-module-frame"
+        title={t("features.homeOverview.dashboard.title")}
+        meta={t("features.homeOverview.dashboard.description")}
+      >
+        <div className="home-dashboard-grid">
+          <HomeDashboardModule
+            emptyLabel={t("features.homeOverview.dashboard.modules.documents.empty")}
+            error={booksQuery.error instanceof Error ? booksQuery.error : null}
+            icon="books"
+            isLoading={booksQuery.isLoading}
+            items={(booksQuery.data?.items ?? []).map(mapBookItem)}
+            title={t("features.homeOverview.dashboard.modules.documents.title")}
+            viewAllTo="/books"
+          />
+          <HomeDashboardModule
+            emptyLabel={t("features.homeOverview.dashboard.modules.software.empty")}
+            error={softwareQuery.error instanceof Error ? softwareQuery.error : null}
+            icon="software"
+            isLoading={softwareQuery.isLoading}
+            items={(softwareQuery.data?.items ?? []).map(mapSoftwareItem)}
+            title={t("features.homeOverview.dashboard.modules.software.title")}
+            viewAllTo="/software"
+          />
+          <HomeDashboardModule
+            emptyLabel={t("features.homeOverview.dashboard.modules.media.empty")}
+            error={mediaQuery.error instanceof Error ? mediaQuery.error : null}
+            icon="media"
+            isLoading={mediaQuery.isLoading}
+            items={(mediaQuery.data?.items ?? []).map(mapMediaItem)}
+            title={t("features.homeOverview.dashboard.modules.media.title")}
+            viewAllTo="/library/media"
+          />
+          <HomeDashboardModule
+            emptyLabel={t("features.homeOverview.dashboard.modules.games.empty")}
+            error={gamesQuery.error instanceof Error ? gamesQuery.error : null}
+            icon="games"
+            isLoading={gamesQuery.isLoading}
+            items={(gamesQuery.data?.items ?? []).map(mapGameItem)}
+            title={t("features.homeOverview.dashboard.modules.games.title")}
+            viewAllTo="/library/games"
+          />
+        </div>
+      </WorkbenchResultFrame>
+    </WorkbenchPage>
   );
 }

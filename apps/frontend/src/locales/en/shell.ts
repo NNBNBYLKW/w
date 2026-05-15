@@ -1,9 +1,19 @@
 export const shell = {
+  skipToContent: "Skip to main workbench content",
   sidebar: {
     eyebrow: "Local-first asset workbench",
     title: "Asset Workbench",
     expand: "Expand sidebar",
     collapse: "Collapse sidebar",
+    navigationLabel: "Workbench navigation",
+    groups: {
+      operate: "Operate",
+      browse: "Browse",
+      refind: "Refind",
+      system: "System",
+    },
+    footerKicker: "local-first",
+    footerCopy: "find · inspect · tag · browse",
   },
   topbar: {
     eyebrow: "Windows Local Asset Workbench",

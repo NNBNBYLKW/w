@@ -332,6 +332,13 @@ class LibraryOrganizeService:
         if not valid_candidates:
             raise HTTPException(status_code=400, detail="At least one candidate is required.")
 
+        non_pending = [c for c in valid_candidates if c.status != "pending"]
+        if non_pending:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Candidates not in 'pending' status: {[c.id for c in non_pending]}. Only 'pending' candidates can generate plans.",
+            )
+
         selected_template: dict | None = None
         if template_key:
             selected_template = self._get_template(template_key)
@@ -553,8 +560,8 @@ class LibraryOrganizeService:
         plan = self.repository.get_plan(session, action.plan_id)
         if plan is None:
             raise HTTPException(status_code=404, detail="Organize plan not found.")
-        if plan.status != "draft":
-            raise HTTPException(status_code=400, detail="Only draft plan actions can be edited.")
+        if plan.status not in {"draft", "ready"}:
+            raise HTTPException(status_code=400, detail="Only draft or ready plan actions can be edited.")
         if target_path is not None:
             action.target_path = target_path.strip() or None
         if payload_json is not None:
@@ -564,7 +571,12 @@ class LibraryOrganizeService:
         if reason is not None:
             action.reason = reason.strip() or None
         action.updated_at = _now()
-        plan.updated_at = action.updated_at
+        if plan.status == "ready":
+            plan.status = "draft"
+            plan.confirmed_at = None
+            plan.updated_at = action.updated_at
+        else:
+            plan.updated_at = action.updated_at
         self._refresh_action_conflict(session, action, plan)
         session.commit()
         return self.get_plan_detail(session, plan.id)
@@ -600,6 +612,11 @@ class LibraryOrganizeService:
             raise HTTPException(status_code=400, detail="Only draft or ready plans can be cancelled.")
         plan.status = "cancelled"
         plan.updated_at = _now()
+        now = _now()
+        for candidate in self.repository.list_plan_candidates(session, plan.id):
+            if candidate.status == "added_to_plan":
+                candidate.status = "pending"
+                candidate.updated_at = now
         session.commit()
         return self.get_plan_detail(session, plan.id)
 
@@ -623,7 +640,7 @@ class LibraryOrganizeService:
                 failed = 0
                 skipped = 0
                 succeeded = 0
-                stop_after_failure = False
+                failed_actions: list[OrganizeAction] = []
                 for action in self.repository.list_plan_actions(session, plan.id):
                     if action.status == "cancelled":
                         action.status = "skipped"
@@ -636,9 +653,11 @@ class LibraryOrganizeService:
                         continue
                     if action.status != "ready":
                         continue
-                    if stop_after_failure:
+
+                    dep_failed, dep_reason = self._check_dependency_failure(action, failed_actions)
+                    if dep_failed:
                         action.status = "skipped"
-                        action.error_message = "Skipped after a previous action failed."
+                        action.error_message = dep_reason
                         action.finished_at = _now()
                         action.updated_at = action.finished_at
                         skipped += 1
@@ -677,7 +696,7 @@ class LibraryOrganizeService:
                         action.finished_at = _now()
                         action.updated_at = action.finished_at
                         failed += 1
-                        stop_after_failure = True
+                        failed_actions.append(action)
                         self._log_event(
                             session,
                             plan.id,
@@ -697,6 +716,11 @@ class LibraryOrganizeService:
                 plan.execution_finished_at = now
                 plan.executed_at = now
                 plan.status = "completed" if failed == 0 and skipped == 0 else "completed_with_errors"
+
+                if plan.status == "completed":
+                    for candidate in self.repository.list_plan_candidates(session, plan.id):
+                        candidate.status = "resolved"
+                        candidate.updated_at = now
 
                 affected_source_ids: list[int] = []
                 affected_library_root_ids: list[int] = []
@@ -747,6 +771,40 @@ class LibraryOrganizeService:
                     session.commit()
         finally:
             ORGANIZE_EXECUTION_LOCK.release()
+
+    @staticmethod
+    def _check_dependency_failure(action: OrganizeAction, failed_actions: list[OrganizeAction]) -> tuple[bool, str | None]:
+        """Check if an action depends on any previously failed action.
+
+        Returns (should_skip, reason).  Only actions whose target path falls under
+        a failed mkdir directory, or whose target parent matches a failed move's
+        target parent, are skipped.  Unrelated candidates continue unaffected.
+        """
+        if not failed_actions:
+            return False, None
+
+        action_target = Path(action.target_path) if action.target_path else None
+
+        for failed in failed_actions:
+            failed_target = Path(failed.target_path) if failed.target_path else None
+
+            if failed.action_type == "mkdir" and failed_target is not None and action_target is not None:
+                if is_path_within(action_target, failed_target):
+                    return True, f"Failed dependency: mkdir '{failed.target_path}' failed, blocking descendant action."
+
+            if failed.action_type in {"move", "rename"} and failed_target is not None and action_target is not None:
+                if action.action_type == "write_asset_yaml" and action_target.parent == failed_target.parent:
+                    return True, f"Failed dependency: move to '{failed.target_path}' failed, cannot write asset.yaml in the same directory."
+
+            if failed.action_type == "write_asset_yaml" and failed_target is not None and action_target is not None:
+                if action.action_type == "write_asset_yaml_update" and action_target == failed_target:
+                    return True, f"Failed dependency: asset.yaml write failed, cannot update the same file."
+
+            if failed.action_type == "backup_asset_yaml" and failed_target is not None and action_target is not None:
+                if action.action_type == "write_asset_yaml_update" and action_target.parent == failed_target.parent:
+                    return True, f"Failed dependency: backup_asset_yaml failed, cannot update the same asset.yaml."
+
+        return False, None
 
     def _run_preflight(self, session: Session, plan: OrganizePlan) -> list[OrganizeAction]:
         actions = self.repository.list_plan_actions(session, plan.id)
@@ -1817,6 +1875,8 @@ def _detect_file_type(file: File) -> tuple[str, str, str]:
         return "clip", "low", "Video file does not have a strong object pattern."
     if extension == ".exe":
         return "game", "low", "Executable file may belong to a game object but needs review."
+    if extension in {".bat", ".cmd", ".ps1", ".sh", ".py", ".rb", ".pl"}:
+        return "software", "low", "Detected as script or executable file."
     if extension in IMAGE_EXTENSIONS:
         return "imgset", "low", "Image file may belong to an image set."
     if extension in DOCUMENT_EXTENSIONS:

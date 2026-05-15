@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t } from "../../shared/text";
+import { WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
 import type { FileListSortOrder } from "../../entities/file/types";
 import type { RecentActivityListItemVM, RecentFamilyKind, RecentRangeValue } from "../../entities/recent/types";
 import { BatchActionBar } from "../batch-organize/BatchActionBar";
@@ -206,15 +207,16 @@ export function RecentImportsFeature() {
         : t("features.recent.descriptions.colorTagged", { range: selectedRangeLabel });
 
   return (
-    <section className="feature-shell refind-surface refind-surface--recent">
-      <div className="feature-header refind-surface__header">
-        <span className="page-header__eyebrow">{t("features.recent.eyebrow")}</span>
-        <h3>{t("features.recent.title")}</h3>
-        <p>{t("features.recent.description")}</p>
-      </div>
+    <WorkbenchPage className="refind-surface refind-surface--recent" variant="recent">
+      <WorkbenchMasthead
+        eyebrow={t("features.recent.eyebrow")}
+        title={t("features.recent.title")}
+        description={t("features.recent.description")}
+      />
 
-      <div className="recent-toolbar">
-        <div className="recent-range-switch" aria-label={t("pages.recent.title")}>
+      <div className="recent-workbench-layout">
+        <WorkbenchFilterPanel className="recent-command-panel">
+          <div className="recent-range-switch" aria-label={t("pages.recent.title")}>
           {familyOptions.map((option) => (
             <button
               key={option.value}
@@ -228,8 +230,8 @@ export function RecentImportsFeature() {
               {option.label}
             </button>
           ))}
-        </div>
-        <div className="recent-range-switch" aria-label={t("pages.recent.eyebrow")}>
+          </div>
+          <div className="recent-range-switch" aria-label={t("pages.recent.eyebrow")}>
           {rangeOptions.map((option) => (
             <button
               key={option.value}
@@ -243,8 +245,8 @@ export function RecentImportsFeature() {
               {option.label}
             </button>
           ))}
-        </div>
-        <label className="field-stack recent-toolbar__field">
+          </div>
+          <label className="field-stack recent-toolbar__field">
           <span>{t("common.labels.order")}</span>
           <select
             className="select-input"
@@ -257,57 +259,59 @@ export function RecentImportsFeature() {
             <option value="desc">{t("common.sortOrder.newestFirst")}</option>
             <option value="asc">{t("common.sortOrder.oldestFirst")}</option>
           </select>
-        </label>
-      </div>
+          </label>
+        </WorkbenchFilterPanel>
 
-      <div className="recent-meta-row">
-        <p>{familyDescription}</p>
-        <div className="files-meta-row__actions">
-          {activeQuery.data ? <span>{t("common.labels.files", { count: activeQuery.data.total })}</span> : null}
-          {family === "imports" && !isBatchMode ? (
-            <button className="ghost-button" type="button" onClick={enterBatchMode}>
-              {t("common.actions.batchOrganize")}
-            </button>
+        <div className="recent-workbench-layout__stream">
+          <WorkbenchToolbar className="recent-meta-row">
+            <p>{familyDescription}</p>
+            <div className="files-meta-row__actions">
+              {activeQuery.data ? <span>{t("common.labels.files", { count: activeQuery.data.total })}</span> : null}
+              {family === "imports" && !isBatchMode ? (
+                <button className="ghost-button" type="button" onClick={enterBatchMode}>
+                  {t("common.actions.batchOrganize")}
+                </button>
+              ) : null}
+            </div>
+          </WorkbenchToolbar>
+
+          {family === "imports" && isBatchMode ? (
+            <BatchActionBar
+              isApplyingColorTag={isApplyingColorTag}
+              isApplyingPlacement={isApplyingPlacement}
+              isApplyingTag={isApplyingTag}
+              onApplyColorTag={(colorTag) => applyColorTag(selectedIds, colorTag)}
+              onApplyPlacement={(manualPlacement) => applyPlacement(selectedIds, manualPlacement)}
+              onApplyTag={(name) => applyTag(selectedIds, name)}
+              onClearSelection={clearSelection}
+              onExitBatchMode={exitBatchMode}
+              selectedCount={selectedCount}
+            />
           ) : null}
-        </div>
-      </div>
 
-      {family === "imports" && isBatchMode ? (
-        <BatchActionBar
-          isApplyingColorTag={isApplyingColorTag}
-          isApplyingPlacement={isApplyingPlacement}
-          isApplyingTag={isApplyingTag}
-          onApplyColorTag={(colorTag) => applyColorTag(selectedIds, colorTag)}
-          onApplyPlacement={(manualPlacement) => applyPlacement(selectedIds, manualPlacement)}
-          onApplyTag={(name) => applyTag(selectedIds, name)}
-          onClearSelection={clearSelection}
-          onExitBatchMode={exitBatchMode}
-          selectedCount={selectedCount}
-        />
-      ) : null}
+          <WorkbenchResultFrame className="recent-result-frame" title={t("features.recent.title")}>
+            {activeQuery.isLoading ? <p role="status" aria-live="polite">{t("features.recent.loading")}</p> : null}
 
-      {activeQuery.isLoading ? <p>{t("features.recent.loading")}</p> : null}
+            {activeQuery.error instanceof Error ? (
+              <div className="status-block page-card">
+                <strong>{t("features.recent.failedTitle")}</strong>
+                <p>{activeQuery.error.message}</p>
+              </div>
+            ) : null}
 
-      {activeQuery.error instanceof Error ? (
-        <div className="status-block page-card">
-          <strong>{t("features.recent.failedTitle")}</strong>
-          <p>{activeQuery.error.message}</p>
-        </div>
-      ) : null}
+            {activeQuery.data && items.length === 0 ? (
+              <div className="future-frame">
+                {family === "imports"
+                  ? t("features.recent.emptyImports")
+                  : family === "tagged"
+                    ? t("features.recent.emptyTagged")
+                    : t("features.recent.emptyColorTagged")}
+              </div>
+            ) : null}
 
-      {activeQuery.data && items.length === 0 ? (
-        <div className="future-frame">
-          {family === "imports"
-            ? t("features.recent.emptyImports")
-            : family === "tagged"
-              ? t("features.recent.emptyTagged")
-              : t("features.recent.emptyColorTagged")}
-        </div>
-      ) : null}
-
-      {activeQuery.data && items.length > 0 ? (
-        <>
-          <div className="recent-list">
+            {activeQuery.data && items.length > 0 ? (
+              <>
+                <div className="recent-list">
             {items.map((item) => {
               const subsetTarget = getSubsetTarget(item);
               const isImportsBatch = family === "imports" && isBatchMode;
@@ -364,8 +368,8 @@ export function RecentImportsFeature() {
                 </div>
               );
             })}
-          </div>
-          <div className="recent-pager">
+                </div>
+                <div className="recent-pager">
             <button
               className="secondary-button"
               type="button"
@@ -383,9 +387,12 @@ export function RecentImportsFeature() {
             >
               {t("common.actions.next")}
             </button>
-          </div>
-        </>
-      ) : null}
-    </section>
+                </div>
+              </>
+            ) : null}
+          </WorkbenchResultFrame>
+        </div>
+      </div>
+    </WorkbenchPage>
   );
 }

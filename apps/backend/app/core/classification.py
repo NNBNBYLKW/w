@@ -50,6 +50,7 @@ DOCUMENT_EXTENSIONS = {
 EBOOK_EXTENSIONS = {"azw3", "epub", "mobi", "pdf"}
 ARCHIVE_EXTENSIONS = {"7z", "gz", "rar", "tar", "zip"}
 EXECUTABLE_EXTENSIONS = {"exe"}
+SCRIPT_EXTENSIONS = {"bat", "cmd", "ps1", "sh", "py", "rb", "pl"}
 INSTALLER_EXTENSIONS = {"appx", "msi", "msix"}
 SHORTCUT_EXTENSIONS = {"lnk"}
 
@@ -130,6 +131,8 @@ def classify_file(extension: str | None, path: str | None = None, source_path: s
             FILE_KIND_SHORTCUT,
             PLACEMENT_GAMES if _has_game_path_hint(candidate_path) else PLACEMENT_NONE,
         )
+    if normalized_extension in SCRIPT_EXTENSIONS:
+        return ClassificationResult(FILE_KIND_EXECUTABLE, PLACEMENT_SOFTWARE)
     if normalized_extension in DOCUMENT_EXTENSIONS:
         return ClassificationResult(FILE_KIND_DOCUMENT, PLACEMENT_BOOKS)
 

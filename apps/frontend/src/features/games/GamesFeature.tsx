@@ -277,6 +277,8 @@ function GamesLibraryRow({
               className={`compact-library-table__thumb-image${displayInfo.thumbnailFit === "contain" ? " compact-library-table__thumb-image--contain" : ""} compact-library-table__thumb-image--ready`}
               src={thumbnail.imageSrc}
               alt=""
+              width={44}
+              height={44}
               loading="lazy"
               onError={thumbnail.onError}
               onLoad={thumbnail.onLoad}

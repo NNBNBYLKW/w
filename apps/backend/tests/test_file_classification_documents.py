@@ -1,7 +1,7 @@
 import sqlite3
 import unittest
 
-from app.core.classification import FILE_KIND_ARCHIVE, FILE_KIND_DOCUMENT, FILE_KIND_EBOOK, PLACEMENT_BOOKS, PLACEMENT_NONE, classify_file
+from app.core.classification import FILE_KIND_ARCHIVE, FILE_KIND_DOCUMENT, FILE_KIND_EBOOK, FILE_KIND_EXECUTABLE, PLACEMENT_BOOKS, PLACEMENT_NONE, PLACEMENT_SOFTWARE, classify_file
 from app.db.session.engine import _backfill_file_classification, _ensure_classification_columns
 
 
@@ -79,6 +79,34 @@ class FileClassificationDocumentsTestCase(unittest.TestCase):
         self.assertEqual((2, "document", "books", "files_only"), rows[2])
         self.assertEqual((3, "document", "books", None), rows[3])
 
+
+    def test_script_extensions_classified_as_executable_software(self) -> None:
+        cases = ["bat", "cmd", "ps1", "sh", "py", "rb", "pl"]
+        for extension in cases:
+            with self.subTest(extension=extension):
+                result = classify_file(extension, path=f"D:\\Scripts\\script.{extension}")
+                self.assertEqual(FILE_KIND_EXECUTABLE, result.file_kind)
+                self.assertEqual(PLACEMENT_SOFTWARE, result.auto_placement)
+
+    def test_script_extensions_not_video_or_document(self) -> None:
+        for extension in ["bat", "cmd", "ps1", "sh", "py", "rb", "pl"]:
+            with self.subTest(extension=extension):
+                result = classify_file(extension, path=f"D:\\Test\\file.{extension}")
+                self.assertNotEqual("video", result.file_kind)
+                self.assertNotEqual("document", result.file_kind)
+                self.assertNotEqual("ebook", result.file_kind)
+                self.assertNotEqual("image", result.file_kind)
+
+    def test_existing_video_extensions_still_video(self) -> None:
+        cases = ["mp4", "mkv", "mov", "avi"]
+        for extension in cases:
+            with self.subTest(extension=extension):
+                result = classify_file(extension, path=f"D:\\Media\\movie.{extension}")
+                self.assertEqual("video", result.file_kind)
+
+    def test_existing_executable_exe_still_executable(self) -> None:
+        result = classify_file("exe", path="D:\\Software\\app.exe")
+        self.assertEqual(FILE_KIND_EXECUTABLE, result.file_kind)
 
 if __name__ == "__main__":
     unittest.main()
