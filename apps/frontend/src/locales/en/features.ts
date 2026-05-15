@@ -230,6 +230,10 @@ export const features = {
       reason: "Reason",
       ignore: "Ignore candidate",
       scanResult: "Scanned {count} candidate sources",
+      selectCurrentPage: "Select current page",
+      clearSelection: "Clear selection",
+      selectedCount: "Selected {count} items",
+      selectHint: "Select items to organize",
       statusPending: "Pending",
       statusAdded: "Added to plan",
       statusIgnored: "Ignored",
@@ -363,6 +367,7 @@ export const features = {
       cancel: "Cancel",
       import: "Import",
       emptyBatchHint: "Empty batch — no files imported",
+      batchConfirmAndPlan: "Confirm and create draft plan",
       batchSummary: "Batch #{id} — {status}",
       batchStatus: {
         created: "Created",

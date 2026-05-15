@@ -325,6 +325,27 @@ export function LibraryPendingPanel() {
           {candidatesQuery.data && candidatesQuery.data.items.length === 0 ? (
             <EmptyState title={t("features.library.pending.empty")} description={t("features.library.organize.scanCandidates")} action={{ label: t("features.library.organize.scanCandidates"), onClick: () => scanMutation.mutate() }} />
           ) : null}
+          {candidatesQuery.data && candidatesQuery.data.items.length > 0 ? (
+            <div className="library-pending-toolbar">
+              <span className="library-pending-selected-count">
+                {selectedIds.length > 0
+                  ? t("features.library.pending.selectedCount", { count: String(selectedIds.length) })
+                  : t("features.library.pending.selectHint")}
+              </span>
+              {selectedIds.length > 0 && (
+                <button className="secondary-button" type="button" onClick={() => setSelectedIds([])}>
+                  {t("features.library.pending.clearSelection")}
+                </button>
+              )}
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => setSelectedIds(candidatesQuery.data.items.map(c => c.id))}
+              >
+                {t("features.library.pending.selectCurrentPage")}
+              </button>
+            </div>
+          ) : null}
           {candidatesQuery.data ? (
             <CandidateList
               candidates={candidatesQuery.data.items}

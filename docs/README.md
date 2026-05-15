@@ -65,6 +65,18 @@ Phase 6 is complete. Beta is ready for testing.
 - [RECOVERY_GUIDE.md](RECOVERY_GUIDE.md)
   - Troubleshooting for 11 common scenarios
 
+### Library v2 Docs
+
+Library v2 Phase 7A–7F is complete. Managed library workflow: import, review, organize, execute, storage scope, recovery.
+
+- [Library v2 Overview](library-v2/README.md) — What Library v2 is and how it works
+- [Phase 7 Completion Report](library-v2/PHASE7_COMPLETION_REPORT.md) — Per-phase summary and test results
+- [Architecture](library-v2/ARCHITECTURE.md) — Data flow, storage states, service layers, AI boundary
+- [API Reference](library-v2/API_REFERENCE.md) — All Library v2 endpoints
+- [Manual Acceptance Guide](library-v2/MANUAL_ACCEPTANCE_GUIDE.md) — Step-by-step smoke tests
+- [Known Limitations](library-v2/KNOWN_LIMITATIONS.md) — Current constraints and future backlog
+- [Beta Testing Checklist](library-v2/BETA_TESTING_CHECKLIST.md) — QA checklist for testers
+
 ### Library Roadmap Docs
 
 Library Phases 1-4 已实现，Phase 5A 已实现（执行后对账与重新扫描提示），Phase 5B/5C/5D 为下一阶段规划。Managed library roots（受管库根目录）及 cross-source targeting（跨来源目标定向）已实现并集成于 Phases 1-4：

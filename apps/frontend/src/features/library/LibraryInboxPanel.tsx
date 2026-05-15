@@ -117,9 +117,45 @@ export function LibraryInboxPanel() {
     finally { setLoading(false); }
   }
 
+  // Map file_kind to default object type when detected_object_type is missing
+  const defaultObjectType = useCallback((item: InboxItemVM) => {
+    if (item.detected_object_type) return item.detected_object_type;
+    const k = item.detected_file_kind;
+    if (k === "video") return "clip";
+    if (k === "image") return "image";
+    if (k === "audio") return "clip";
+    if (k === "document" || k === "ebook") return "docset";
+    if (k === "executable" || k === "installer") return "software";
+    if (k === "archive") return "";
+    return "";
+  }, []);
+
+  const defaultRootId = useMemo(() => {
+    const r = enabledRoots.find(r => r.is_default) || enabledRoots[0];
+    return r?.id ?? null;
+  }, [enabledRoots]);
+
   async function loadItems(batchId: number | null, p = 1) {
     setLoading(true); setError(null);
-    try { const r = await listInboxItems(p, pageSize, undefined, batchId ?? undefined); setItems(r.items); setTotalItems(r.total); setPage(p); }
+    try {
+      const r = await listInboxItems(p, pageSize, undefined, batchId ?? undefined);
+      setItems(r.items); setTotalItems(r.total); setPage(p);
+      // auto-default review state for unconfigured items
+      setReviewStates(prev => {
+        const next = { ...prev };
+        for (const item of r.items) {
+          if (!next[item.id]) {
+            next[item.id] = {
+              finalType: defaultObjectType(item),
+              targetRootId: defaultRootId,
+              launchFileId: null,
+              busy: false,
+            };
+          }
+        }
+        return next;
+      });
+    }
     catch { setError(t("features.library.inbox.errors.loadFailed")); }
     finally { setLoading(false); }
   }
@@ -250,6 +286,47 @@ export function LibraryInboxPanel() {
     finally { updateReviewState(itemId, { busy: false }); }
   }
 
+  // ── Batch confirm + draft plan ──────────────────────
+
+  async function handleBatchConfirmAndPlan() {
+    const batchItems = items.filter(item =>
+      item.status !== "organized" && item.status !== "rejected" && item.status !== "archived"
+    );
+    let confirmed = 0, candidates = 0, plans = 0, skipped = 0, failed = 0;
+    const skipReasons: string[] = [];
+
+    setImporting(true); setError(null);
+    for (const item of batchItems) {
+      const rs = getReviewState(item.id);
+      if (!rs.finalType || !rs.targetRootId) {
+        skipped++;
+        skipReasons.push(`#${item.id}: missing ${!rs.finalType ? "final type" : "target root"}`);
+        continue;
+      }
+      try {
+        await confirmInboxItem(item.id, { final_object_type: rs.finalType, target_library_root_id: rs.targetRootId });
+        confirmed++;
+        const cand = await createCandidateFromInboxItem(item.id);
+        updateReviewState(item.id, { candidateId: cand.candidate_id });
+        candidates++;
+        const plan = await generateDraftPlan([cand.candidate_id]);
+        updateReviewState(item.id, { planId: plan.plan_id });
+        plans++;
+      } catch (err) {
+        failed++;
+        skipReasons.push(`#${item.id}: ${String(err)}`);
+      }
+    }
+    setImporting(false);
+    await loadBatches();
+    await loadItems(selectedBatchId);
+    setImportResult({
+      batch_id: selectedBatchId ?? 0,
+      created_items: [{ confirmed, candidates, plans } as unknown as Record<string, unknown>],
+      failed_items: skipReasons.map(r => ({ path: r, error: "" })),
+    } as unknown as ImportFilesResponse);
+  }
+
   // ── Path modal ─────────────────────────────────────────
 
   function handlePathModalConfirm() {
@@ -280,6 +357,11 @@ export function LibraryInboxPanel() {
         )}
         <button className="secondary-button" type="button" onClick={handleCreateBatch} disabled={importing}>{t("features.library.inbox.createBatch")}</button>
         <button className="secondary-button" type="button" onClick={() => setShowPathModal(true)} disabled={importing}>{t("features.library.inbox.enterPathsManually")}</button>
+        {items.length > 0 && enabledRoots.length > 0 && (
+          <button className="primary-button" type="button" onClick={handleBatchConfirmAndPlan} disabled={importing}>
+            {importing ? "…" : t("features.library.inbox.batchConfirmAndPlan")}
+          </button>
+        )}
         <span className="library-inbox-hint">{t("features.library.inbox.importModes.folderHint")}</span>
       </div>
 
@@ -470,8 +552,8 @@ export function LibraryInboxPanel() {
                         </select>
                         <button className="secondary-button" type="button" disabled={!canConfirm || rs.busy} onClick={() => handleConfirmInboxItem(item.id)} style={{fontSize:11}}>{t("features.library.inbox.review.confirm")}</button>
                         <button className="secondary-button" type="button" disabled={rs.busy} onClick={() => handleRejectInboxItem(item.id)} style={{fontSize:11}}>{t("features.library.inbox.review.reject")}</button>
-                        <button className="secondary-button" type="button" disabled={!canCreateCandidate || rs.busy} onClick={() => handleCreateCandidateFromItem(item.id)} style={{fontSize:11}}>+Candidate</button>
-                        <button className="secondary-button" type="button" disabled={!canGeneratePlan || rs.busy} onClick={() => handleGeneratePlanFromItem(item.id)} style={{fontSize:11}}>+Plan</button>
+                        <button className="secondary-button" type="button" disabled={!canCreateCandidate || rs.busy} onClick={() => handleCreateCandidateFromItem(item.id)} style={{fontSize:11}}>{t("features.library.inbox.review.createCandidate")}</button>
+                        <button className="secondary-button" type="button" disabled={!canGeneratePlan || rs.busy} onClick={() => handleGeneratePlanFromItem(item.id)} style={{fontSize:11}}>{t("features.library.inbox.review.generatePlan")}</button>
                       </div>
                     )}
                   </td>

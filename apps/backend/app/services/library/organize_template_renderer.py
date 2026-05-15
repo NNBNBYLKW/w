@@ -10,10 +10,16 @@ OBJECT_PREFIX = {
     "movie": "MOVIE",
     "anime": "ANIME",
     "game": "GAME",
+    "software": "SOFTWARE",
     "course": "COURSE",
     "imgset": "IMGSET",
     "docset": "DOCSET",
     "clip": "CLIP",
+    "video_collection": "VIDEO_COLL",
+    "clip_set": "CLIP_SET",
+    "movie_collection": "MOVIE_COLL",
+    "photo_event": "PHOTO_EVENT",
+    "web_image_set": "WEB_IMAGE",
 }
 
 

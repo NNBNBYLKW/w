@@ -385,3 +385,122 @@ class LibraryV2PathSyncTestCase(unittest.TestCase):
                 # verify plan exists and is draft
                 detail = client.get(f"/library/organize/plans/{plan_id}")
                 self.assertEqual("draft", detail.json()["plan"]["status"])
+
+    # ── object execute target not under inbox ──────────
+
+    def test_execute_software_object_moves_root_out_of_inbox(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root_dir = Path(td) / "Managed"
+            root_dir.mkdir()
+            root_id = self._seed_managed_root(root_dir)
+            src = Path(td) / "MyTool"
+            src.mkdir()
+            (src / "tool.exe").write_bytes(b"exe")
+            (src / "config.json").write_text("{}", encoding="utf-8")
+
+            with TestClient(app) as client:
+                plan_id = self._import_folder_and_plan(client, src, root_id, "software")
+                # verify plan actions have target NOT under 00_Inbox
+                detail = client.get(f"/library/organize/plans/{plan_id}")
+                for a in detail.json()["actions"]:
+                    if a.get("target_path"):
+                        self.assertNotIn("00_Inbox", a["target_path"],
+                            f"Action target should not be under 00_Inbox: {a['target_path']}")
+                self._mark_ready(client, plan_id)
+                self._execute(client, plan_id)
+
+            # verify files are NOT under 00_Inbox
+            with SessionLocal() as session:
+                managed = session.query(File).filter(File.storage_state == "managed").all()
+                for f in managed:
+                    self.assertNotIn("00_Inbox", f.path,
+                        f"Managed file should not be under 00_Inbox: {f.path}")
+
+    def test_execute_game_object_moves_root_out_of_inbox(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root_dir = Path(td) / "Managed"
+            root_dir.mkdir()
+            root_id = self._seed_managed_root(root_dir)
+            src = Path(td) / "MyGame"
+            src.mkdir()
+            (src / "Game.exe").write_bytes(b"exe")
+            (src / "UnityPlayer.dll").write_bytes(b"dll")
+            (src / "Game_Data").mkdir()
+            (src / "Game_Data/level0.dat").write_bytes(b"data")
+
+            with TestClient(app) as client:
+                plan_id = self._import_folder_and_plan(client, src, root_id, "game")
+                detail = client.get(f"/library/organize/plans/{plan_id}")
+                for a in detail.json()["actions"]:
+                    if a.get("target_path"):
+                        self.assertNotIn("00_Inbox", a["target_path"])
+                self._mark_ready(client, plan_id)
+                self._execute(client, plan_id)
+
+            with SessionLocal() as session:
+                managed = session.query(File).filter(File.storage_state == "managed").all()
+                for f in managed:
+                    self.assertNotIn("00_Inbox", f.path)
+
+    def test_object_plan_move_action_source_is_inbox_root(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root_dir = Path(td) / "Managed"
+            root_dir.mkdir()
+            root_id = self._seed_managed_root(root_dir)
+            src = Path(td) / "MyTool"
+            src.mkdir()
+            (src / "tool.exe").write_bytes(b"exe")
+
+            with TestClient(app) as client:
+                plan_id = self._import_folder_and_plan(client, src, root_id, "software")
+                detail = client.get(f"/library/organize/plans/{plan_id}")
+                move_action = None
+                for a in detail.json()["actions"]:
+                    if a["action_type"] == "move":
+                        move_action = a
+                        break
+                self.assertIsNotNone(move_action, "Object plan must have a move action")
+                self.assertIn("00_Inbox", move_action["source_path"],
+                    "Move source should be the inbox root path")
+
+    def test_object_execute_path_history_new_path_not_under_inbox(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root_dir = Path(td) / "Managed"
+            root_dir.mkdir()
+            root_id = self._seed_managed_root(root_dir)
+            src = Path(td) / "MyTool"
+            src.mkdir()
+            (src / "tool.exe").write_bytes(b"exe")
+            (src / "config.json").write_text("{}", encoding="utf-8")
+
+            with TestClient(app) as client:
+                plan_id = self._import_folder_and_plan(client, src, root_id, "software")
+                self._mark_ready(client, plan_id)
+                self._execute(client, plan_id)
+
+            from app.db.models.importing import FilePathHistory
+            with SessionLocal() as session:
+                histories = session.query(FilePathHistory).filter(
+                    FilePathHistory.reason == "library_v2_execute"
+                ).all()
+                self.assertGreater(len(histories), 0)
+                for h in histories:
+                    self.assertNotIn("00_Inbox", h.new_path,
+                        f"Path history new_path should not be under 00_Inbox: {h.new_path}")
+
+    def test_object_execute_preserves_original_source_folder(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root_dir = Path(td) / "Managed"
+            root_dir.mkdir()
+            root_id = self._seed_managed_root(root_dir)
+            src = Path(td) / "MyTool"
+            src.mkdir()
+            (src / "tool.exe").write_bytes(b"exe")
+
+            with TestClient(app) as client:
+                plan_id = self._import_folder_and_plan(client, src, root_id, "software")
+                self._mark_ready(client, plan_id)
+                self._execute(client, plan_id)
+
+            self.assertTrue(src.exists(), "Original source folder must be preserved")
+            self.assertTrue((src / "tool.exe").exists())

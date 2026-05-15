@@ -221,6 +221,10 @@ export const features = {
       reason: "原因",
       ignore: "忽略候选项",
       scanResult: "已扫描 {count} 个候选来源",
+      selectCurrentPage: "全选当前页",
+      clearSelection: "取消选择",
+      selectedCount: "已选择 {count} 项",
+      selectHint: "选择要整理的项",
       statusPending: "待处理",
       statusAdded: "已加入计划",
       statusIgnored: "已忽略",
@@ -354,6 +358,7 @@ export const features = {
       cancel: "取消",
       import: "导入",
       emptyBatchHint: "空批次 — 未导入文件",
+      batchConfirmAndPlan: "一键确认并生成草稿计划",
       batchSummary: "批次 #{id} — {status}",
       batchStatus: {
         created: "已创建",
