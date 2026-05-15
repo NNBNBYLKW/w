@@ -14,6 +14,22 @@ from app.services.software.service import SoftwareLibraryService
 
 
 router = APIRouter(tags=["library"])
+
+
+@router.get("/library/storage-summary")
+def storage_summary(db: Session = Depends(get_db)):
+    from sqlalchemy import func, select as sa_select
+    from app.db.models.file import File as FileModel
+    total = db.scalar(sa_select(func.count()).select_from(FileModel)) or 0
+    external = db.scalar(sa_select(func.count()).select_from(FileModel).where(FileModel.storage_state == "external")) or 0
+    inbox = db.scalar(sa_select(func.count()).select_from(FileModel).where(FileModel.storage_state == "inbox")) or 0
+    managed = db.scalar(sa_select(func.count()).select_from(FileModel).where(FileModel.storage_state == "managed")) or 0
+    return {
+        "total_count": total,
+        "external_count": external,
+        "inbox_count": inbox,
+        "managed_count": managed,
+    }
 books_library_service = BooksLibraryService()
 games_library_service = GamesLibraryService()
 media_library_service = MediaLibraryService()
@@ -24,6 +40,7 @@ software_library_service = SoftwareLibraryService()
 def list_books_library(
     tag_id: int | None = Query(default=None, ge=1),
     color_tag: ColorTagValue | None = Query(default=None),
+    storage_state: str | None = Query(default=None, pattern="^(external|inbox|managed)$"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=100),
     sort_by: FileListSortBy = Query(default="modified_at"),
@@ -33,6 +50,7 @@ def list_books_library(
     params = BooksListQueryParams(
         tag_id=tag_id,
         color_tag=color_tag,
+        storage_state=storage_state,
         page=page,
         page_size=page_size,
         sort_by=sort_by,
@@ -46,6 +64,7 @@ def list_games_library(
     status: FileStatusValue | None = Query(default=None),
     tag_id: int | None = Query(default=None, ge=1),
     color_tag: ColorTagValue | None = Query(default=None),
+    storage_state: str | None = Query(default=None, pattern="^(external|inbox|managed)$"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=100),
     sort_by: FileListSortBy = Query(default="modified_at"),
@@ -56,6 +75,7 @@ def list_games_library(
         status=status,
         tag_id=tag_id,
         color_tag=color_tag,
+        storage_state=storage_state,
         page=page,
         page_size=page_size,
         sort_by=sort_by,
@@ -68,6 +88,7 @@ def list_games_library(
 def list_software_library(
     tag_id: int | None = Query(default=None, ge=1),
     color_tag: ColorTagValue | None = Query(default=None),
+    storage_state: str | None = Query(default=None, pattern="^(external|inbox|managed)$"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=100),
     sort_by: FileListSortBy = Query(default="modified_at"),
@@ -77,6 +98,7 @@ def list_software_library(
     params = SoftwareListQueryParams(
         tag_id=tag_id,
         color_tag=color_tag,
+        storage_state=storage_state,
         page=page,
         page_size=page_size,
         sort_by=sort_by,
@@ -90,6 +112,7 @@ def list_media_library(
     view_scope: MediaViewScope = Query(default="all"),
     tag_id: int | None = Query(default=None, ge=1),
     color_tag: ColorTagValue | None = Query(default=None),
+    storage_state: str | None = Query(default=None, pattern="^(external|inbox|managed)$"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=100),
     sort_by: FileListSortBy = Query(default="modified_at"),
@@ -100,6 +123,7 @@ def list_media_library(
         view_scope=view_scope,
         tag_id=tag_id,
         color_tag=color_tag,
+        storage_state=storage_state,
         page=page,
         page_size=page_size,
         sort_by=sort_by,

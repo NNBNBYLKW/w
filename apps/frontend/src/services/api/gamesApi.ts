@@ -35,6 +35,9 @@ export async function listGames(input: GamesListQueryInput): Promise<GamesListRe
   if (input.color_tag) {
     params.set("color_tag", input.color_tag);
   }
+  if (input.storage_state) {
+    params.set("storage_state", input.storage_state);
+  }
   params.set("page", String(input.page));
   params.set("page_size", String(input.page_size));
   params.set("sort_by", input.sort_by);

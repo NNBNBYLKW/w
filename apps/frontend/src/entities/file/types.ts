@@ -57,10 +57,13 @@ export type FilesListResponseVM = {
   total: number;
 };
 
+export type StorageStateFilter = "external" | "inbox" | "managed";
+
 export type SearchQueryInput = {
   query?: string;
   file_type?: FileType;
   library_placement?: LibraryPlacementFilter;
+  storage_state?: StorageStateFilter;
   tag_id?: number;
   color_tag?: ColorTagValue;
   page: number;
@@ -117,6 +120,11 @@ export type FileDetailItemVM = {
         page_count: number | null;
       }
     | null;
+  storage_state?: string | null;
+  original_path?: string | null;
+  managed_root_id?: number | null;
+  managed_at?: string | null;
+  inbox_item_id?: number | null;
 };
 
 export type FileDetailResponseVM = {

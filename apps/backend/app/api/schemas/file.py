@@ -115,6 +115,11 @@ class FileDetailItemResponse(BaseModel):
     is_favorite: bool
     rating: FileRatingValue | None
     metadata: FileMetadataResponse | None
+    storage_state: str | None = None
+    original_path: str | None = None
+    managed_root_id: int | None = None
+    managed_at: datetime | None = None
+    inbox_item_id: int | None = None
 
 
 class FileDetailResponse(BaseModel):

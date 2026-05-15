@@ -11,6 +11,7 @@ MediaViewScope = Literal["all", "image", "video", "audio"]
 
 class MediaListQueryParams(BaseModel):
     view_scope: MediaViewScope = "all"
+    storage_state: Literal["external", "inbox", "managed"] | None = None
     tag_id: int | None = Field(default=None, ge=1)
     color_tag: ColorTagValue | None = None
     page: int = Field(default=1, ge=1)

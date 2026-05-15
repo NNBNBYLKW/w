@@ -59,5 +59,10 @@ class DetailsService:
                     if file_metadata is not None
                     else None
                 ),
+                storage_state=file.storage_state,
+                original_path=file.original_path,
+                managed_root_id=file.managed_root_id,
+                managed_at=file.managed_at,
+                inbox_item_id=file.inbox_item_id,
             )
         )

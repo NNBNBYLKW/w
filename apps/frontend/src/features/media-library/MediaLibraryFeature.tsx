@@ -10,7 +10,7 @@ import { useRetryingThumbnail, useThumbnailWarmup } from "../../shared/ui/thumbn
 import { BatchActionBar } from "../batch-organize/BatchActionBar";
 import { useBatchOrganizeActions } from "../batch-organize/useBatchOrganizeActions";
 import { useBatchSelection } from "../batch-organize/useBatchSelection";
-import type { ColorTagValue, FileListSortBy, FileListSortOrder } from "../../entities/file/types";
+import type { ColorTagValue, FileListSortBy, FileListSortOrder, StorageStateFilter } from "../../entities/file/types";
 import type { MediaViewScope } from "../../entities/media/types";
 import { getFileThumbnailUrl } from "../../services/api/fileDetailsApi";
 import {
@@ -296,6 +296,7 @@ export function MediaLibraryFeature() {
   ];
   const [searchParams, setSearchParams] = useSearchParams();
   const [viewScope, setViewScope] = useState<MediaViewScope>("all");
+  const [storageState, setStorageState] = useState<StorageStateFilter | "all">("all");
   const [selectedTagId, setSelectedTagId] = useState("all");
   const [selectedColorTag, setSelectedColorTag] = useState<ColorTagValue | "all">("all");
   const [sortBy, setSortBy] = useState<FileListSortBy>("modified_at");
@@ -326,6 +327,7 @@ export function MediaLibraryFeature() {
 
   const queryParams = {
     view_scope: viewScope,
+    storage_state: storageState === "all" ? undefined : storageState,
     tag_id: selectedTagId === "all" ? undefined : Number(selectedTagId),
     color_tag: selectedColorTag === "all" ? undefined : selectedColorTag,
     page,
@@ -554,6 +556,22 @@ export function MediaLibraryFeature() {
               ))}
             </div>
           </div>
+          <label className="field-stack media-library-toolbar__field compact-filter-toolbar__field">
+            <span>{t("common.labels.storageScope")}</span>
+            <select
+              className="select-input"
+              value={storageState}
+              onChange={(event) => {
+                setStorageState(event.target.value as StorageStateFilter | "all");
+                setPage(1);
+              }}
+            >
+              <option value="all">{t("common.storageScope.all")}</option>
+              <option value="external">{t("common.storageScope.external")}</option>
+              <option value="inbox">{t("common.storageScope.inbox")}</option>
+              <option value="managed">{t("common.storageScope.managed")}</option>
+            </select>
+          </label>
           <label className="field-stack media-library-toolbar__field compact-filter-toolbar__field">
             <span>{t("common.labels.tag")}</span>
             <select

@@ -9,7 +9,7 @@ import { useThumbnailWarmup } from "../../shared/ui/thumbnail";
 import { BatchActionBar } from "../batch-organize/BatchActionBar";
 import { useBatchOrganizeActions } from "../batch-organize/useBatchOrganizeActions";
 import { useBatchSelection } from "../batch-organize/useBatchSelection";
-import type { ColorTagValue, FileListSortBy, FileListSortOrder } from "../../entities/file/types";
+import type { ColorTagValue, FileListSortBy, FileListSortOrder, StorageStateFilter } from "../../entities/file/types";
 import type { BookFormat } from "../../entities/book/types";
 import { listBooks } from "../../services/api/booksApi";
 import { getFileThumbnailUrl } from "../../services/api/fileDetailsApi";
@@ -191,6 +191,7 @@ export function BooksFeature() {
   const [sortOrder, setSortOrder] = useState<FileListSortOrder>("desc");
   const [tagFilter, setTagFilter] = useState<number | null>(null);
   const [colorTagFilter, setColorTagFilter] = useState<ColorTagValue | null>(null);
+  const [storageState, setStorageState] = useState<StorageStateFilter | "all">("all");
   const [page, setPage] = useState(1);
   const entry = searchParams.get("entry");
   const requestedFocusId = searchParams.get("focus");
@@ -198,6 +199,7 @@ export function BooksFeature() {
   const queryParams = {
     tag_id: tagFilter ?? undefined,
     color_tag: colorTagFilter ?? undefined,
+    storage_state: storageState === "all" ? undefined : storageState,
     page,
     page_size: 50,
     sort_by: sortBy,
@@ -451,6 +453,22 @@ export function BooksFeature() {
             >
               <option value="desc">{t("common.sortOrder.descending")}</option>
               <option value="asc">{t("common.sortOrder.ascending")}</option>
+            </select>
+          </label>
+          <label className="field-stack files-toolbar__field compact-filter-toolbar__field">
+            <span>{t("common.labels.storageScope")}</span>
+            <select
+              className="select-input"
+              value={storageState}
+              onChange={(event) => {
+                setStorageState(event.target.value as StorageStateFilter | "all");
+                setPage(1);
+              }}
+            >
+              <option value="all">{t("common.storageScope.all")}</option>
+              <option value="external">{t("common.storageScope.external")}</option>
+              <option value="inbox">{t("common.storageScope.inbox")}</option>
+              <option value="managed">{t("common.storageScope.managed")}</option>
             </select>
           </label>
           <label className="field-stack files-toolbar__field compact-filter-toolbar__field">

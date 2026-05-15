@@ -29,6 +29,7 @@ class SearchService:
             file_type=params.file_type,
             file_kind=None,
             library_placement=normalized_library_placement,
+            storage_state=params.storage_state,
             tag_id=params.tag_id,
             color_tag=normalized_color_tag,
             page=params.page,

@@ -7,6 +7,15 @@ import { invalidateLibraryObjectSurfaces } from "../../services/query/invalidati
 import { getLibraryOverview, getOrganizeStats, scanLibraryObjects } from "../../services/api/libraryObjectsApi";
 import { formatTimestamp } from "./shared/helpers";
 
+async function getStorageSummary() {
+  const base = (
+    window as typeof window & { assetWorkbench?: { getBackendBaseUrl?: () => string } }
+  ).assetWorkbench?.getBackendBaseUrl?.() ?? import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
+  const res = await fetch(`${base}/library/storage-summary`);
+  if (!res.ok) throw new Error("Failed to load storage summary");
+  return res.json() as Promise<{ total_count: number; external_count: number; inbox_count: number; managed_count: number }>;
+}
+
 
 function LibraryPlaceholderPanel({
   eyebrow,
@@ -61,6 +70,42 @@ function ScanObjectsButton() {
       </button>
       {scanResult ? <small>{scanResult}</small> : null}
       {mutation.isError ? <small className="danger-text">{(mutation.error as Error).message}</small> : null}
+    </div>
+  );
+}
+
+function StorageSummarySection() {
+  const q = useQuery({
+    queryKey: ["storage-summary"],
+    queryFn: getStorageSummary,
+    refetchOnWindowFocus: false,
+  });
+  const d = q.data;
+  return (
+    <div className="library-overview-card">
+      <span className="page-header__eyebrow">{t("features.library.storageSummary.eyebrow")}</span>
+      {q.isLoading ? <p>{t("common.states.loading")}</p> : null}
+      {q.isError ? <p className="muted-text">{t("features.library.storageSummary.unavailable")}</p> : null}
+      {d ? (
+        <div className="library-stat-grid">
+          <div className="library-stat-card">
+            <span>{t("features.library.storageSummary.totalFiles")}</span>
+            <strong>{d.total_count.toLocaleString()}</strong>
+          </div>
+          <div className="library-stat-card">
+            <span>{t("features.library.storageSummary.external")}</span>
+            <strong>{d.external_count.toLocaleString()}</strong>
+          </div>
+          <div className="library-stat-card">
+            <span>{t("features.library.storageSummary.inbox")}</span>
+            <strong>{d.inbox_count.toLocaleString()}</strong>
+          </div>
+          <div className="library-stat-card">
+            <span>{t("features.library.storageSummary.managed")}</span>
+            <strong>{d.managed_count.toLocaleString()}</strong>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -127,6 +172,8 @@ export function LibraryOverviewPanel() {
         <p className="library-muted-line">
           {t("features.library.stats.lastScan")}: {formatTimestamp(stats?.last_object_scan_at)}
         </p>
+
+        <StorageSummarySection />
       </div>
       <ScanObjectsButton />
     </section>

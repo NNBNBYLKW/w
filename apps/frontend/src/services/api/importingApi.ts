@@ -240,3 +240,78 @@ export async function updateObjectCandidate(
   });
   return parseResponse<ObjectCandidateVM>(res);
 }
+
+// ── Inbox Item Review ──────────────────────────────────
+
+export async function updateInboxItem(
+  itemId: number,
+  data: { final_object_type?: string; target_library_root_id?: number },
+): Promise<InboxItemVM> {
+  const res = await fetch(`${BASE()}/inbox/items/${itemId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseResponse<InboxItemVM>(res);
+}
+
+export async function confirmInboxItem(
+  itemId: number,
+  data: { final_object_type: string; target_library_root_id?: number },
+): Promise<InboxItemVM> {
+  const res = await fetch(`${BASE()}/inbox/items/${itemId}/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseResponse<InboxItemVM>(res);
+}
+
+export async function rejectInboxItem(itemId: number): Promise<InboxItemVM> {
+  const res = await fetch(`${BASE()}/inbox/items/${itemId}/reject`, { method: "POST" });
+  return parseResponse<InboxItemVM>(res);
+}
+
+export async function createCandidateFromInboxItem(itemId: number): Promise<{ candidate_id: number }> {
+  const res = await fetch(`${BASE()}/inbox/items/${itemId}/create-candidate`, { method: "POST" });
+  return parseResponse<{ candidate_id: number }>(res);
+}
+
+// ── Object Candidate Review ────────────────────────────
+
+export async function confirmObjectCandidate(
+  candidateId: number,
+  data: { final_object_type: string; launch_file_id?: number; target_library_root_id?: number },
+): Promise<ObjectCandidateVM> {
+  const res = await fetch(`${BASE()}/object-candidates/${candidateId}/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseResponse<ObjectCandidateVM>(res);
+}
+
+export async function rejectObjectCandidate(candidateId: number): Promise<ObjectCandidateVM> {
+  const res = await fetch(`${BASE()}/object-candidates/${candidateId}/reject`, { method: "POST" });
+  return parseResponse<ObjectCandidateVM>(res);
+}
+
+export async function createCandidateFromObjectCandidate(
+  candidateId: number,
+): Promise<{ candidate_id: number; import_object_candidate_id: number }> {
+  const res = await fetch(`${BASE()}/object-candidates/${candidateId}/create-candidate`, { method: "POST" });
+  return parseResponse<{ candidate_id: number; import_object_candidate_id: number }>(res);
+}
+
+// ── Generate Draft Plan ────────────────────────────────
+
+export async function generateDraftPlan(candidateIds: number[]): Promise<{
+  plan_id: number; status: string; actions_count: number; blocked_count: number; warning_count: number;
+}> {
+  const res = await fetch(`${BASE()}/organize-plans`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ candidate_ids: candidateIds }),
+  });
+  return parseResponse(res);
+}

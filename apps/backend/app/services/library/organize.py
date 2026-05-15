@@ -709,6 +709,9 @@ class LibraryOrganizeService:
                         )
                         session.commit()
 
+                # Phase 7D: sync import-linked paths after successful moves
+                self._sync_import_paths_after_execute(session, plan_id)
+
                 plan = self.repository.get_plan(session, plan_id)
                 if plan is None:
                     return
@@ -1129,7 +1132,14 @@ class LibraryOrganizeService:
         order = 1
         for candidate in candidates:
             if candidate.source_kind == "file":
-                source_root = self._source_root_for_path(session, Path(candidate.source_path))
+                # For v2 imports, source is in managed root, not a source
+                source_path = Path(candidate.source_path)
+                source_root = self._source_root_for_path_safe(session, source_path)
+                if source_root is None and plan.target_library_root_id is not None:
+                    lib_root = self._resolve_root_for_mkdir_or_asset(session, source_path, plan)
+                    source_root = lib_root or source_path.parent
+                if source_root is None:
+                    source_root = source_path.parent
                 target_dir = self._target_dir(base_root, source_root, candidate, template)
                 target_file = target_dir / self._target_filename(candidate)
                 actions.append(self._make_action(plan.id, order, "mkdir", None, str(target_dir), None, "Create target object directory preview.", now))
@@ -1843,6 +1853,192 @@ class LibraryOrganizeService:
             return "asset_yaml_missing"
 
         return "unknown"
+
+    # ── Phase 7D: Library v2 path sync ──────────────────────
+
+    def _sync_import_paths_after_execute(self, session: Session, plan_id: int) -> None:
+        """After execute worker finishes actions, sync files.path for v2 import-linked
+        succeeded move actions. Only touches actions with inbox_item_id or
+        import_object_candidate_id set."""
+        from datetime import datetime as dt
+
+        actions = self.repository.list_plan_actions(session, plan_id)
+        plan = self.repository.get_plan(session, plan_id)
+        if plan is None:
+            return
+
+        managed_root_id = plan.target_library_root_id
+        now = dt.utcnow()
+
+        for action in actions:
+            if action.status != "succeeded":
+                continue
+            if action.action_type not in {"move", "rename"}:
+                continue
+            if action.inbox_item_id is None and action.import_object_candidate_id is None:
+                continue
+
+            try:
+                if action.inbox_item_id:
+                    self._sync_single_inbox_item(
+                        session, action, managed_root_id, now
+                    )
+                elif action.import_object_candidate_id:
+                    self._sync_object_candidate_members(
+                        session, action, managed_root_id, now
+                    )
+            except Exception as exc:
+                self._log_event(
+                    session, plan_id, action.id,
+                    "action_failed",
+                    f"Path sync failed: {exc}",
+                    path_before=action.source_path,
+                    path_after=action.target_path,
+                    error_message=str(exc),
+                )
+
+    def _sync_single_inbox_item(
+        self, session: Session, action: OrganizeAction,
+        managed_root_id: int | None, now: datetime,
+    ) -> None:
+        from app.db.models.importing import InboxItem
+        from app.repositories.importing.repository import ImportRepository
+
+        item = session.get(InboxItem, action.inbox_item_id)
+        if item is None or item.file_id is None:
+            return
+
+        file = session.get(File, item.file_id)
+        if file is None:
+            return
+
+        old_path = file.path
+        new_path = action.after_path or action.target_path
+        if not new_path:
+            return
+
+        # update file record
+        file.path = new_path
+        file.parent_path = str(Path(new_path).parent)
+        file.name = Path(new_path).name
+        file.storage_state = "managed"
+        file.managed_root_id = managed_root_id
+        file.managed_at = now
+        file.updated_at = now
+
+        # update inbox item
+        import_repo = ImportRepository()
+        import_repo.update_inbox_item_status(session, item, "organized")
+
+        # write path history
+        journal_id = self._append_path_sync_journal(
+            session, action, "path_sync", "file", file.id, old_path, new_path,
+        )
+        import_repo.append_path_history(
+            session,
+            file_id=file.id,
+            old_path=old_path,
+            new_path=new_path,
+            reason="library_v2_execute",
+            operation_journal_id=journal_id,
+        )
+
+        self._log_event(
+            session, action.plan_id, action.id, "path_synced",
+            f"Library v2: synced file {file.id} from {old_path} to {new_path}.",
+            path_before=old_path, path_after=new_path,
+        )
+
+    def _sync_object_candidate_members(
+        self, session: Session, action: OrganizeAction,
+        managed_root_id: int | None, now: datetime,
+    ) -> None:
+        from app.db.models.importing import ImportObjectCandidate, ImportObjectMember, InboxItem
+        from app.repositories.importing.repository import ImportRepository
+
+        oc = session.get(ImportObjectCandidate, action.import_object_candidate_id)
+        if oc is None:
+            return
+
+        import_repo = ImportRepository()
+        members = import_repo.list_object_members(session, oc.id)
+        target_root_path = action.after_path or action.target_path
+        if not target_root_path:
+            return
+
+        old_inbox_root = oc.inbox_root_path
+
+        for member in members:
+            item = session.get(InboxItem, member.inbox_item_id)
+            if item is None or item.file_id is None:
+                continue
+
+            file = session.get(File, item.file_id)
+            if file is None:
+                continue
+
+            old_path = file.path
+            # compute new path: map old_inbox_path relative to old_inbox_root → target_root
+            old_inbox = Path(item.inbox_path)
+            old_root = Path(old_inbox_root)
+            try:
+                relative = old_inbox.relative_to(old_root)
+            except ValueError:
+                relative = Path(old_inbox.name)
+            new_path = str(Path(target_root_path) / relative)
+
+            file.path = new_path
+            file.parent_path = str(Path(new_path).parent)
+            file.name = Path(new_path).name
+            file.storage_state = "managed"
+            file.managed_root_id = managed_root_id
+            file.managed_at = now
+            file.updated_at = now
+
+            import_repo.update_inbox_item_status(session, item, "organized")
+
+            journal_id = self._append_path_sync_journal(
+                session, action, "path_sync", "file", file.id, old_path, new_path,
+            )
+            import_repo.append_path_history(
+                session,
+                file_id=file.id,
+                old_path=old_path,
+                new_path=new_path,
+                reason="library_v2_execute",
+                operation_journal_id=journal_id,
+            )
+
+        # update object candidate status
+        oc.status = "organized"
+        oc.updated_at = now
+
+        self._log_event(
+            session, action.plan_id, action.id, "path_synced",
+            f"Library v2: synced {len(members)} members of object candidate {oc.id}.",
+        )
+
+    @staticmethod
+    def _append_path_sync_journal(
+        session: Session, action: OrganizeAction,
+        operation_type: str, entity_type: str, entity_id: int,
+        old_path: str, new_path: str,
+    ) -> int | None:
+        from app.repositories.importing.repository import ImportRepository
+        import uuid as _uuid
+
+        repo = ImportRepository()
+        entry = repo.append_journal_entry(
+            session,
+            operation_id=str(_uuid.uuid4()),
+            operation_type=operation_type,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            status="succeeded",
+            before_json=json.dumps({"path": old_path}),
+            after_json=json.dumps({"path": new_path, "action_id": action.id}),
+        )
+        return entry.id
 
 
 organize_service = LibraryOrganizeService()

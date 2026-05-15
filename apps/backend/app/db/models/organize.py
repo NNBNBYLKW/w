@@ -70,6 +70,8 @@ class OrganizeAction(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     reconcile_status: Mapped[str] = mapped_column(String, default="not_checked", nullable=False)
+    inbox_item_id: Mapped[int | None] = mapped_column(ForeignKey("inbox_items.id", ondelete="SET NULL"), nullable=True)
+    import_object_candidate_id: Mapped[int | None] = mapped_column(ForeignKey("import_object_candidates.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 

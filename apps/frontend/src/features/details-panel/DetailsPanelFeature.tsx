@@ -14,6 +14,7 @@ import { DetailsTagsSection } from "./sections/DetailsTagsSection";
 import { DetailsActionsSection } from "./sections/DetailsActionsSection";
 import { DetailsFactListSection } from "./sections/DetailsFactListSection";
 import { DetailsMetadataSection } from "./sections/DetailsMetadataSection";
+import { DetailsStorageSection } from "./sections/DetailsStorageSection";
 import { DetailsPreviewSection } from "./sections/DetailsPreviewSection";
 import { DetailsBookInfoSection } from "./sections/DetailsBookInfoSection";
 import { DetailsSoftwareInfoSection } from "./sections/DetailsSoftwareInfoSection";
@@ -464,6 +465,20 @@ export function DetailsPanelFeature() {
             isDeleted={item.is_deleted}
           />
         </div>
+        {item.storage_state && (
+          <div className="details-inspector__group details-inspector__group--storage">
+            <InspectorSection title={t("details.storage.title")}>
+              <DetailsStorageSection
+                storageState={item.storage_state}
+                path={item.path}
+                originalPath={item.original_path}
+                managedRootId={item.managed_root_id}
+                managedAt={item.managed_at}
+                inboxItemId={item.inbox_item_id}
+              />
+            </InspectorSection>
+          </div>
+        )}
         <div className="details-inspector__group details-inspector__group--organization">
           <DetailsPlacementSection
             manualPlacement={item.manual_placement}

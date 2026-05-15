@@ -134,6 +134,7 @@ class FileRepository:
         file_kind: str | None,
         source_id: int | None,
         parent_path: str | None,
+        storage_state: str | None = None,
         tag_id: int | None,
         color_tag: str | None,
         page: int,
@@ -142,6 +143,8 @@ class FileRepository:
         sort_order: str,
     ) -> tuple[list[File], int]:
         filters = [File.is_deleted.is_(False)]
+        if storage_state is not None:
+            filters.append(File.storage_state == storage_state)
         if file_type is not None:
             filters.append(File.file_type == file_type)
         if file_kind is not None:
@@ -184,6 +187,7 @@ class FileRepository:
         file_type: str | None,
         file_kind: str | None,
         library_placement: str | None,
+        storage_state: str | None = None,
         tag_id: int | None,
         color_tag: str | None,
         page: int,
@@ -192,6 +196,8 @@ class FileRepository:
         sort_order: str,
     ) -> tuple[list[File], int]:
         filters = [File.is_deleted.is_(False)]
+        if storage_state is not None:
+            filters.append(File.storage_state == storage_state)
         if query is not None:
             pattern = f"%{query.lower()}%"
             filters.append(
@@ -243,6 +249,7 @@ class FileRepository:
         view_scope: str,
         tag_id: int | None,
         color_tag: str | None,
+        storage_state: str | None = None,
         page: int,
         page_size: int,
         sort_by: str,
@@ -254,6 +261,8 @@ class FileRepository:
             File.is_deleted.is_(False),
             placement_expr == "media",
         ]
+        if storage_state is not None:
+            filters.append(File.storage_state == storage_state)
         if view_scope != "all":
             filters.append(File.file_kind == view_scope)
         if tag_id is not None:
@@ -289,6 +298,7 @@ class FileRepository:
         *,
         tag_id: int | None,
         color_tag: str | None,
+        storage_state: str | None = None,
         page: int,
         page_size: int,
         sort_by: str,
@@ -299,6 +309,8 @@ class FileRepository:
             File.is_deleted.is_(False),
             self._effective_placement_expr() == "books",
         ]
+        if storage_state is not None:
+            filters.append(File.storage_state == storage_state)
         if tag_id is not None:
             filters.append(
                 select(1)
@@ -332,6 +344,7 @@ class FileRepository:
         *,
         tag_id: int | None,
         color_tag: str | None,
+        storage_state: str | None = None,
         page: int,
         page_size: int,
         sort_by: str,
@@ -342,6 +355,8 @@ class FileRepository:
             File.is_deleted.is_(False),
             self._effective_placement_expr() == "software",
         ]
+        if storage_state is not None:
+            filters.append(File.storage_state == storage_state)
         if tag_id is not None:
             filters.append(
                 select(1)
@@ -376,6 +391,7 @@ class FileRepository:
         tag_id: int | None,
         color_tag: str | None,
         status: str | None,
+        storage_state: str | None = None,
         page: int,
         page_size: int,
         sort_by: str,
@@ -388,6 +404,8 @@ class FileRepository:
             File.is_deleted.is_(False),
             self._effective_placement_expr() == "games",
         ]
+        if storage_state is not None:
+            filters.append(File.storage_state == storage_state)
         if status is not None:
             filters.append(
                 select(1)

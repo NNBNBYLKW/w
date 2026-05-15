@@ -516,6 +516,309 @@ class ImportService:
             "members": member_details,
         }
 
+    # ── inbox item review ──────────────────────────────────
+
+    def confirm_inbox_item(
+        self, session: Session, item_id: int, *,
+        final_object_type: str, target_library_root_id: int | None = None,
+    ):
+        item = self.repository.get_inbox_item(session, item_id)
+        if item is None:
+            raise ValueError("Inbox item not found.")
+        if item.status in {"organized", "rejected", "archived"}:
+            raise ValueError(f"Cannot confirm inbox item with status '{item.status}'.")
+        if not final_object_type:
+            raise ValueError("final_object_type is required.")
+        if target_library_root_id is not None:
+            root = self.root_repo.get_by_id(session, target_library_root_id)
+            if root is None or not root.is_enabled:
+                raise ValueError("Target library root not found or disabled.")
+        item.final_object_type = final_object_type
+        item.target_library_root_id = target_library_root_id
+        item.status = "classified"
+        item.updated_at = datetime.utcnow()
+        session.flush()
+        return item
+
+    def reject_inbox_item(self, session: Session, item_id: int):
+        item = self.repository.get_inbox_item(session, item_id)
+        if item is None:
+            raise ValueError("Inbox item not found.")
+        if item.status in {"organized", "rejected", "archived"}:
+            raise ValueError(f"Cannot reject inbox item with status '{item.status}'.")
+        self.repository.update_inbox_item_status(session, item, "rejected")
+        return item
+
+    def create_candidate_from_inbox_item(
+        self, session: Session, item_id: int,
+    ):
+        item = self.repository.get_inbox_item(session, item_id)
+        if item is None:
+            raise ValueError("Inbox item not found.")
+        if item.organize_candidate_id is not None:
+            raise ValueError("OrganizeCandidate already exists for this inbox item.")
+        if item.status not in {"classified", "imported", "pending_review"}:
+            raise ValueError(
+                f"Cannot create candidate from inbox item with status '{item.status}'. "
+                "Confirm classification first."
+            )
+        if not item.final_object_type:
+            raise ValueError("final_object_type must be confirmed before creating candidate.")
+
+        # check target root
+        if item.target_library_root_id is None:
+            raise ValueError("Target library root must be selected before creating candidate.")
+        root = self.root_repo.get_by_id(session, item.target_library_root_id)
+        if root is None or not root.is_enabled:
+            raise ValueError("Target library root not found or disabled.")
+
+        # verify inbox file still exists
+        inbox_path = Path(item.inbox_path)
+        if not inbox_path.exists():
+            raise ValueError(f"Inbox file no longer exists: {item.inbox_path}")
+
+        from app.db.models.organize import OrganizeCandidate
+        now = datetime.utcnow()
+        candidate = OrganizeCandidate(
+            candidate_type="inbox_item",
+            source_kind="file",  # "file" so organize creates mkdir+move+write_asset_yaml actions
+            source_file_id=item.file_id,
+            source_path=item.inbox_path,
+            display_name=inbox_path.name,
+            detected_type=item.final_object_type,
+            confidence="high",
+            reason=f"User-confirmed from inbox item #{item.id}",
+            status="pending",
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(candidate)
+        session.flush()
+
+        # link both ways
+        item.organize_candidate_id = candidate.id
+        session.flush()
+
+        self.repository.append_journal_entry(
+            session,
+            operation_id=str(uuid.uuid4()),
+            operation_type="inbox_status_change",
+            entity_type="inbox_item",
+            entity_id=item.id,
+            status="succeeded",
+            before_json=json.dumps({"status": item.status}),
+            after_json=json.dumps({"organize_candidate_id": candidate.id}),
+        )
+        return candidate
+
+    # ── object candidate review ─────────────────────────────
+
+    def confirm_object_candidate(
+        self, session: Session, oc_id: int, *,
+        final_object_type: str,
+        launch_file_id: int | None = None,
+        target_library_root_id: int | None = None,
+    ):
+        oc = self.repository.get_object_candidate(session, oc_id)
+        if oc is None:
+            raise ValueError("Object candidate not found.")
+        if oc.status in {"organized", "rejected"}:
+            raise ValueError(f"Cannot confirm object candidate with status '{oc.status}'.")
+        if not final_object_type:
+            raise ValueError("final_object_type is required.")
+        if target_library_root_id is not None:
+            root = self.root_repo.get_by_id(session, target_library_root_id)
+            if root is None or not root.is_enabled:
+                raise ValueError("Target library root not found or disabled.")
+        if launch_file_id is not None:
+            members = self.repository.list_object_members(session, oc_id)
+            member_file_ids = {
+                self.repository.get_inbox_item(session, m.inbox_item_id).file_id
+                for m in members
+                if self.repository.get_inbox_item(session, m.inbox_item_id)
+            }
+            if launch_file_id not in member_file_ids:
+                raise ValueError("launch_file_id must belong to a member of this object candidate.")
+        oc.final_object_type = final_object_type
+        oc.launch_file_id = launch_file_id or oc.launch_file_id
+        oc.target_library_root_id = target_library_root_id
+        oc.status = "confirmed"
+        oc.updated_at = datetime.utcnow()
+        session.flush()
+        return oc
+
+    def reject_object_candidate(self, session: Session, oc_id: int):
+        oc = self.repository.get_object_candidate(session, oc_id)
+        if oc is None:
+            raise ValueError("Object candidate not found.")
+        if oc.status in {"organized", "rejected"}:
+            raise ValueError(f"Cannot reject object candidate with status '{oc.status}'.")
+        oc.status = "rejected"
+        oc.updated_at = datetime.utcnow()
+        # reject member inbox items too
+        members = self.repository.list_object_members(session, oc_id)
+        for m in members:
+            item = self.repository.get_inbox_item(session, m.inbox_item_id)
+            if item and item.status not in {"organized", "rejected", "archived"}:
+                self.repository.update_inbox_item_status(session, item, "rejected")
+        session.flush()
+        return oc
+
+    def create_candidate_from_object_candidate(
+        self, session: Session, oc_id: int,
+    ):
+        oc = self.repository.get_object_candidate(session, oc_id)
+        if oc is None:
+            raise ValueError("Object candidate not found.")
+        if oc.organize_candidate_id is not None:
+            raise ValueError("OrganizeCandidate already exists for this object candidate.")
+        if oc.status != "confirmed":
+            raise ValueError("Object candidate must be confirmed before creating organize candidate.")
+        if not oc.final_object_type:
+            raise ValueError("final_object_type must be confirmed first.")
+        if oc.target_library_root_id is None:
+            raise ValueError("Target library root must be selected first.")
+
+        from app.db.models.organize import OrganizeCandidate
+        now = datetime.utcnow()
+        reason_data = {
+            "import_object_candidate_id": oc.id,
+            "suggested_object_type": oc.suggested_object_type,
+            "inbox_root_path": oc.inbox_root_path,
+            "member_count": oc.member_count,
+        }
+        if oc.launch_file_id:
+            reason_data["launch_file_id"] = oc.launch_file_id
+        # Use source_kind="file" so organize creates mkdir+move+write_asset_yaml
+        # The move action moves the entire object root directory
+        candidate = OrganizeCandidate(
+            candidate_type="inbox_object",
+            source_kind="file",
+            source_path=oc.inbox_root_path,
+            source_file_id=oc.primary_file_id or oc.launch_file_id,
+            display_name=Path(oc.inbox_root_path).name,
+            detected_type=oc.final_object_type,
+            confidence=oc.confidence or "high",
+            reason=json.dumps(reason_data),
+            status="pending",
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(candidate)
+        session.flush()
+
+        oc.organize_candidate_id = candidate.id
+        session.flush()
+
+        self.repository.append_journal_entry(
+            session,
+            operation_id=str(uuid.uuid4()),
+            operation_type="inbox_status_change",
+            entity_type="import_object_candidate",
+            entity_id=oc.id,
+            status="succeeded",
+            after_json=json.dumps({"organize_candidate_id": candidate.id}),
+        )
+        return candidate
+
+    # ── generate draft plan ─────────────────────────────────
+
+    def generate_draft_plan_from_candidates(
+        self, session: Session, candidate_ids: list[int],
+    ):
+        """Generate a draft OrganizePlan from OrganizeCandidate IDs.
+        Does NOT mark ready, preflight, or execute."""
+        from app.repositories.library_organize.repository import LibraryOrganizeRepository
+        from app.services.library.organize import LibraryOrganizeService
+
+        org_repo = LibraryOrganizeRepository()
+        org_service = LibraryOrganizeService()
+
+        # validate all candidates exist and are pending
+        for cid in candidate_ids:
+            c = org_repo.get_candidate(session, cid)
+            if c is None:
+                raise ValueError(f"OrganizeCandidate not found: {cid}")
+            if c.status != "pending":
+                raise ValueError(f"OrganizeCandidate {cid} is not pending (status: {c.status}).")
+
+        # resolve target root from inbox item linked to first candidate
+        from app.db.models.importing import InboxItem as InboxItemModel
+        target_root_id = None
+        inbox_item = session.query(InboxItemModel).filter(
+            InboxItemModel.organize_candidate_id == candidate_ids[0]
+        ).first()
+        if inbox_item and inbox_item.target_library_root_id:
+            target_root_id = inbox_item.target_library_root_id
+
+        # generate draft plan (OrganizeService.generate_plan commits internally)
+        result = org_service.generate_plan(
+            session,
+            candidate_ids=candidate_ids,
+            target_library_root_id=target_root_id,
+        )
+        plan_id = result.plan_id
+
+        # update inbox_item statuses to planned
+        inbox_items = session.query(InboxItemModel).filter(
+            InboxItemModel.organize_candidate_id.in_(candidate_ids)
+        ).all()
+        for item in inbox_items:
+            self.repository.update_inbox_item_status(session, item, "planned")
+
+        # update import_object_candidate statuses
+        from app.db.models.importing import ImportObjectCandidate as IOCModel
+        obj_candidates = session.query(IOCModel).filter(
+            IOCModel.organize_candidate_id.in_(candidate_ids)
+        ).all()
+        for oc in obj_candidates:
+            oc.status = "planned"
+            oc.organize_plan_id = plan_id
+            oc.updated_at = datetime.utcnow()
+            # sync member inbox item statuses
+            members = self.repository.list_object_members(session, oc.id)
+            for m in members:
+                item = self.repository.get_inbox_item(session, m.inbox_item_id)
+                if item and item.status not in {"organized", "rejected", "archived"}:
+                    self.repository.update_inbox_item_status(session, item, "planned")
+
+        # populate action FKs for v2 traceability
+        from app.db.models.organize import OrganizeAction
+        from app.db.models.importing import ImportObjectCandidate as IOCModel
+
+        # collect inbox_item_ids and object_candidate_ids per organize_candidate
+        candidate_inbox_map: dict[int, int] = {}
+        candidate_object_map: dict[int, int] = {}
+        for cid in candidate_ids:
+            ii = session.query(InboxItemModel).filter(
+                InboxItemModel.organize_candidate_id == cid
+            ).first()
+            if ii:
+                candidate_inbox_map[cid] = ii.id
+            oc = session.query(IOCModel).filter(
+                IOCModel.organize_candidate_id == cid
+            ).first()
+            if oc:
+                candidate_object_map[cid] = oc.id
+
+        # set FKs on plan actions
+        if candidate_inbox_map or candidate_object_map:
+            actions = session.query(OrganizeAction).filter(
+                OrganizeAction.plan_id == plan_id
+            ).all()
+            for action in actions:
+                # use first available mapping (single-candidate plan typical for v2)
+                if candidate_inbox_map:
+                    action.inbox_item_id = next(iter(candidate_inbox_map.values()))
+                if candidate_object_map:
+                    action.import_object_candidate_id = next(iter(candidate_object_map.values()))
+
+        session.flush()
+
+        # get plan for response
+        plan = org_repo.get_plan(session, plan_id)
+        return plan
+
     # ── internal helpers ────────────────────────────────────
 
     def _resolve_inbox_root(self, session: Session):

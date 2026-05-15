@@ -53,6 +53,7 @@ export const common = {
     library: "Library",
     source: "Source",
     fileType: "File type",
+    storageScope: "Storage scope",
     currentDirectory: "Current directory",
     parentPath: "Parent path",
     page: "Page {page} of {total}",
@@ -91,6 +92,12 @@ export const common = {
     media: "Media",
     games: "Games",
     software: "Software",
+  },
+  storageScope: {
+    all: "All",
+    external: "External",
+    inbox: "Inbox",
+    managed: "Managed",
   },
   colors: {
     all: "All colors",

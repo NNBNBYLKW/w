@@ -12,6 +12,7 @@ import type {
   LibraryPlacementFilter,
   SearchSortBy,
   SearchSortOrder,
+  StorageStateFilter,
 } from "../../entities/file/types";
 import { getFileThumbnailUrl } from "../../services/api/fileDetailsApi";
 import { searchFiles } from "../../services/api/searchApi";
@@ -81,6 +82,12 @@ export function SearchFeature() {
     { label: t("common.libraryPlacements.games"), value: "games" },
     { label: t("common.libraryPlacements.software"), value: "software" },
   ];
+  const storageStateOptions: Array<{ label: string; value: StorageStateFilter | "all" }> = [
+    { label: t("common.storageScope.all"), value: "all" },
+    { label: t("common.storageScope.external"), value: "external" },
+    { label: t("common.storageScope.inbox"), value: "inbox" },
+    { label: t("common.storageScope.managed"), value: "managed" },
+  ];
   const colorTagOptions: Array<{ label: string; value: ColorTagValue | "all" }> = [
     { label: t("common.colors.all"), value: "all" },
     { label: t("common.colors.red"), value: "red" },
@@ -93,6 +100,7 @@ export function SearchFeature() {
   const [appliedQuery, setAppliedQuery] = useState("");
   const [fileType, setFileType] = useState<FileType | "all">("all");
   const [libraryPlacement, setLibraryPlacement] = useState<LibraryPlacementFilter | "all">("all");
+  const [storageState, setStorageState] = useState<StorageStateFilter | "all">("all");
   const [selectedTagId, setSelectedTagId] = useState("all");
   const [selectedColorTag, setSelectedColorTag] = useState<ColorTagValue | "all">("all");
   const [sortBy, setSortBy] = useState<SearchSortBy>("modified_at");
@@ -107,6 +115,7 @@ export function SearchFeature() {
     query: appliedQuery,
     file_type: fileType === "all" ? undefined : fileType,
     library_placement: libraryPlacement === "all" ? undefined : libraryPlacement,
+    storage_state: storageState === "all" ? undefined : storageState,
     tag_id: selectedTagId === "all" ? undefined : Number(selectedTagId),
     color_tag: selectedColorTag === "all" ? undefined : selectedColorTag,
     page,
@@ -210,6 +219,23 @@ export function SearchFeature() {
               }}
             >
               {libraryPlacementOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field-stack search-toolbar__field">
+            <span>{t("common.labels.storageScope")}</span>
+            <select
+              className="select-input"
+              value={storageState}
+              onChange={(event) => {
+                setStorageState(event.target.value as StorageStateFilter | "all");
+                setPage(1);
+              }}
+            >
+              {storageStateOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>

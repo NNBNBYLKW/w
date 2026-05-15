@@ -139,6 +139,34 @@ class ObjectCandidateUpdateRequest(BaseModel):
     launch_file_id: int | None = None
 
 
+class InboxItemUpdateRequest(BaseModel):
+    final_object_type: str | None = None
+    target_library_root_id: int | None = None
+
+
+class ConfirmInboxItemRequest(BaseModel):
+    final_object_type: str
+    target_library_root_id: int | None = None
+
+
+class ConfirmObjectCandidateRequest(BaseModel):
+    final_object_type: str
+    launch_file_id: int | None = None
+    target_library_root_id: int | None = None
+
+
+class GeneratePlanRequest(BaseModel):
+    candidate_ids: list[int]
+
+
+class PlanGeneratedResponse(BaseModel):
+    plan_id: int
+    status: str
+    actions_count: int
+    blocked_count: int
+    warning_count: int
+
+
 class LibraryV2CapabilityResponse(BaseModel):
     status: str = "data_foundation"
     import_enabled: bool = False

@@ -1,10 +1,11 @@
-import type { ColorTagValue, FileKind, FileListSortBy, FileListSortOrder, FileRatingValue, ManualPlacementValue, PlacementValue } from "../file/types";
+import type { ColorTagValue, FileKind, FileListSortBy, FileListSortOrder, FileRatingValue, ManualPlacementValue, PlacementValue, StorageStateFilter } from "../file/types";
 
 
 export type MediaViewScope = "all" | "image" | "video" | "audio";
 
 export type MediaListQueryInput = {
   view_scope: MediaViewScope;
+  storage_state?: StorageStateFilter;
   tag_id?: number;
   color_tag?: ColorTagValue;
   page: number;

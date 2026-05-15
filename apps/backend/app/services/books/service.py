@@ -21,6 +21,7 @@ class BooksLibraryService:
             session,
             tag_id=params.tag_id,
             color_tag=params.color_tag,
+            storage_state=params.storage_state,
             page=params.page,
             page_size=params.page_size,
             sort_by=params.sort_by,

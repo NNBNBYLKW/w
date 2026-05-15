@@ -27,6 +27,9 @@ async function parseResponse<T>(response: Response): Promise<T> {
 export async function listMediaLibrary(input: MediaListQueryInput): Promise<MediaListResponseVM> {
   const params = new URLSearchParams();
   params.set("view_scope", input.view_scope);
+  if (input.storage_state) {
+    params.set("storage_state", input.storage_state);
+  }
   if (input.tag_id !== undefined) {
     params.set("tag_id", String(input.tag_id));
   }

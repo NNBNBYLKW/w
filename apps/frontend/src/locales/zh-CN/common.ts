@@ -53,6 +53,7 @@ export const common = {
     library: "所属库",
     source: "来源",
     fileType: "文件类型",
+    storageScope: "存储范围",
     currentDirectory: "当前目录",
     parentPath: "父路径",
     page: "第 {page} / {total} 页",
@@ -91,6 +92,12 @@ export const common = {
     media: "媒体",
     games: "游戏",
     software: "软件",
+  },
+  storageScope: {
+    all: "全部",
+    external: "外部来源",
+    inbox: "导入暂存",
+    managed: "已入库",
   },
   colors: {
     all: "全部颜色",

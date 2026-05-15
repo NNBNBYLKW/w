@@ -393,6 +393,32 @@ def _ensure_library_v2_tables(connection: sqlite3.Connection) -> None:
 
     connection.execute("CREATE INDEX IF NOT EXISTS idx_files_storage_state ON files(storage_state)")
 
+    # Phase 7C: import_object_candidates additions
+    oc_columns = _table_columns(connection, "import_object_candidates")
+    if "target_library_root_id" not in oc_columns:
+        connection.execute(
+            "ALTER TABLE import_object_candidates ADD COLUMN target_library_root_id INTEGER REFERENCES library_roots(id)"
+        )
+    if "organize_candidate_id" not in oc_columns:
+        connection.execute(
+            "ALTER TABLE import_object_candidates ADD COLUMN organize_candidate_id INTEGER REFERENCES organize_candidates(id) ON DELETE SET NULL"
+        )
+    if "organize_plan_id" not in oc_columns:
+        connection.execute(
+            "ALTER TABLE import_object_candidates ADD COLUMN organize_plan_id INTEGER REFERENCES organize_plans(id)"
+        )
+
+    # Phase 7C: organize_actions traceability
+    action_columns = _table_columns(connection, "organize_actions")
+    if "inbox_item_id" not in action_columns:
+        connection.execute(
+            "ALTER TABLE organize_actions ADD COLUMN inbox_item_id INTEGER REFERENCES inbox_items(id) ON DELETE SET NULL"
+        )
+    if "import_object_candidate_id" not in action_columns:
+        connection.execute(
+            "ALTER TABLE organize_actions ADD COLUMN import_object_candidate_id INTEGER REFERENCES import_object_candidates(id) ON DELETE SET NULL"
+        )
+
 
 def _ensure_library_v2_source(connection: sqlite3.Connection) -> None:
     row = connection.execute(

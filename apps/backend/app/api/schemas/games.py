@@ -1,4 +1,6 @@
 from datetime import datetime
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from app.api.schemas.file import ColorTagValue, FileKindValue, FileListSortBy, FileRatingValue, FileStatusValue, ManualPlacementValue, PlacementValue, SortOrder
@@ -8,6 +10,7 @@ GameFormatValue = str
 
 
 class GamesListQueryParams(BaseModel):
+    storage_state: Literal["external", "inbox", "managed"] | None = None
     status: FileStatusValue | None = None
     tag_id: int | None = Field(default=None, ge=1)
     color_tag: ColorTagValue | None = None

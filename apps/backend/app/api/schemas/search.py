@@ -16,6 +16,7 @@ class SearchQueryParams(BaseModel):
     query: str | None = None
     file_type: FileTypeFilter | None = None
     library_placement: LibraryPlacementFilter | None = None
+    storage_state: Literal["external", "inbox", "managed"] | None = None
     tag_id: int | None = Field(default=None, ge=1)
     color_tag: str | None = None
     page: int = Field(default=1, ge=1)
