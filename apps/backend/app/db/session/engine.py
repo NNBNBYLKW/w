@@ -26,6 +26,8 @@ def initialize_database() -> None:
         _ensure_library_organize_tables(connection)
         _ensure_library_roots_table(connection)
         _backfill_file_classification(connection)
+        _ensure_library_v2_tables(connection)
+        _ensure_library_v2_source(connection)
         connection.commit()
     finally:
         connection.close()
@@ -371,3 +373,36 @@ def _ensure_library_roots_table(connection: sqlite3.Connection) -> None:
 
 def _table_columns(connection: sqlite3.Connection, table_name: str) -> set[str]:
     return {str(row[1]) for row in connection.execute(f"PRAGMA table_info({table_name})").fetchall()}
+
+
+def _ensure_library_v2_tables(connection: sqlite3.Connection) -> None:
+    v2_sql = settings.v2_baseline_sql_path.read_text(encoding="utf-8")
+    connection.executescript(v2_sql)
+
+    file_columns = _table_columns(connection, "files")
+    if "storage_state" not in file_columns:
+        connection.execute("ALTER TABLE files ADD COLUMN storage_state TEXT NOT NULL DEFAULT 'external'")
+    if "managed_root_id" not in file_columns:
+        connection.execute("ALTER TABLE files ADD COLUMN managed_root_id INTEGER REFERENCES library_roots(id)")
+    if "original_path" not in file_columns:
+        connection.execute("ALTER TABLE files ADD COLUMN original_path TEXT NULL")
+    if "inbox_item_id" not in file_columns:
+        connection.execute("ALTER TABLE files ADD COLUMN inbox_item_id INTEGER REFERENCES inbox_items(id) ON DELETE SET NULL")
+    if "managed_at" not in file_columns:
+        connection.execute("ALTER TABLE files ADD COLUMN managed_at DATETIME NULL")
+
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_files_storage_state ON files(storage_state)")
+
+
+def _ensure_library_v2_source(connection: sqlite3.Connection) -> None:
+    row = connection.execute(
+        "SELECT id FROM sources WHERE path = ?", ("__workbench_managed_import__",)
+    ).fetchone()
+    if row is None:
+        connection.execute(
+            """
+            INSERT INTO sources (path, display_name, is_enabled, scan_mode, last_scan_status, created_at, updated_at)
+            VALUES (?, ?, 1, 'manual', 'not_applicable', datetime('now'), datetime('now'))
+            """,
+            ("__workbench_managed_import__", "Managed Import"),
+        )

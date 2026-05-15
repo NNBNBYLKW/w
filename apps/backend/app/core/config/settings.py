@@ -38,6 +38,10 @@ class Settings(BaseSettings):
         return self.base_dir / "app" / "db" / "migrations" / "0001_initial_core.sql"
 
     @property
+    def v2_baseline_sql_path(self) -> Path:
+        return self.base_dir / "app" / "db" / "migrations" / "0002_library_v2.sql"
+
+    @property
     def allowed_origins(self) -> list[str]:
         return [self.frontend_origin, self.frontend_origin_alt, "null"]
 

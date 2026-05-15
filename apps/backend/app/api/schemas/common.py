@@ -24,6 +24,7 @@ class SystemStatusResponse(BaseModel):
     sources_count: int
     tasks_count: int
     files_count: int
+    library_v2_status: str = "data_foundation"
 
 
 class RuntimeDiagnosticsResponse(BaseModel):

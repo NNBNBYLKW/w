@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { useUIStore } from "../../app/providers/uiStore";
 import { t } from "../../shared/text";
 import { WorkbenchMasthead, WorkbenchPage } from "../../shared/ui/components";
+import { LibraryInboxPanel } from "./LibraryInboxPanel";
 import { LibraryOverviewPanel } from "./LibraryOverviewPanel";
 import { LibraryRootsPanel } from "./LibraryRootsPanel";
 import { LibraryPathBrowserPanel } from "./LibraryPathBrowserPanel";
@@ -13,7 +14,7 @@ import { LibraryPlansPanel } from "./LibraryPlansPanel";
 import { formatSuggestionPayloadSummary, formatBytes, normalizeObjectTypeLabel } from "./shared/helpers";
 
 
-type LibraryTab = "overview" | "roots" | "path" | "pending" | "objects" | "plans";
+type LibraryTab = "overview" | "roots" | "path" | "pending" | "objects" | "plans" | "inbox";
 
 const libraryTabs: Array<{ value: LibraryTab; labelKey: Parameters<typeof t>[0] }> = [
   { value: "overview", labelKey: "features.library.tabs.overview" },
@@ -22,6 +23,7 @@ const libraryTabs: Array<{ value: LibraryTab; labelKey: Parameters<typeof t>[0] 
   { value: "pending", labelKey: "features.library.tabs.pending" },
   { value: "objects", labelKey: "features.library.tabs.objects" },
   { value: "plans", labelKey: "features.library.tabs.plans" },
+  { value: "inbox", labelKey: "features.library.tabs.inbox" },
 ];
 
 const objectTypes = ["movie", "anime", "collection", "game", "course", "imgset", "docset", "project", "clip", "unknown_object"];
@@ -87,6 +89,7 @@ export function LibraryFeature() {
           {activeTab === "pending" ? <LibraryPendingPanel /> : null}
           {activeTab === "objects" ? <LibraryObjectsPanel /> : null}
           {activeTab === "plans" ? <LibraryPlansPanel /> : null}
+          {activeTab === "inbox" ? <LibraryInboxPanel /> : null}
         </div>
       </div>
     </WorkbenchPage>

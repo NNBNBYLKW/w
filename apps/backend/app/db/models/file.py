@@ -42,3 +42,8 @@ class File(Base):
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     checksum_hint: Mapped[str | None] = mapped_column(String, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    storage_state: Mapped[str] = mapped_column(String, nullable=False, default="external", server_default="external")
+    managed_root_id: Mapped[int | None] = mapped_column(ForeignKey("library_roots.id"), nullable=True)
+    original_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    inbox_item_id: Mapped[int | None] = mapped_column(ForeignKey("inbox_items.id", ondelete="SET NULL"), nullable=True)
+    managed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

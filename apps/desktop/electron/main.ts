@@ -9,6 +9,7 @@ import { app, BrowserWindow, dialog, ipcMain, type OpenDialogOptions } from "ele
 const frontendUrl = process.env.FRONTEND_URL ?? "http://127.0.0.1:5173";
 const packagedBackendUrl = "http://127.0.0.1:8765";
 const selectFolderChannel = "asset-workbench:select-folder";
+const selectFilesChannel = "asset-workbench:select-files";
 const minimizeWindowChannel = "asset-workbench:minimize-window";
 const toggleMaximizeWindowChannel = "asset-workbench:toggle-maximize-window";
 const closeWindowChannel = "asset-workbench:close-window";
@@ -367,6 +368,23 @@ app.whenReady().then(() => {
     }
 
     return result.filePaths[0] ?? null;
+  });
+
+  ipcMain.handle(selectFilesChannel, async () => {
+    const ownerWindow = BrowserWindow.getFocusedWindow();
+    const options: OpenDialogOptions = {
+      properties: ["openFile", "multiSelections"],
+      title: "Choose files to import",
+    };
+    const result = ownerWindow
+      ? await dialog.showOpenDialog(ownerWindow, options)
+      : await dialog.showOpenDialog(options);
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return [];
+    }
+
+    return result.filePaths;
   });
 
   ipcMain.handle(minimizeWindowChannel, (event) => {
