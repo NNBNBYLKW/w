@@ -51,11 +51,8 @@ Document boundary:
 
 Phase 6 is complete. Beta is ready for testing.
 
-- [PHASE6_SUMMARY.md](PHASE6_SUMMARY.md)
-  - Full Phase 6 summary
-  - Completed steps, backend hardening, known limitations
-  - Beta release preflight checklist
-  - Recommended next stage
+- [PHASE6_SUMMARY.md](archive/phase6/PHASE6_SUMMARY.md) (archived)
+  - Phase 6 historical summary — superseded by Library v2 Phase 7
 - [BETA_USER_GUIDE.md](BETA_USER_GUIDE.md)
   - Core concepts, first run, basic workflow, safety rules, recovery
 - [BETA_TESTER_CHECKLIST.md](BETA_TESTER_CHECKLIST.md)
@@ -77,26 +74,17 @@ Library v2 Phase 7A–7F is complete. Managed library workflow: import, review, 
 - [Known Limitations](library-v2/KNOWN_LIMITATIONS.md) — Current constraints and future backlog
 - [Beta Testing Checklist](library-v2/BETA_TESTING_CHECKLIST.md) — QA checklist for testers
 
-### Library Roadmap Docs
+### Library Historical Docs (Archived)
 
-Library Phases 1-4 已实现，Phase 5A 已实现（执行后对账与重新扫描提示），Phase 5B/5C/5D 为下一阶段规划。Managed library roots（受管库根目录）及 cross-source targeting（跨来源目标定向）已实现并集成于 Phases 1-4：
+Superseded by [Library v2](library-v2/README.md) (Phase 7A–7G).
 
-- [library_phase1_plan.md](library_phase1_plan.md) — Phase 1: Library shell + Path Browser
-- [library_phase2_plan.md](library_phase2_plan.md) — Phase 2: Read-only object scanner
-- [library_phase3_plan.md](library_phase3_plan.md) — Phase 3: Organize plan drafts
-- [library_phase4_plan.md](library_phase4_plan.md) — Phase 4: Plan execution (preflight → execute → logs)
-- [library_phase5_plan.md](library_phase5_plan.md) — Phase 5: Reconciliation, recovery, rollback, AI suggestions (Phase 5A implemented; 5B/5C/5D planned)
-
-### Library Specification Docs
-
-- [library_ai_revised_v2_1.md](library_ai_revised_v2_1.md) — File library structure and naming spec (canonical, AI/software-facing)
-- [library_user_revised_v2_1.md](library_user_revised_v2_1.md) — File library user guide (canonical, user-facing)
-
-Superseded versions (`library_ai.md`, `library_user.md`) have been moved to `archive/其他历史辅助文档/`.
+- [Archive: Library Phase 1-5 plans](archive/library-v2-prephase7/) — Historical phase planning documents
+- [Archive: Library specification drafts](archive/library-v2-prephase7/library_ai_revised_v2_1.md) — Historical structure/naming specs
+- [Archive: Phase 6 summary](archive/phase6/PHASE6_SUMMARY.md) — Phase 6 historical summary
 
 ### Tools Docs
 
-- [TOOLS_VIDEO_MERGE_PLAN.md](TOOLS_VIDEO_MERGE_PLAN.md) — Tools module and Video Merge design spec (implemented)
+- [Archive: Tools/Plans](archive/plans/) — Historical design specs (Tools, Media Metadata)
 
 ### UI Design Reference
 
@@ -251,8 +239,7 @@ After every code change, check whether one of these docs must be updated:
 9. **Library roadmap docs (`library_phase1_plan.md` ~ `library_phase5_plan.md`)**
    - if Library phase status changes
 
-10. **`docs/TOOLS_VIDEO_MERGE_PLAN.md`**
-    - if Tools workflow changes
+10. **`docs/archive/plans/`** — if Tools or other module plans change
 
 If no docs update is needed, the commit or PR report should explicitly say:
 **”Docs checked: no update needed.”**
