@@ -223,7 +223,18 @@ class BrowseV2Service:
                 File.modified_at_fs.desc() if sort_order == "desc" else File.modified_at_fs.asc()
             ).offset(offset).limit(page_size).all()
 
+            # Pre-load inbox item info for inbox files (Phase 8C-2)
+            inbox_file_ids = [f.id for f in file_rows if f.storage_state == "inbox"]
+            inbox_info: dict[int, tuple[int, int]] = {}  # file_id -> (inbox_item_id, batch_id)
+            if inbox_file_ids:
+                from app.db.models.importing import InboxItem as II
+                ii_rows = session.query(II).filter(
+                    II.file_id.in_(inbox_file_ids)
+                ).all()
+                inbox_info = {ii.file_id: (ii.id, ii.import_batch_id) for ii in ii_rows if ii.file_id}
+
             for f in file_rows:
+                ii_data = inbox_info.get(f.id) if f.storage_state == "inbox" else None
                 card = BrowseV2LooseFileCard(
                     file_id=f.id,
                     name=f.name,
@@ -232,6 +243,8 @@ class BrowseV2Service:
                     storage_state=f.storage_state,
                     size_bytes=f.size_bytes,
                     modified_at=f.modified_at_fs,
+                    inbox_item_id=ii_data[0] if ii_data else None,
+                    import_batch_id=ii_data[1] if ii_data else None,
                     badges=_badges_for_loose_file(f.file_kind, f.storage_state),
                 )
                 items.append(card)

@@ -1038,6 +1038,18 @@ export const features = {
       readOnlyNotice: "当前对象详情为只读。添加、移出和合成对象将在后续阶段支持。",
       comingSoon: "完整对象详情和成员列表将在 Phase 8B 完善。",
     },
+    compose: {
+      title: "合成对象",
+      description: "将选中的导入暂存散文件组合成一个待确认对象。此操作不会移动、复制或删除文件。",
+      action: "合成对象",
+      clear: "取消选择",
+      selectedCount: "已选择 {count} 个文件",
+      objectName: "对象名称",
+      selectedFiles: "选中文件",
+      safety: "此操作只创建对象候选，不会执行整理计划。",
+      confirm: "创建对象候选",
+      error: "合成失败",
+    },
     errors: {
       loadFailed: "加载浏览数据失败",
       detailFailed: "加载对象详情失败",

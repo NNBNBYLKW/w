@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { getBrowseObjectDetail, listBrowseCards, type BrowseV2Card, type BrowseV2LooseFileCard, type BrowseV2ObjectCard, type BrowseV2Response } from "../../services/api/browseV2Api";
+import { composeInboxItems } from "../../services/api/importingApi";
+import { listLibraryRoots, type LibraryRootVM } from "../../services/api/libraryObjectsApi";
 import { t } from "../../shared/text";
 import { InspectorSection, MetricStrip, WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
+import { ComposeObjectModal } from "./ComposeObjectModal";
 import { LooseFileCard } from "./LooseFileCard";
 import { ObjectCard } from "./ObjectCard";
 
@@ -175,6 +178,20 @@ export function BrowseV2Feature() {
   const selectedItemId = useUIStore((state) => state.selectedItemId);
   const selectItem = useUIStore((state) => state.selectItem);
 
+  // Phase 8C-2: Compose selection
+  const [selectedFileIds, setSelectedFileIds] = useState<Set<number>>(new Set());
+  const [showComposeModal, setShowComposeModal] = useState(false);
+  const [composing, setComposing] = useState(false);
+  const [composeError, setComposeError] = useState<string | null>(null);
+
+  const { data: roots } = useQuery({
+    queryKey: ["library-roots"],
+    queryFn: listLibraryRoots,
+    staleTime: 60_000,
+  });
+
+  const queryClient = useQueryClient();
+
   const queryParams = useMemo(() => ({
     domain,
     category: category || undefined,
@@ -220,6 +237,47 @@ export function BrowseV2Feature() {
     selectItem(null);
     setSelectedObject(card);
   }
+
+  function handleCheckboxToggle(card: BrowseV2LooseFileCard) {
+    if (card.storage_state !== "inbox" || card.inbox_item_id == null) return;
+    setSelectedFileIds(prev => {
+      const next = new Set(prev);
+      if (next.has(card.file_id)) next.delete(card.file_id);
+      else next.add(card.file_id);
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedFileIds(new Set());
+  }
+
+  const selectedFiles: BrowseV2LooseFileCard[] = looseFileCards.filter(
+    f => selectedFileIds.has(f.file_id) && f.storage_state === "inbox" && f.inbox_item_id != null
+  );
+
+  async function handleComposeConfirm(params: {
+    inbox_item_ids: number[];
+    object_name: string;
+    suggested_object_type?: string;
+    target_library_root_id?: number;
+  }) {
+    setComposing(true); setComposeError(null);
+    try {
+      await composeInboxItems(params);
+      setShowComposeModal(false);
+      clearSelection();
+      // Refresh browse data
+      await queryClient.invalidateQueries({ queryKey: ["browse-v2"] });
+    } catch (err) {
+      setComposeError(String(err));
+    } finally { setComposing(false); }
+  }
+
+  // Helper to clear selection on nav change
+  useEffect(() => {
+    clearSelection();
+  }, [domain, category, storageState, cardKind, page]);
 
   const items = data?.items ?? [];
   const objectCards = items.filter(isObjectCard);
@@ -337,6 +395,21 @@ export function BrowseV2Feature() {
             </WorkbenchToolbar>
           </WorkbenchFilterPanel>
 
+          {/* Phase 8C-2: Selection bar */}
+          {selectedFileIds.size > 0 && (
+            <div className="browse-v2-selection-bar" style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:"#f0f4ff",borderRadius:4,marginBottom:4}}>
+              <span style={{fontSize:13}}>
+                {t("features.browseV2.compose.selectedCount", { count: String(selectedFileIds.size) })}
+              </span>
+              <button className="primary-button" type="button" disabled={composing} onClick={() => setShowComposeModal(true)}>
+                {t("features.browseV2.compose.action")}
+              </button>
+              <button className="secondary-button" type="button" disabled={composing} onClick={clearSelection}>
+                {t("features.browseV2.compose.clear")}
+              </button>
+            </div>
+          )}
+
           <WorkbenchResultFrame
             className="browse-v2-result-frame"
             title={t("features.browseV2.sections.results")}
@@ -404,6 +477,8 @@ export function BrowseV2Feature() {
                             key={`f${card.file_id}`}
                             card={card}
                             selected={selectedItemId === String(card.file_id)}
+                            checked={selectedFileIds.has(card.file_id)}
+                            onCheckboxToggle={() => handleCheckboxToggle(card)}
                             onClick={() => handleCardClick(card)}
                           />
                         ))}
@@ -527,6 +602,25 @@ export function BrowseV2Feature() {
           ) : null}
         </aside>
       </div>
+
+      {showComposeModal && (
+        <ComposeObjectModal
+          selectedFiles={selectedFiles}
+          roots={(roots as LibraryRootVM[]) ?? []}
+          busy={composing}
+          onCancel={() => { setShowComposeModal(false); setComposeError(null); }}
+          onConfirm={handleComposeConfirm}
+        />
+      )}
+
+      {composeError && (
+        <div className="danger-text" style={{padding:8}} role="alert">
+          {t("features.browseV2.compose.error")}: {composeError}
+          <button className="secondary-button" type="button" style={{marginLeft:8}} onClick={() => setComposeError(null)}>
+            {t("features.library.inbox.cancel")}
+          </button>
+        </div>
+      )}
     </WorkbenchPage>
   );
 }

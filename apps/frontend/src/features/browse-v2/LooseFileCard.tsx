@@ -76,10 +76,12 @@ function fileMark(fileKind: string | null): string {
 interface Props {
   card: BrowseV2LooseFileCard;
   selected: boolean;
+  checked?: boolean;
+  onCheckboxToggle?: () => void;
   onClick: () => void;
 }
 
-export function LooseFileCard({ card, selected, onClick }: Props) {
+export function LooseFileCard({ card, selected, checked, onCheckboxToggle, onClick }: Props) {
   const sizeLabel = formatBytes(card.size_bytes);
   const fileKind = fileKindLabel(card.file_kind);
   const storageLabel = storageStateLabel(card.storage_state);
@@ -92,6 +94,11 @@ export function LooseFileCard({ card, selected, onClick }: Props) {
       onClick={onClick}
       aria-pressed={selected}
     >
+      {onCheckboxToggle && (
+        <span className="browse-v2-card__check" onClick={e => { e.stopPropagation(); onCheckboxToggle(); }} style={{display:"flex",alignItems:"center",padding:"0 8px 0 0"}}>
+          <input type="checkbox" checked={!!checked} readOnly tabIndex={-1} style={{cursor:"pointer",pointerEvents:"none"}} />
+        </span>
+      )}
       <span className="browse-v2-card__mark browse-v2-card__mark--file" aria-hidden="true">
         {fileMark(card.file_kind)}
       </span>

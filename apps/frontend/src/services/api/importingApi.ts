@@ -352,3 +352,38 @@ export async function importFileCollection(
   });
   return parseResponse<ImportFileCollectionResponse>(res);
 }
+
+// ── Phase 8C-1: Compose inbox items ─────────────────────
+
+export interface ComposeInboxRequest {
+  inbox_item_ids: number[];
+  object_name: string;
+  suggested_object_type?: string;
+  target_library_root_id?: number;
+}
+
+export interface ComposeInboxResponse {
+  object_candidate_id: number;
+  import_batch_id: number;
+  object_name: string;
+  suggested_object_type: string | null;
+  confidence: string;
+  member_count: number;
+  members: Array<{ inbox_item_id: number; file_id: number; role: string }>;
+  notes: string[];
+}
+
+export async function composeInboxItems(
+  data: ComposeInboxRequest,
+): Promise<ComposeInboxResponse> {
+  const res = await fetch(`${BASE()}/compose`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const payload = (await res.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(payload?.detail || "Compose failed.");
+  }
+  return res.json() as Promise<ComposeInboxResponse>;
+}

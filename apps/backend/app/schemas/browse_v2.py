@@ -33,6 +33,8 @@ class BrowseV2LooseFileCard(BaseModel):
     storage_state: str | None = None
     size_bytes: int | None = None
     modified_at: datetime | None = None
+    inbox_item_id: int | None = None
+    import_batch_id: int | None = None
     badges: list[str] = []
 
 

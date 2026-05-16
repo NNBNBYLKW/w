@@ -124,3 +124,7 @@ Dual-source support: `library_object` and `import_object_candidate`. Members inc
 **Response:** `{ "object_candidate_id": 5, "member_count": 3, "members": [...], "notes": [...] }`  
 
 Safety: no filesystem operations (pure DB grouping), same-batch required, item status validated, transaction-safe rollback, operation_journal written. Creates pending_review candidate — requires user review before draft plan. No organize candidate, no draft plan, no execute.
+
+### Phase 8C-2: Frontend compose UI
+
+Browse v2 loose file cards now include `inbox_item_id` and `import_batch_id` (Phase 8C-2 read model addition). The frontend uses these to select inbox loose files and open the Compose Object modal. Selection is restricted to storage_state=inbox loose files only. managed/external files have no compose checkbox.

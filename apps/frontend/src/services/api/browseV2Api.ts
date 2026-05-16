@@ -44,6 +44,8 @@ export interface BrowseV2LooseFileCard {
   storage_state: string | null;
   size_bytes: number | null;
   modified_at: string | null;
+  inbox_item_id: number | null;
+  import_batch_id: number | null;
   badges: string[];
 }
 

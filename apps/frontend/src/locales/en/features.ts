@@ -1057,6 +1057,18 @@ export const features = {
       readOnlyNotice: "This object detail view is read-only. Adding, removing, and composing objects will be supported in later phases.",
       comingSoon: "Full object detail and member list will be available in Phase 8B.",
     },
+    compose: {
+      title: "Compose object",
+      description: "Group selected inbox loose files into a reviewable object candidate. This does not move, copy, or delete files.",
+      action: "Compose object",
+      clear: "Clear selection",
+      selectedCount: "{count} selected",
+      objectName: "Object name",
+      selectedFiles: "Selected files",
+      safety: "This creates an object candidate only. No organize plan will be executed.",
+      confirm: "Create object candidate",
+      error: "Compose failed",
+    },
     errors: {
       loadFailed: "Failed to load browse data",
       detailFailed: "Failed to load object detail",
