@@ -95,3 +95,32 @@ Default is no filter (All). Invalid values return 422.
 | `POST` | `/library/import/inbox/items/{id}/retry` | Retry failed import (copy-only) |
 
 Recovery is read-only except for retry. Retry: source must exist, copy-only, no overwrite, journal written.
+
+## Browse v2 (Phase 8A)
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/library/browse?domain=...&category=...&storage_state=...` | Browse object and loose file cards (read-only) |
+
+Returns mixed cards: `BrowseV2ObjectCard` (namespaced_id, badges) + `BrowseV2LooseFileCard` (file_id, badges). Objects from library_objects and import_object_candidates. Member files excluded from loose file cards.
+
+Note: Phase 8A final UI/UX layout (taxonomy sidebar, formal cards, local inspector, responsive) was completed by Codex. Early Claude UI polish attempts did not pass acceptance.
+
+## Object Detail (Phase 8B)
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/library/browse/object-detail?object_source=...&source_id=...` | Read-only object detail with paginated member list |
+
+Dual-source support: `library_object` and `import_object_candidate`. Members include file metadata, role badges, missing detection, member pagination (max 100/page).
+
+## Compose Inbox (Phase 8C-1)
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/library/import/compose` | Compose inbox loose items into one object candidate |
+
+**Request:** `{ "inbox_item_ids": [1,2,3], "object_name": "My Object", "suggested_object_type": "imgset", "target_library_root_id": 1 }`  
+**Response:** `{ "object_candidate_id": 5, "member_count": 3, "members": [...], "notes": [...] }`  
+
+Safety: no filesystem operations (pure DB grouping), same-batch required, item status validated, transaction-safe rollback, operation_journal written. Creates pending_review candidate — requires user review before draft plan. No organize candidate, no draft plan, no execute.

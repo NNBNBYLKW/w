@@ -191,6 +191,26 @@ class ImportFileCollectionResponse(BaseModel):
     failed_items: list[dict] = []
 
 
+# ── Phase 8C-1: Compose object from inbox loose items ────
+
+class ComposeObjectRequest(BaseModel):
+    inbox_item_ids: list[int]
+    object_name: str
+    suggested_object_type: str | None = None
+    target_library_root_id: int | None = None
+
+
+class ComposeObjectResponse(BaseModel):
+    object_candidate_id: int
+    import_batch_id: int
+    object_name: str
+    suggested_object_type: str | None = None
+    confidence: str = "low"
+    member_count: int
+    members: list[dict] = []
+    notes: list[str] = []
+
+
 class LibraryV2CapabilityResponse(BaseModel):
     status: str = "data_foundation"
     import_enabled: bool = False

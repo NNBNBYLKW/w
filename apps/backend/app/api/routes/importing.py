@@ -9,6 +9,8 @@ from app.schemas.importing import (
     ImportBatchCreateRequest,
     ImportBatchListResponse,
     ImportBatchResponse,
+    ComposeObjectRequest,
+    ComposeObjectResponse,
     ImportFileCollectionRequest,
     ImportFileCollectionResponse,
     ImportFilesRequest,
@@ -497,4 +499,24 @@ def import_file_collection(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except FileNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# ── Phase 8C-1: Compose inbox loose items ───────────────
+
+@router.post("/compose", response_model=ComposeObjectResponse, status_code=201)
+def compose_inbox_items(
+    body: ComposeObjectRequest,
+    db: Session = Depends(get_db),
+) -> ComposeObjectResponse:
+    try:
+        result = import_service.compose_inbox_items(
+            db,
+            inbox_item_ids=body.inbox_item_ids,
+            object_name=body.object_name,
+            suggested_object_type=body.suggested_object_type,
+            target_library_root_id=body.target_library_root_id,
+        )
+        return ComposeObjectResponse(**result)
+    except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

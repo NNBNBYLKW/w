@@ -1307,5 +1307,207 @@ class ImportService:
         }
         return kind_to_type.get(file_kind)
 
+    # ── Phase 8C-1: Compose inbox loose items ────────────────
+
+    def compose_inbox_items(
+        self,
+        session: Session,
+        *,
+        inbox_item_ids: list[int],
+        object_name: str,
+        suggested_object_type: str | None = None,
+        target_library_root_id: int | None = None,
+    ) -> dict[str, Any]:
+        """Compose multiple inbox loose items into one import_object_candidate.
+
+        No filesystem operations. This is a pure DB grouping — the inbox items
+        already exist in staging. The new object candidate logically groups them.
+
+        Requirements:
+        - All items must be from the same import_batch
+        - Items must be in imported/pending_review/classified status (not organized/rejected)
+        - Items must not already be members of another active object candidate
+        """
+        import re as _re
+
+        if not inbox_item_ids:
+            raise ValueError("At least one inbox item is required.")
+
+        # Validate target root
+        if target_library_root_id is not None:
+            lib_root = self.root_repo.get_by_id(session, target_library_root_id)
+            if lib_root is None or not lib_root.is_enabled:
+                raise ValueError("Target library root not found or disabled.")
+
+        # Sanitize object name
+        object_name = _re.sub(r'[\\/:*?"<>|]', " ", object_name)
+        object_name = _re.sub(r"\s+", " ", object_name).strip()
+        if not object_name:
+            raise ValueError("Object name is required.")
+
+        # Load and validate all items
+        items: list[Any] = []
+        first_batch_id: int | None = None
+        UNCOMPOSABLE_STATUSES = {"organized", "rejected", "archived", "failed"}
+
+        for iid in inbox_item_ids:
+            item = self.repository.get_inbox_item(session, iid)
+            if item is None:
+                raise ValueError(f"Inbox item not found: {iid}")
+
+            # Same batch
+            if first_batch_id is None:
+                first_batch_id = item.import_batch_id
+            elif item.import_batch_id != first_batch_id:
+                raise ValueError(
+                    f"Compose from multiple import batches is not supported in Phase 8C-1. "
+                    f"Item {iid} is in batch {item.import_batch_id}, expected {first_batch_id}."
+                )
+
+            # Uncomposable status
+            if item.status in UNCOMPOSABLE_STATUSES:
+                raise ValueError(
+                    f"Inbox item {iid} has status '{item.status}' and cannot be composed."
+                )
+
+            # Not already a member
+            from app.db.models.importing import ImportObjectCandidate as IOC, ImportObjectMember as IOM
+            existing_member = session.query(IOM).filter(
+                IOM.inbox_item_id == iid
+            ).join(IOC, IOM.import_object_candidate_id == IOC.id).filter(
+                IOC.status.in_(["pending_review", "confirmed"])
+            ).first()
+            if existing_member is not None:
+                raise ValueError(
+                    f"Inbox item {iid} is already a member of object candidate "
+                    f"{existing_member.import_object_candidate_id}"
+                )
+            items.append(item)
+
+        # Transaction: create batch, candidate, members atomically
+        op_id = str(uuid.uuid4())
+        target_root = self._resolve_inbox_root(session)
+
+        batch = self.repository.create_batch(
+            session, source_kind="compose", import_method="copy"
+        )
+        self.repository.update_batch_status(session, batch, "running")
+
+        self.repository.append_journal_entry(
+            session, operation_id=op_id, operation_type="compose_object",
+            entity_type="import_batch", entity_id=batch.id, status="started",
+            before_json=json.dumps({"inbox_item_ids": inbox_item_ids}),
+        )
+
+        # Logical inbox root path — derived from existing items (no mkdir)
+        existing_inbox_paths = [item.inbox_path for item in items if item.inbox_path]
+        logical_root = str(Path(existing_inbox_paths[0]).parent / object_name) if existing_inbox_paths else object_name
+
+        # Create object candidate (pending_review — requires user review)
+        oc = self.repository.create_object_candidate(
+            session,
+            import_batch_id=batch.id,
+            source_root_path="",
+            inbox_root_path=logical_root,
+            suggested_object_type=suggested_object_type or "unknown",
+            confidence="low",
+            member_count=len(items),
+            reason_json=json.dumps({"source": "compose_inbox", "item_count": len(items)}),
+        )
+        oc.status = "pending_review"
+        if target_library_root_id:
+            oc.target_library_root_id = target_library_root_id
+
+        try:
+            # Collect member paths for type detection
+            member_rel_paths: list[str] = []
+
+            # Create members and update inbox items
+            member_items: list[dict[str, Any]] = []
+            for item in items:
+                role = "unknown_child"
+                if item.detected_file_kind:
+                    kind = item.detected_file_kind
+                    if kind in ("video",):
+                        role = "main_video"
+                    elif kind in ("image",):
+                        role = "image_member"
+                    elif kind in ("document", "ebook"):
+                        role = "document_attachment"
+                    elif kind in ("executable",):
+                        role = "launch_exe"
+
+                rel_path = Path(item.inbox_path).name if item.inbox_path else ""
+                member_rel_paths.append(rel_path)
+
+                if not oc.launch_file_id and role in ("launch_exe", "main_video", "support_exe"):
+                    oc.launch_file_id = item.file_id
+                if not oc.primary_file_id and role in ("image_member", "cover"):
+                    oc.primary_file_id = item.file_id
+
+                self.repository.create_object_member(
+                    session,
+                    import_object_candidate_id=oc.id,
+                    inbox_item_id=item.id,
+                    role=role,
+                    confidence="low",
+                    reason="Composed from inbox loose items",
+                )
+
+                # classified: grouped into object candidate, still pending user review
+                item.status = "classified"
+                item.detected_object_type = suggested_object_type or item.detected_object_type
+                if target_library_root_id:
+                    item.target_library_root_id = target_library_root_id
+                item.updated_at = datetime.utcnow()
+
+                member_items.append({
+                    "inbox_item_id": item.id,
+                    "file_id": item.file_id,
+                    "role": role,
+                })
+
+            session.flush()
+
+            # Try type detection from member paths
+            from app.services.importing.object_boundary import detect_object_type
+            detection = detect_object_type(object_name, member_rel_paths)
+            if detection.suggested_object_type and detection.suggested_object_type != "unknown":
+                if not suggested_object_type:
+                    oc.suggested_object_type = detection.suggested_object_type
+                    oc.confidence = detection.confidence
+
+            # Finalize batch
+            self.repository.update_batch_counts(
+                session, batch,
+                file_count=len(items), completed_count=len(items), failed_count=0,
+            )
+            self.repository.update_batch_status(session, batch, "completed")
+            self.repository.append_journal_entry(
+                session, operation_id=op_id, operation_type="compose_object",
+                entity_type="import_batch", entity_id=batch.id, status="succeeded",
+                after_json=json.dumps({"object_candidate_id": oc.id, "member_count": len(items)}),
+            )
+            session.commit()
+
+            return {
+                "object_candidate_id": oc.id,
+                "import_batch_id": batch.id,
+                "object_name": object_name,
+                "suggested_object_type": oc.suggested_object_type,
+                "confidence": oc.confidence or "low",
+                "member_count": len(items),
+                "members": member_items,
+                "notes": [
+                    "Object candidate created. Review required before draft plan.",
+                    "No files were moved — only inbox references were linked.",
+                    "classified means grouped into object candidate, still pending user review.",
+                ],
+            }
+
+        except Exception:
+            session.rollback()
+            raise
+
 
 import_service = ImportService()
