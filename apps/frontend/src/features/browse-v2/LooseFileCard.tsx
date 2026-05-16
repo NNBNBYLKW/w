@@ -1,14 +1,76 @@
 import type { BrowseV2LooseFileCard } from "../../services/api/browseV2Api";
 import { t } from "../../shared/text";
 
-function fileKindLabel(fk: string | null): string {
-  if (!fk) return "";
-  return t(`features.browseV2.fileKind.${fk}` as Parameters<typeof t>[0]) || fk;
+
+function asTextKey(key: string): Parameters<typeof t>[0] {
+  return key as Parameters<typeof t>[0];
 }
 
-function storageStateLabel(ss: string | null): string {
-  if (!ss) return "";
-  return t(`features.browseV2.storageState.${ss}` as Parameters<typeof t>[0]) || ss;
+function fileKindLabel(fileKind: string | null): string {
+  if (!fileKind) {
+    return "";
+  }
+  return t(asTextKey(`features.browseV2.fileKind.${fileKind}`)) || fileKind;
+}
+
+function storageStateLabel(storageState: string | null): string {
+  if (!storageState) {
+    return "";
+  }
+  return t(asTextKey(`features.browseV2.storageState.${storageState}`)) || storageState;
+}
+
+function formatBytes(value: number | null): string {
+  if (value === null) {
+    return "";
+  }
+
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let size = value;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+
+  const formatted = new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: size >= 10 || unitIndex === 0 ? 0 : 1,
+  }).format(size);
+
+  return `${formatted} ${units[unitIndex]}`;
+}
+
+function formatDate(value: string | null): string {
+  if (!value) {
+    return "";
+  }
+  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(value));
+}
+
+function fileMark(fileKind: string | null): string {
+  if (!fileKind) {
+    return "FILE";
+  }
+  if (fileKind === "image") {
+    return "IMG";
+  }
+  if (fileKind === "video") {
+    return "VID";
+  }
+  if (fileKind === "audio") {
+    return "AUD";
+  }
+  if (fileKind === "document") {
+    return "DOC";
+  }
+  if (fileKind === "archive") {
+    return "ZIP";
+  }
+  if (fileKind === "executable") {
+    return "EXE";
+  }
+  return fileKind.slice(0, 4).toUpperCase();
 }
 
 interface Props {
@@ -18,37 +80,39 @@ interface Props {
 }
 
 export function LooseFileCard({ card, selected, onClick }: Props) {
-  const sizeStr = card.size_bytes != null
-    ? card.size_bytes < 1024 * 1024
-      ? `${(card.size_bytes / 1024).toFixed(1)} KB`
-      : `${(card.size_bytes / (1024 * 1024)).toFixed(1)} MB`
-    : null;
-  const fkLabel = fileKindLabel(card.file_kind);
-  const ssLabel = storageStateLabel(card.storage_state);
-  const modStr = card.modified_at ? new Date(card.modified_at).toLocaleDateString() : null;
+  const sizeLabel = formatBytes(card.size_bytes);
+  const fileKind = fileKindLabel(card.file_kind);
+  const storageLabel = storageStateLabel(card.storage_state);
+  const modifiedAt = formatDate(card.modified_at);
 
   return (
-    <div
+    <button
       className={`browse-v2-card browse-v2-card--file${selected ? " browse-v2-card--selected" : ""}`}
+      type="button"
       onClick={onClick}
-      style={{ cursor: "pointer" }}
+      aria-pressed={selected}
     >
-      <div className="browse-v2-card__header">
-        <strong className="browse-v2-card__title">{card.name}</strong>
-        {sizeStr && <span className="browse-v2-card__size">{sizeStr}</span>}
-      </div>
-      <div className="browse-v2-card__badges">
-        <span className="status-badge status-badge--muted">{t("features.browseV2.badges.file")}</span>
-        {fkLabel && <span className="status-badge status-badge--info">{fkLabel}</span>}
-        {ssLabel && <span className="status-badge status-badge--secondary">{ssLabel}</span>}
-      </div>
-      <div className="browse-v2-card__meta">
-        {sizeStr && <span>{sizeStr}</span>}
-        {modStr && <span> &middot; {modStr}</span>}
-      </div>
-      <div className="browse-v2-card__path" title={card.path}>
-        {card.path?.replace(/\\/g, "/").split("/").slice(-2).join("/") || ""}
-      </div>
-    </div>
+      <span className="browse-v2-card__mark browse-v2-card__mark--file" aria-hidden="true">
+        {fileMark(card.file_kind)}
+      </span>
+      <span className="browse-v2-card__body">
+        <span className="browse-v2-card__header">
+          <strong className="browse-v2-card__title">{card.name}</strong>
+          {sizeLabel ? <span className="browse-v2-card__size">{sizeLabel}</span> : null}
+        </span>
+        <span className="browse-v2-card__badges">
+          <span className="status-badge status-badge--muted">{t("features.browseV2.badges.file")}</span>
+          {fileKind ? <span className="status-badge status-badge--info">{fileKind}</span> : null}
+          {storageLabel ? <span className="status-badge status-badge--secondary">{storageLabel}</span> : null}
+        </span>
+        <span className="browse-v2-card__meta">
+          {modifiedAt ? <span>{modifiedAt}</span> : null}
+          {sizeLabel ? <span>{sizeLabel}</span> : null}
+        </span>
+        <span className="browse-v2-card__path" title={card.path} translate="no">
+          {card.path?.replace(/\\/g, "/").split("/").slice(-2).join("/") || ""}
+        </span>
+      </span>
+    </button>
   );
 }

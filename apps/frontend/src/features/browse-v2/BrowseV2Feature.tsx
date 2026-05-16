@@ -1,12 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { t } from "../../shared/text";
-import { listBrowseCards, type BrowseV2Card, type BrowseV2ObjectCard, type BrowseV2Response } from "../../services/api/browseV2Api";
-import { useUIStore } from "../../app/providers/uiStore";
-import { ObjectCard } from "./ObjectCard";
-import { LooseFileCard } from "./LooseFileCard";
 
-// ── navigation data ─────────────────────────────────────
+import { useUIStore } from "../../app/providers/uiStore";
+import { getBrowseObjectDetail, listBrowseCards, type BrowseV2Card, type BrowseV2LooseFileCard, type BrowseV2ObjectCard, type BrowseV2Response } from "../../services/api/browseV2Api";
+import { t } from "../../shared/text";
+import { InspectorSection, MetricStrip, WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
+import { LooseFileCard } from "./LooseFileCard";
+import { ObjectCard } from "./ObjectCard";
+
+
+const PAGE_SIZE = 50;
 
 const DOMAINS = [
   { value: "media", labelKey: "features.browseV2.domains.media" },
@@ -15,252 +18,515 @@ const DOMAINS = [
   { value: "assets", labelKey: "features.browseV2.domains.assets" },
 ] as const;
 
+type DomainValue = (typeof DOMAINS)[number]["value"];
 type CategoryItem = { value: string; labelKey: string };
 type CategoryGroup = { groupKey?: string; items: CategoryItem[] };
 
-const CATEGORY_TREE: Record<string, CategoryGroup[]> = {
+const CATEGORY_TREE: Record<DomainValue, CategoryGroup[]> = {
   media: [
-    { groupKey: "features.browseV2.categoryGroups.video", items: [
-      { value: "movie", labelKey: "features.browseV2.categories.movie" },
-      { value: "series_anime", labelKey: "features.browseV2.categories.series_anime" },
-      { value: "course", labelKey: "features.browseV2.categories.course" },
-      { value: "video_collection", labelKey: "features.browseV2.categories.video_collection" },
-      { value: "video_clip", labelKey: "features.browseV2.categories.video_clip" },
-    ]},
-    { groupKey: "features.browseV2.categoryGroups.image", items: [
-      { value: "image_album", labelKey: "features.browseV2.categories.image_album" },
-      { value: "comic", labelKey: "features.browseV2.categories.comic" },
-    ]},
-    { groupKey: "features.browseV2.categoryGroups.audio", items: [
-      { value: "audio", labelKey: "features.browseV2.categories.audio" },
-    ]},
+    {
+      groupKey: "features.browseV2.categoryGroups.video",
+      items: [
+        { value: "movie", labelKey: "features.browseV2.categories.movie" },
+        { value: "series_anime", labelKey: "features.browseV2.categories.series_anime" },
+        { value: "course", labelKey: "features.browseV2.categories.course" },
+        { value: "video_collection", labelKey: "features.browseV2.categories.video_collection" },
+        { value: "video_clip", labelKey: "features.browseV2.categories.video_clip" },
+      ],
+    },
+    {
+      groupKey: "features.browseV2.categoryGroups.image",
+      items: [
+        { value: "image_album", labelKey: "features.browseV2.categories.image_album" },
+        { value: "comic", labelKey: "features.browseV2.categories.comic" },
+      ],
+    },
+    {
+      groupKey: "features.browseV2.categoryGroups.audio",
+      items: [
+        { value: "audio", labelKey: "features.browseV2.categories.audio" },
+      ],
+    },
   ],
   documents: [
-    { items: [{ value: "docset", labelKey: "features.browseV2.categories.docset" }]},
+    { items: [{ value: "docset", labelKey: "features.browseV2.categories.docset" }] },
   ],
   apps: [
-    { items: [
-      { value: "software", labelKey: "features.browseV2.categories.software" },
-      { value: "game", labelKey: "features.browseV2.categories.game" },
-    ]},
+    {
+      items: [
+        { value: "software", labelKey: "features.browseV2.categories.software" },
+        { value: "game", labelKey: "features.browseV2.categories.game" },
+      ],
+    },
   ],
   assets: [
-    { items: [{ value: "asset_pack", labelKey: "features.browseV2.categories.asset_pack" }]},
+    { items: [{ value: "asset_pack", labelKey: "features.browseV2.categories.asset_pack" }] },
   ],
 };
 
-// ── label helpers ────────────────────────────────────────
+function asTextKey(key: string): Parameters<typeof t>[0] {
+  return key as Parameters<typeof t>[0];
+}
 
-function objectTypeLabel(ot: string | null): string {
-  if (!ot) return "";
+function objectTypeLabel(objectType: string | null): string {
+  if (!objectType) {
+    return "";
+  }
   const map: Record<string, string> = {
-    movie: "features.browseV2.categories.movie", anime: "features.browseV2.categories.series_anime",
-    course: "features.browseV2.categories.course", video_collection: "features.browseV2.categories.video_collection",
-    clip: "features.browseV2.categories.video_clip", clip_set: "features.browseV2.categories.video_clip",
-    imgset: "features.browseV2.categories.image_album", photo_event: "features.browseV2.categories.image_album",
-    web_image_set: "features.browseV2.categories.image_album", comic: "features.browseV2.categories.comic",
-    audio: "features.browseV2.categories.audio", docset: "features.browseV2.categories.docset",
-    software: "features.browseV2.categories.software", game: "features.browseV2.categories.game",
+    movie: "features.browseV2.categories.movie",
+    anime: "features.browseV2.categories.series_anime",
+    course: "features.browseV2.categories.course",
+    video_collection: "features.browseV2.categories.video_collection",
+    clip: "features.browseV2.categories.video_clip",
+    clip_set: "features.browseV2.categories.video_clip",
+    movie_collection: "features.browseV2.categories.video_collection",
+    imgset: "features.browseV2.categories.image_album",
+    photo_event: "features.browseV2.categories.image_album",
+    web_image_set: "features.browseV2.categories.image_album",
+    comic: "features.browseV2.categories.comic",
+    audio: "features.browseV2.categories.audio",
+    docset: "features.browseV2.categories.docset",
+    software: "features.browseV2.categories.software",
+    game: "features.browseV2.categories.game",
     asset_pack: "features.browseV2.categories.asset_pack",
   };
-  const k = map[ot] || `features.library.inbox.objectTypes.${ot}`;
-  return t(k as Parameters<typeof t>[0]) || ot;
+  const key = map[objectType] || `features.library.inbox.objectTypes.${objectType}`;
+  return t(asTextKey(key)) || objectType;
 }
 
-function objSourceLabel(source: string): string {
-  return t(`features.browseV2.objectSource.${source}` as Parameters<typeof t>[0]) || source;
+function objectSourceLabel(source: string): string {
+  return t(asTextKey(`features.browseV2.objectSource.${source}`)) || source;
 }
 
-function ssLabel(ss: string | null): string {
-  if (!ss) return "";
-  return t(`features.browseV2.storageState.${ss}` as Parameters<typeof t>[0]) || ss;
+function storageStateLabel(storageState: string | null): string {
+  if (!storageState) {
+    return "";
+  }
+  return t(asTextKey(`features.browseV2.storageState.${storageState}`)) || storageState;
 }
 
-// ── component ────────────────────────────────────────────
+function fileKindLabel(fileKind: string | null): string {
+  if (!fileKind) {
+    return "";
+  }
+  return t(asTextKey(`features.browseV2.fileKind.${fileKind}`)) || fileKind;
+}
+
+function confidenceLabel(confidence: string | null): string {
+  if (!confidence) {
+    return "";
+  }
+  return t(asTextKey(`features.browseV2.confidence.${confidence}`)) || confidence;
+}
+
+function formatBytes(value: number | null): string {
+  if (value === null) {
+    return "";
+  }
+
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let size = value;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+
+  const formatted = new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: size >= 10 || unitIndex === 0 ? 0 : 1,
+  }).format(size);
+
+  return `${formatted} ${units[unitIndex]}`;
+}
+
+function getCategoryLabel(domain: DomainValue, category: string): string {
+  if (!category) {
+    const domainLabel = DOMAINS.find((item) => item.value === domain)?.labelKey;
+    return domainLabel ? t(asTextKey(domainLabel)) : domain;
+  }
+
+  for (const group of CATEGORY_TREE[domain]) {
+    const item = group.items.find((candidate) => candidate.value === category);
+    if (item) {
+      return t(asTextKey(item.labelKey));
+    }
+  }
+
+  return category;
+}
+
+function isObjectCard(card: BrowseV2Card): card is BrowseV2ObjectCard {
+  return card.card_kind === "object";
+}
+
+function isLooseFileCard(card: BrowseV2Card): card is BrowseV2LooseFileCard {
+  return card.card_kind === "loose_file";
+}
 
 export function BrowseV2Feature() {
-  const [domain, setDomain] = useState("media");
+  const [domain, setDomain] = useState<DomainValue>("media");
   const [category, setCategory] = useState("");
   const [storageState, setStorageState] = useState("all");
   const [cardKind, setCardKind] = useState("all");
   const [page, setPage] = useState(1);
   const [selectedObject, setSelectedObject] = useState<BrowseV2ObjectCard | null>(null);
-  const PS = 50;
+  const [memberPage, setMemberPage] = useState(1);
+  const selectedItemId = useUIStore((state) => state.selectedItemId);
+  const selectItem = useUIStore((state) => state.selectItem);
 
-  const qp = useMemo(() => ({
-    domain, category: category || undefined,
-    storage_state: storageState, card_kind: cardKind,
-    page, page_size: PS,
+  const queryParams = useMemo(() => ({
+    domain,
+    category: category || undefined,
+    storage_state: storageState,
+    card_kind: cardKind,
+    page,
+    page_size: PAGE_SIZE,
   }), [domain, category, storageState, cardKind, page]);
 
   const { data, isLoading, isError, error } = useQuery<BrowseV2Response>({
-    queryKey: ["browse-v2", qp],
-    queryFn: () => listBrowseCards(qp),
+    queryKey: ["browse-v2", queryParams],
+    queryFn: () => listBrowseCards(queryParams),
   });
 
-  const setSelectedItemId = useUIStore((s) => s.setSelectedItemId);
+  const { data: objectDetail, isLoading: objectDetailLoading, isError: objectDetailError } = useQuery({
+    queryKey: ["browse-v2-obj-detail", selectedObject?.object_source, selectedObject?.source_id, memberPage],
+    queryFn: () => getBrowseObjectDetail({
+      object_source: selectedObject!.object_source,
+      source_id: selectedObject!.source_id,
+      member_page: memberPage,
+      member_page_size: PAGE_SIZE,
+    }),
+    enabled: selectedObject !== null,
+  });
 
-  function handleClick(card: BrowseV2Card) {
-    if (card.card_kind === "loose_file") {
-      setSelectedObject(null);
-      setSelectedItemId(card.file_id);
-    } else {
-      setSelectedItemId(null as unknown as number);
-      setSelectedObject(card as BrowseV2ObjectCard);
-    }
+  useEffect(() => {
+    setMemberPage(1);
+  }, [selectedObject?.object_source, selectedObject?.source_id]);
+
+  function setScope(nextDomain: DomainValue, nextCategory = "") {
+    setDomain(nextDomain);
+    setCategory(nextCategory);
+    setPage(1);
   }
 
-  const tree = CATEGORY_TREE[domain] || [];
+  function handleCardClick(card: BrowseV2Card) {
+    if (isLooseFileCard(card)) {
+      setSelectedObject(null);
+      selectItem(String(card.file_id));
+      return;
+    }
+
+    selectItem(null);
+    setSelectedObject(card);
+  }
+
+  const items = data?.items ?? [];
+  const objectCards = items.filter(isObjectCard);
+  const looseFileCards = items.filter(isLooseFileCard);
+  const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
+  const showObjects = cardKind !== "loose_file";
+  const showLooseFiles = cardKind !== "object";
+  const activeScope = getCategoryLabel(domain, category);
 
   return (
-    <div className="browse-v2-layout">
-      {/* ── Left sidebar ── */}
-      <nav className="browse-v2-sidebar">
-        <div className="browse-v2-domain-tabs">
-          {DOMAINS.map((d) => (
-            <button
-              key={d.value}
-              className={`browse-v2-domain-tab${domain === d.value ? " browse-v2-domain-tab--active" : ""}`}
-              onClick={() => { setDomain(d.value); setCategory(""); setPage(1); }}
-            >
-              {t(d.labelKey as Parameters<typeof t>[0])}
-            </button>
-          ))}
-        </div>
-        <div className="browse-v2-category-tree">
-          <button
-            className={`browse-v2-cat-btn${!category ? " browse-v2-cat-btn--active" : ""}`}
-            onClick={() => { setCategory(""); setPage(1); }}
-          >
-            {t("features.browseV2.categories.all")}
-          </button>
-          {tree.map((group, gi) => (
-            <div key={gi} className="browse-v2-cat-group">
-              {group.groupKey && (
-                <span className="browse-v2-cat-group-label">
-                  {t(group.groupKey as Parameters<typeof t>[0])}
-                </span>
-              )}
-              {group.items.map((it) => (
+    <WorkbenchPage className="browse-v2-page browse-surface browse-surface--browse-v2" variant="browse-v2">
+      <WorkbenchMasthead
+        eyebrow={t("features.browseV2.title")}
+        title={activeScope}
+        description={t("features.browseV2.subtitle")}
+        meta={<span>{t("features.browseV2.sections.readModelNote")}</span>}
+      />
+
+      <MetricStrip
+        className="browse-v2-metrics"
+        items={[
+          { label: t("features.browseV2.metrics.objects"), value: String(data?.summary.total_objects ?? 0), tone: "primary" },
+          { label: t("features.browseV2.metrics.looseFiles"), value: String(data?.summary.total_loose_files ?? 0), tone: "info" },
+          { label: t("features.browseV2.metrics.managed"), value: String(data?.summary.managed_objects ?? 0), tone: "success" },
+          { label: t("features.browseV2.metrics.inbox"), value: String(data?.summary.inbox_objects ?? 0), tone: "warning" },
+          { label: t("features.browseV2.metrics.externalLoose"), value: String(data?.summary.external_loose ?? 0) },
+        ]}
+      />
+
+      <div className="browse-v2-layout">
+        <nav className="browse-v2-taxonomy" aria-label={t("features.browseV2.taxonomyLabel")}>
+          {DOMAINS.map((domainItem) => {
+            const isActiveDomain = domain === domainItem.value;
+
+            return (
+              <section className={`browse-v2-taxonomy__domain${isActiveDomain ? " browse-v2-taxonomy__domain--active" : ""}`} key={domainItem.value}>
                 <button
-                  key={it.value}
-                  className={`browse-v2-cat-btn browse-v2-cat-btn--sub${category === it.value ? " browse-v2-cat-btn--active" : ""}`}
-                  onClick={() => { setCategory(it.value); setPage(1); }}
+                  className={`browse-v2-taxonomy__domain-button${isActiveDomain && !category ? " browse-v2-taxonomy__domain-button--active" : ""}`}
+                  type="button"
+                  onClick={() => setScope(domainItem.value)}
                 >
-                  {t(it.labelKey as Parameters<typeof t>[0])}
+                  <span>{t(asTextKey(domainItem.labelKey))}</span>
+                  <small>{t("features.browseV2.categories.all")}</small>
                 </button>
-              ))}
-            </div>
-          ))}
-        </div>
-      </nav>
+                <div className="browse-v2-taxonomy__groups">
+                  {CATEGORY_TREE[domainItem.value].map((group, groupIndex) => (
+                    <div className="browse-v2-taxonomy__group" key={`${domainItem.value}-${group.groupKey ?? groupIndex}`}>
+                      {group.groupKey ? (
+                        <span className="browse-v2-taxonomy__group-label">
+                          {t(asTextKey(group.groupKey))}
+                        </span>
+                      ) : null}
+                      {group.items.map((item) => {
+                        const isActiveCategory = isActiveDomain && category === item.value;
 
-      {/* ── Main panel ── */}
-      <main className="browse-v2-main">
-        <div className="workbench-toolbar browse-v2-toolbar">
-          <label className="field-stack">
-            <span>{t("features.browseV2.filters.storageLabel")}</span>
-            <select className="select-input" value={storageState} onChange={(e) => { setStorageState(e.target.value); setPage(1); }}>
-              <option value="all">{t("features.browseV2.filters.storageAll")}</option>
-              <option value="external">{t("features.browseV2.filters.external")}</option>
-              <option value="inbox">{t("features.browseV2.filters.inbox")}</option>
-              <option value="managed">{t("features.browseV2.filters.managed")}</option>
-            </select>
-          </label>
-          <label className="field-stack">
-            <span>{t("features.browseV2.filters.cardKindLabel")}</span>
-            <select className="select-input" value={cardKind} onChange={(e) => { setCardKind(e.target.value); setPage(1); }}>
-              <option value="all">{t("features.browseV2.filters.cardKindAll")}</option>
-              <option value="object">{t("features.browseV2.filters.objectOnly")}</option>
-              <option value="loose_file">{t("features.browseV2.filters.fileOnly")}</option>
-            </select>
-          </label>
-          {data && (
-            <div className="browse-v2-summary">
-              <span>{t("features.browseV2.summary.objects", { count: String(data.summary.total_objects) })}</span>
-              <span className="browse-v2-summary__sep">|</span>
-              <span>{t("features.browseV2.summary.looseFiles", { count: String(data.summary.total_loose_files) })}</span>
-              <span className="browse-v2-summary__sep">|</span>
-              <span>{t("features.browseV2.summary.managed", { count: String(data.summary.managed_objects) })}</span>
-              <span className="browse-v2-summary__sep">|</span>
-              <span>{t("features.browseV2.summary.inbox", { count: String(data.summary.inbox_objects) })}</span>
-            </div>
-          )}
-        </div>
+                        return (
+                          <button
+                            className={`browse-v2-taxonomy__item${isActiveCategory ? " browse-v2-taxonomy__item--active" : ""}`}
+                            type="button"
+                            key={item.value}
+                            onClick={() => setScope(domainItem.value, item.value)}
+                          >
+                            {t(asTextKey(item.labelKey))}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </nav>
 
-        {isLoading && <p className="browse-v2-loading">{t("common.states.loading")}</p>}
-        {isError && <p className="danger-text">{t("features.browseV2.errors.loadFailed")}: {String(error)}</p>}
-        {data && data.items.length === 0 && <p className="browse-v2-empty">{t("features.browseV2.empty")}</p>}
+        <main className="browse-v2-main" aria-live="polite">
+          <WorkbenchFilterPanel className="browse-v2-filter-panel" label={t("features.browseV2.filters.title")}>
+            <WorkbenchToolbar className="browse-v2-toolbar">
+              <label className="field-stack browse-v2-toolbar__field">
+                <span>{t("features.browseV2.filters.storageLabel")}</span>
+                <select
+                  className="select-input"
+                  name="browse-v2-storage"
+                  value={storageState}
+                  onChange={(event) => {
+                    setStorageState(event.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="all">{t("features.browseV2.filters.storageAll")}</option>
+                  <option value="external">{t("features.browseV2.filters.external")}</option>
+                  <option value="inbox">{t("features.browseV2.filters.inbox")}</option>
+                  <option value="managed">{t("features.browseV2.filters.managed")}</option>
+                </select>
+              </label>
+              <label className="field-stack browse-v2-toolbar__field">
+                <span>{t("features.browseV2.filters.cardKindLabel")}</span>
+                <select
+                  className="select-input"
+                  name="browse-v2-card-kind"
+                  value={cardKind}
+                  onChange={(event) => {
+                    setCardKind(event.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="all">{t("features.browseV2.filters.cardKindAll")}</option>
+                  <option value="object">{t("features.browseV2.filters.objectOnly")}</option>
+                  <option value="loose_file">{t("features.browseV2.filters.fileOnly")}</option>
+                </select>
+              </label>
+              <div className="browse-v2-toolbar__scope" aria-label={t("features.browseV2.sections.currentScope")}>
+                <span>{t("features.browseV2.sections.currentScope")}</span>
+                <strong>{activeScope}</strong>
+              </div>
+            </WorkbenchToolbar>
+          </WorkbenchFilterPanel>
 
-        <div className="browse-v2-cards">
-          {data?.items.map((card) =>
-            card.card_kind === "object" ? (
-              <ObjectCard
-                key={card.namespaced_id}
-                card={card}
-                selected={selectedObject?.namespaced_id === card.namespaced_id}
-                onClick={() => handleClick(card)}
-              />
-            ) : (
-              <LooseFileCard
-                key={`f${card.file_id}`}
-                card={card}
-                selected={false}
-                onClick={() => handleClick(card)}
-              />
-            )
-          )}
-        </div>
+          <WorkbenchResultFrame
+            className="browse-v2-result-frame"
+            title={t("features.browseV2.sections.results")}
+            meta={data ? t("features.browseV2.sections.resultMeta", {
+              count: String(data.total),
+              page: String(page),
+              total: String(totalPages),
+            }) : t("common.states.loading")}
+          >
+            {isLoading ? (
+              <div className="browse-v2-state" role="status">
+                {t("common.states.loading")}
+              </div>
+            ) : null}
+            {isError ? (
+              <div className="browse-v2-state browse-v2-state--error" role="alert">
+                {t("features.browseV2.errors.loadFailed")}: {String(error)}
+              </div>
+            ) : null}
+            {data && items.length === 0 ? (
+              <div className="browse-v2-state browse-v2-state--empty">
+                {t("features.browseV2.empty")}
+              </div>
+            ) : null}
+            {data && items.length > 0 ? (
+              <div className="browse-v2-result-sections">
+                {showObjects ? (
+                  <section className="browse-v2-result-section">
+                    <header className="browse-v2-result-section__header">
+                      <div>
+                        <span className="workbench-eyebrow">{t("features.browseV2.badges.object")}</span>
+                        <h4>{t("features.browseV2.sections.objects")}</h4>
+                      </div>
+                      <span>{t("features.browseV2.sections.currentPageCount", { count: String(objectCards.length) })}</span>
+                    </header>
+                    {objectCards.length > 0 ? (
+                      <div className="browse-v2-card-grid browse-v2-card-grid--objects">
+                        {objectCards.map((card) => (
+                          <ObjectCard
+                            key={card.namespaced_id}
+                            card={card}
+                            selected={selectedObject?.namespaced_id === card.namespaced_id}
+                            onClick={() => handleCardClick(card)}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="browse-v2-result-section__empty">{t("features.browseV2.sections.noObjectsOnPage")}</p>
+                    )}
+                  </section>
+                ) : null}
+                {showLooseFiles ? (
+                  <section className="browse-v2-result-section">
+                    <header className="browse-v2-result-section__header">
+                      <div>
+                        <span className="workbench-eyebrow">{t("features.browseV2.badges.file")}</span>
+                        <h4>{t("features.browseV2.sections.looseFiles")}</h4>
+                      </div>
+                      <span>{t("features.browseV2.sections.currentPageCount", { count: String(looseFileCards.length) })}</span>
+                    </header>
+                    {looseFileCards.length > 0 ? (
+                      <div className="browse-v2-file-list">
+                        {looseFileCards.map((card) => (
+                          <LooseFileCard
+                            key={`f${card.file_id}`}
+                            card={card}
+                            selected={selectedItemId === String(card.file_id)}
+                            onClick={() => handleCardClick(card)}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="browse-v2-result-section__empty">{t("features.browseV2.sections.noLooseFilesOnPage")}</p>
+                    )}
+                  </section>
+                ) : null}
+              </div>
+            ) : null}
+          </WorkbenchResultFrame>
 
-        {data && data.total > PS && (
-          <div className="files-pager">
-            <button className="secondary-button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-              {t("features.browseV2.pagination.previous")}
-            </button>
-            <span>{t("features.browseV2.pagination.pageInfo", { page: String(page), total: String(Math.ceil(data.total / PS)) })}</span>
-            <button className="secondary-button" disabled={page * PS >= data.total} onClick={() => setPage((p) => p + 1)}>
-              {t("features.browseV2.pagination.next")}
-            </button>
-          </div>
-        )}
-      </main>
+          {data && data.total > PAGE_SIZE ? (
+            <div className="files-pager browse-v2-pager">
+              <button className="secondary-button" type="button" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>
+                {t("features.browseV2.pagination.previous")}
+              </button>
+              <span>{t("features.browseV2.pagination.pageInfo", { page: String(page), total: String(totalPages) })}</span>
+              <button className="secondary-button" type="button" disabled={page * PAGE_SIZE >= data.total} onClick={() => setPage((current) => current + 1)}>
+                {t("features.browseV2.pagination.next")}
+              </button>
+            </div>
+          ) : null}
+        </main>
 
-      {/* ── Object overview (right) ── */}
-      <aside className={`browse-v2-detail${selectedObject ? " browse-v2-detail--active" : ""}`}>
-        {selectedObject ? (
-          <div className="browse-v2-detail__card">
-            <h4 className="browse-v2-detail__title">{t("features.browseV2.overview.title")}</h4>
-            <div className="key-value-row">
-              <span className="key-value-row__label">{t("features.browseV2.overview.name")}</span>
-              <span className="key-value-row__value">{selectedObject.display_title}</span>
-            </div>
-            <div className="key-value-row">
-              <span className="key-value-row__label">{t("features.browseV2.overview.type")}</span>
-              <span className="key-value-row__value">{objectTypeLabel(selectedObject.object_type)}</span>
-            </div>
-            <div className="key-value-row">
-              <span className="key-value-row__label">{t("features.browseV2.overview.members", { count: String(selectedObject.member_count) })}</span>
-              <span className="key-value-row__value">{selectedObject.member_count}</span>
-            </div>
-            <div className="key-value-row">
-              <span className="key-value-row__label">{t("features.browseV2.overview.source")}</span>
-              <span className="key-value-row__value">{objSourceLabel(selectedObject.object_source)}</span>
-            </div>
-            <div className="key-value-row">
-              <span className="key-value-row__label">{t("features.browseV2.overview.status")}</span>
-              <span className="key-value-row__value">
-                {ssLabel(selectedObject.storage_state)}
-                {selectedObject.needs_review && <> &middot; {t("features.browseV2.needsReview")}</>}
-              </span>
-            </div>
-            <p className="browse-v2-detail__notice">{t("features.browseV2.overview.comingSoon")}</p>
-          </div>
-        ) : (
-          <div className="browse-v2-detail__card">
-            <p className="browse-v2-detail__empty">{t("features.browseV2.noSelection")}</p>
-          </div>
-        )}
-      </aside>
-    </div>
+        <aside className={`browse-v2-detail${selectedObject ? " browse-v2-detail--active" : ""}`} aria-label={t("features.browseV2.overview.title")}>
+          {!selectedObject ? (
+            <InspectorSection className="browse-v2-detail__section" title={t("features.browseV2.overview.title")}>
+              <p className="browse-v2-detail__empty">{t("features.browseV2.noSelection")}</p>
+            </InspectorSection>
+          ) : null}
+          {selectedObject && objectDetailLoading ? (
+            <InspectorSection className="browse-v2-detail__section" title={t("features.browseV2.overview.title")}>
+              <p className="browse-v2-detail__empty">{t("common.states.loading")}</p>
+            </InspectorSection>
+          ) : null}
+          {selectedObject && objectDetailError ? (
+            <InspectorSection className="browse-v2-detail__section" title={t("features.browseV2.overview.title")}>
+              <p className="danger-text">{t("features.browseV2.errors.detailFailed")}</p>
+            </InspectorSection>
+          ) : null}
+          {selectedObject && objectDetail ? (
+            <>
+              <InspectorSection className="browse-v2-detail__section" title={t("features.browseV2.overview.title")}>
+                <div className="browse-v2-detail__identity">
+                  <span className="status-badge status-badge--accent">{objectTypeLabel(objectDetail.object_type)}</span>
+                  <h4>{objectDetail.display_title}</h4>
+                  <p>{objectSourceLabel(objectDetail.object_source)}</p>
+                </div>
+                <div className="browse-v2-detail__facts">
+                  <div className="key-value-row">
+                    <span className="key-value-row__label">{t("features.browseV2.overview.status")}</span>
+                    <span className="key-value-row__value">{storageStateLabel(objectDetail.storage_state)}{objectDetail.needs_review ? ` / ${t("features.browseV2.needsReview")}` : ""}</span>
+                  </div>
+                  <div className="key-value-row">
+                    <span className="key-value-row__label">{t("features.browseV2.overview.members", { count: String(objectDetail.member_total) })}</span>
+                    <span className="key-value-row__value">{objectDetail.member_total}</span>
+                  </div>
+                  {objectDetail.confidence ? (
+                    <div className="key-value-row">
+                      <span className="key-value-row__label">{t("features.browseV2.overview.confidence")}</span>
+                      <span className="key-value-row__value">{confidenceLabel(objectDetail.confidence)}</span>
+                    </div>
+                  ) : null}
+                  {objectDetail.root_path ? (
+                    <div className="key-value-row">
+                      <span className="key-value-row__label">{t("features.browseV2.overview.rootPath")}</span>
+                      <span className="key-value-row__value browse-v2-detail__path" title={objectDetail.root_path}>
+                        {objectDetail.root_path.replace(/\\/g, "/").split("/").slice(-2).join("/")}
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+              </InspectorSection>
+
+              <InspectorSection className="browse-v2-detail__section" title={`${t("features.browseV2.overview.membersTitle")} (${objectDetail.member_total})`}>
+                {objectDetail.members.length === 0 ? (
+                  <p className="browse-v2-detail__empty">{t("features.browseV2.overview.noMembers")}</p>
+                ) : (
+                  <div className="browse-v2-member-list">
+                    {objectDetail.members.map((member) => (
+                      <div key={member.member_id} className="browse-v2-member-row" title={member.path || ""}>
+                        <span className="browse-v2-member-row__name">{member.name || `#${member.file_id || member.member_id}`}</span>
+                        <span className="browse-v2-member-row__meta">
+                          <span className="status-badge status-badge--muted">{member.role}</span>
+                          {member.file_kind ? <span className="status-badge status-badge--info">{fileKindLabel(member.file_kind)}</span> : null}
+                          {member.storage_state ? <span className="status-badge status-badge--secondary">{storageStateLabel(member.storage_state)}</span> : null}
+                          {member.missing ? <span className="status-badge status-badge--danger">{t("features.browseV2.overview.missing")}</span> : null}
+                          {member.size_bytes !== null ? <span className="browse-v2-member-row__size">{formatBytes(member.size_bytes)}</span> : null}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {objectDetail.member_total > objectDetail.member_page_size ? (
+                  <div className="browse-v2-member-pager">
+                    <button className="secondary-button" type="button" disabled={objectDetail.member_page <= 1} onClick={() => setMemberPage((current) => current - 1)}>
+                      {t("features.browseV2.pagination.previous")}
+                    </button>
+                    <span>
+                      {t("features.browseV2.pagination.pageInfo", {
+                        page: String(objectDetail.member_page),
+                        total: String(Math.ceil(objectDetail.member_total / objectDetail.member_page_size)),
+                      })}
+                    </span>
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      disabled={objectDetail.member_page * objectDetail.member_page_size >= objectDetail.member_total}
+                      onClick={() => setMemberPage((current) => current + 1)}
+                    >
+                      {t("features.browseV2.pagination.next")}
+                    </button>
+                  </div>
+                ) : null}
+              </InspectorSection>
+
+              <p className="browse-v2-detail__notice">{t("features.browseV2.overview.readOnlyNotice")}</p>
+            </>
+          ) : null}
+        </aside>
+      </div>
+    </WorkbenchPage>
   );
 }

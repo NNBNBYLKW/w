@@ -83,3 +83,59 @@ export async function listBrowseCards(params: {
   const res = await fetch(`${BASE()}?${sp}`);
   return parseResponse<BrowseV2Response>(res);
 }
+
+// ── Phase 8B: Object Detail ────────────────────────────
+
+export interface ObjectDetailMember {
+  member_id: number;
+  file_id: number | null;
+  role: string;
+  name: string | null;
+  path: string | null;
+  relative_path: string | null;
+  file_kind: string | null;
+  size_bytes: number | null;
+  modified_at: string | null;
+  storage_state: string | null;
+  missing: boolean;
+}
+
+export interface ObjectDetailResponse {
+  object_id: string;
+  object_source: string;
+  source_id: number;
+  object_type: string | null;
+  display_title: string;
+  storage_state: string | null;
+  status: string | null;
+  member_count: number;
+  root_path: string | null;
+  managed_root_id: number | null;
+  primary_file_id: number | null;
+  cover_file_id: number | null;
+  launch_file_id: number | null;
+  confidence: string | null;
+  needs_review: boolean;
+  members: ObjectDetailMember[];
+  member_page: number;
+  member_page_size: number;
+  member_total: number;
+  warnings: string[];
+  notes: string[];
+}
+
+export async function getBrowseObjectDetail(params: {
+  object_source: string;
+  source_id: number;
+  member_page?: number;
+  member_page_size?: number;
+}): Promise<ObjectDetailResponse> {
+  const sp = new URLSearchParams({
+    object_source: params.object_source,
+    source_id: String(params.source_id),
+  });
+  if (params.member_page) sp.set("member_page", String(params.member_page));
+  if (params.member_page_size) sp.set("member_page_size", String(params.member_page_size));
+  const res = await fetch(`${BASE()}/object-detail?${sp}`);
+  return parseResponse<ObjectDetailResponse>(res);
+}
