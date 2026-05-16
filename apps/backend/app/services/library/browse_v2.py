@@ -13,6 +13,8 @@ from app.db.models.importing import ImportObjectCandidate, ImportObjectMember
 from app.db.models.library_object import LibraryObject, LibraryObjectMember
 from app.schemas.browse_v2 import (
     BrowseV2LooseFileCard,
+    ObjectDetailMember,
+    ObjectDetailResponse,
     BrowseV2ObjectCard,
     BrowseV2Response,
     BrowseV2Summary,
@@ -254,6 +256,157 @@ class BrowseV2Service:
             total=total,
             page=page,
             page_size=page_size,
+        )
+
+    # ── Phase 8B: Object Detail ─────────────────────────────
+
+    def get_object_detail(
+        self,
+        session: Session,
+        *,
+        object_source: str,
+        source_id: int,
+        member_page: int = 1,
+        member_page_size: int = 50,
+    ) -> ObjectDetailResponse:
+        """Read-only object detail with paginated member list."""
+        member_page_size = min(max(member_page_size, 1), 100)
+
+        if object_source == "library_object":
+            return self._library_object_detail(session, source_id, member_page, member_page_size)
+        elif object_source == "import_object_candidate":
+            return self._import_candidate_detail(session, source_id, member_page, member_page_size)
+        else:
+            raise ValueError(f"Unknown object_source: {object_source}")
+
+    def _library_object_detail(
+        self, session: Session, source_id: int,
+        member_page: int, member_page_size: int,
+    ) -> ObjectDetailResponse:
+        from app.db.models.importing import InboxItem
+
+        lo = session.query(LibraryObject).filter(LibraryObject.id == source_id).first()
+        if lo is None:
+            raise ValueError(f"Library object not found: {source_id}")
+
+        # members
+        member_query = session.query(LibraryObjectMember).filter(
+            LibraryObjectMember.object_id == lo.id
+        ).order_by(LibraryObjectMember.sort_index, LibraryObjectMember.id)
+
+        member_total = member_query.count()
+        member_rows = member_query.offset(
+            (member_page - 1) * member_page_size
+        ).limit(member_page_size).all()
+
+        members: list[ObjectDetailMember] = []
+        for lom in member_rows:
+            f = session.query(File).filter(File.id == lom.file_id).first() if lom.file_id else None
+            missing = lom.file_id is not None and f is None
+            members.append(ObjectDetailMember(
+                member_id=lom.id,
+                file_id=lom.file_id,
+                role=lom.member_role,
+                name=f.name if f else (lom.relative_path or ""),
+                path=f.path if f else (lom.absolute_path or ""),
+                relative_path=lom.relative_path,
+                file_kind=f.file_kind if f else None,
+                size_bytes=f.size_bytes if f else (lom.size_bytes or None),
+                modified_at=f.modified_at_fs if f else (lom.modified_at or None),
+                storage_state=f.storage_state if f else None,
+                missing=missing,
+            ))
+
+        return ObjectDetailResponse(
+            object_id=f"library_object:{lo.id}",
+            object_source="library_object",
+            source_id=lo.id,
+            object_type=lo.object_type,
+            display_title=lo.title or lo.root_name or lo.root_path,
+            storage_state="managed",
+            status="organized",
+            member_count=member_total,
+            root_path=lo.root_path,
+            members=members,
+            member_page=member_page,
+            member_page_size=member_page_size,
+            member_total=member_total,
+            needs_review=bool(lo.needs_review),
+            notes=["Object detail is read-only in Phase 8B."],
+        )
+
+    def _import_candidate_detail(
+        self, session: Session, source_id: int,
+        member_page: int, member_page_size: int,
+    ) -> ObjectDetailResponse:
+        from app.db.models.importing import InboxItem
+
+        ioc = session.query(ImportObjectCandidate).filter(
+            ImportObjectCandidate.id == source_id
+        ).first()
+        if ioc is None:
+            raise ValueError(f"Import object candidate not found: {source_id}")
+
+        # members
+        member_query = session.query(ImportObjectMember).filter(
+            ImportObjectMember.import_object_candidate_id == ioc.id
+        ).order_by(ImportObjectMember.id)
+
+        member_total = member_query.count()
+        member_rows = member_query.offset(
+            (member_page - 1) * member_page_size
+        ).limit(member_page_size).all()
+
+        members: list[ObjectDetailMember] = []
+        for iom in member_rows:
+            ii = session.query(InboxItem).filter(InboxItem.id == iom.inbox_item_id).first() if iom.inbox_item_id else None
+            f = session.query(File).filter(File.id == ii.file_id).first() if (ii and ii.file_id) else None
+            missing = (iom.inbox_item_id is not None) and (ii is None or (ii.file_id is not None and f is None))
+            rel_path = None
+            if ii and ii.inbox_path and ioc.inbox_root_path:
+                try:
+                    rel_path = str(Path(ii.inbox_path).relative_to(ioc.inbox_root_path))
+                except ValueError:
+                    rel_path = Path(ii.inbox_path).name
+            elif ii and ii.inbox_path:
+                rel_path = Path(ii.inbox_path).name
+            members.append(ObjectDetailMember(
+                member_id=iom.id,
+                file_id=f.id if f else (ii.file_id if ii else None),
+                role=iom.role,
+                name=f.name if f else (rel_path or ""),
+                path=f.path if f else (ii.inbox_path if ii else None),
+                relative_path=rel_path,
+                file_kind=f.file_kind if f else None,
+                size_bytes=f.size_bytes if f else None,
+                modified_at=f.modified_at_fs if f else None,
+                storage_state=f.storage_state if f else (ii.inbox_path and "inbox" or None),
+                missing=missing,
+            ))
+
+        ss = "inbox"
+        if ioc.status == "organized":
+            ss = "managed"
+
+        return ObjectDetailResponse(
+            object_id=f"import_object_candidate:{ioc.id}",
+            object_source="import_object_candidate",
+            source_id=ioc.id,
+            object_type=ioc.suggested_object_type or ioc.final_object_type,
+            display_title=Path(ioc.inbox_root_path or "").name or f"Candidate #{ioc.id}",
+            storage_state=ss,
+            status=ioc.status,
+            member_count=member_total,
+            root_path=ioc.inbox_root_path,
+            launch_file_id=ioc.launch_file_id,
+            primary_file_id=ioc.primary_file_id,
+            confidence=ioc.confidence,
+            needs_review=ioc.status == "pending_review",
+            members=members,
+            member_page=member_page,
+            member_page_size=member_page_size,
+            member_total=member_total,
+            notes=["Object detail is read-only in Phase 8B."],
         )
 
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.schemas.books import BooksListQueryParams, BooksListResponse
@@ -12,7 +12,7 @@ from app.services.games.service import GamesLibraryService
 from app.services.media.service import MediaLibraryService
 from app.services.software.service import SoftwareLibraryService
 from app.services.library.browse_v2 import browse_v2_service
-from app.schemas.browse_v2 import BrowseV2Response
+from app.schemas.browse_v2 import BrowseV2Response, ObjectDetailResponse
 
 
 router = APIRouter(tags=["library"])
@@ -159,3 +159,25 @@ def browse_v2_cards(
         sort_by=sort_by,
         sort_order=sort_order,
     )
+
+
+# ── Phase 8B: Object Detail ─────────────────────────────
+
+@router.get("/library/browse/object-detail", response_model=ObjectDetailResponse)
+def browse_v2_object_detail(
+    object_source: str = Query(..., pattern="^(library_object|import_object_candidate)$"),
+    source_id: int = Query(..., ge=1),
+    member_page: int = Query(default=1, ge=1),
+    member_page_size: int = Query(default=50, ge=1, le=100),
+    db: Session = Depends(get_db),
+) -> ObjectDetailResponse:
+    try:
+        return browse_v2_service.get_object_detail(
+            db,
+            object_source=object_source,
+            source_id=source_id,
+            member_page=member_page,
+            member_page_size=member_page_size,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc

@@ -52,3 +52,43 @@ class BrowseV2Response(BaseModel):
     total: int = 0
     page: int = 1
     page_size: int = 50
+
+
+# ── Phase 8B: Object Detail ────────────────────────────
+
+class ObjectDetailMember(BaseModel):
+    member_id: int
+    file_id: int | None = None
+    role: str
+    name: str | None = None
+    path: str | None = None
+    relative_path: str | None = None
+    file_kind: str | None = None
+    size_bytes: int | None = None
+    modified_at: datetime | None = None
+    storage_state: str | None = None
+    missing: bool = False
+
+
+class ObjectDetailResponse(BaseModel):
+    object_id: str
+    object_source: str
+    source_id: int
+    object_type: str | None = None
+    display_title: str
+    storage_state: str | None = None
+    status: str | None = None
+    member_count: int = 0
+    root_path: str | None = None
+    managed_root_id: int | None = None
+    primary_file_id: int | None = None
+    cover_file_id: int | None = None
+    launch_file_id: int | None = None
+    confidence: str | None = None
+    needs_review: bool = False
+    members: list[ObjectDetailMember] = []
+    member_page: int = 1
+    member_page_size: int = 50
+    member_total: int = 0
+    warnings: list[str] = []
+    notes: list[str] = []
