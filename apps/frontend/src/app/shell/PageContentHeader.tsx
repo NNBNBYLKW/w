@@ -27,6 +27,7 @@ const pageHeaderCopy: Record<string, PageHeaderCopy> = {
   "/tags": { titleKey: "pages.tags.title", descriptionKey: "pages.tags.description" },
   "/collections": { titleKey: "pages.collections.title", descriptionKey: "pages.collections.description" },
   "/settings": { titleKey: "pages.settings.title", descriptionKey: "pages.settings.description" },
+  "/browse-v2": { titleKey: "pages.browseV2.title", descriptionKey: "pages.browseV2.description" },
 };
 
 

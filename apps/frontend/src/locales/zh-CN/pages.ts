@@ -64,4 +64,9 @@ export const pages = {
     title: "设置",
     description: "把这个轻量页面作为本地优先工作台的来源和系统入口。",
   },
+  browseV2: {
+    eyebrow: "内容浏览",
+    title: "新版浏览",
+    description: "按内容领域浏览对象和散文件。",
+  },
 } as const;

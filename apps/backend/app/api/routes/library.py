@@ -11,6 +11,8 @@ from app.services.books.service import BooksLibraryService
 from app.services.games.service import GamesLibraryService
 from app.services.media.service import MediaLibraryService
 from app.services.software.service import SoftwareLibraryService
+from app.services.library.browse_v2 import browse_v2_service
+from app.schemas.browse_v2 import BrowseV2Response
 
 
 router = APIRouter(tags=["library"])
@@ -130,3 +132,30 @@ def list_media_library(
         sort_order=sort_order,
     )
     return media_library_service.list_media(db, params)
+
+
+# ── Phase 8A: Browse v2 ─────────────────────────────────
+
+@router.get("/library/browse", response_model=BrowseV2Response)
+def browse_v2_cards(
+    domain: str = Query(default="media", pattern="^(media|documents|apps|assets)$"),
+    category: str | None = Query(default=None),
+    storage_state: str = Query(default="all", pattern="^(all|external|inbox|managed)$"),
+    card_kind: str = Query(default="all", pattern="^(all|object|loose_file)$"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=100),
+    sort_by: str = Query(default="modified_at"),
+    sort_order: str = Query(default="desc", pattern="^(asc|desc)$"),
+    db: Session = Depends(get_db),
+) -> BrowseV2Response:
+    return browse_v2_service.list_cards(
+        db,
+        domain=domain,
+        category=category or None,
+        storage_state=storage_state,
+        card_kind=card_kind,
+        page=page,
+        page_size=page_size,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )

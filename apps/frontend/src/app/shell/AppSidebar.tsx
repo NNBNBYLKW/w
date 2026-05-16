@@ -18,6 +18,7 @@ const navGroups: Array<{ labelKey: Parameters<typeof t>[0]; items: NavItem[] }> 
   {
     labelKey: "shell.sidebar.groups.browse",
     items: [
+      { to: "/browse-v2", labelKey: "navigation.items.browseV2", icon: "media" },
       { to: "/library/media", labelKey: "navigation.items.media", icon: "media" },
       { to: "/books", labelKey: "navigation.items.books", icon: "books" },
       { to: "/software", labelKey: "navigation.items.software", icon: "software" },

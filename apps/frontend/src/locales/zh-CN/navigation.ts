@@ -5,6 +5,7 @@ export const navigation = {
     search: "搜索",
     files: "文件",
     library: "文件库",
+    browseV2: "新版浏览",
     books: "文档",
     software: "软件",
     media: "媒体",

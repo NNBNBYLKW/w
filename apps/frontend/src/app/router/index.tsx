@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AppShell } from "../shell/AppShell";
+import { BrowseV2Page } from "../../pages/browse-v2/BrowseV2Page";
 import { BooksPage } from "../../pages/books/BooksPage";
 import { CollectionsPage } from "../../pages/collections/CollectionsPage";
 import { GamesPage } from "../../pages/games/GamesPage";
@@ -48,6 +49,7 @@ export function AppRouter() {
         <Route path="/books" element={<BooksPage />} />
         <Route path="/software" element={<SoftwarePage />} />
         <Route path="/library/games" element={<GamesPage />} />
+        <Route path="/browse-v2" element={<BrowseV2Page />} />
         <Route path="/library/media" element={<MediaLibraryPage />} />
         <Route path="/tools" element={<ToolsPage />} />
         <Route path="/recent" element={<RecentImportsPage />} />

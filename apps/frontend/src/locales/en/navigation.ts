@@ -5,6 +5,7 @@ export const navigation = {
     search: "Search",
     files: "Files",
     library: "Library",
+    browseV2: "Browse",
     books: "Documents",
     software: "Software",
     media: "Media",

@@ -72,4 +72,9 @@ export const pages = {
     title: "Settings",
     description: "Use this lightweight page as the source and system entry for the local-first workbench.",
   },
+  browseV2: {
+    eyebrow: "Content browse",
+    title: "Browse",
+    description: "Browse objects and loose files by content domain.",
+  },
 } as const;
