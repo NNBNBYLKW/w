@@ -19,6 +19,15 @@ SUPPORTED_OBJECT_TYPES = {
     "DOCSET": "docset",
     "PROJECT": "project",
     "CLIP": "clip",
+    "SOFTWARE": "software",
+    "VIDEO_COLL": "video_collection",
+    "CLIP_SET": "clip_set",
+    "MOVIE_COLL": "movie_collection",
+    "PHOTO_EVENT": "photo_event",
+    "WEB_IMAGE": "web_image_set",
+    "COMIC": "comic",
+    "AUDIO": "audio",
+    "ASSET": "asset_pack",
 }
 
 VIDEO_EXTENSIONS = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v", ".ts"}

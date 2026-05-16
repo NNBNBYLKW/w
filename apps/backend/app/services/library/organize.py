@@ -75,6 +75,9 @@ PLAN_TARGET_DIRS = {
     "movie_collection": ("10_Movies_Anime", "Collections"),
     "photo_event": ("30_Images", "Photo_Events"),
     "web_image_set": ("30_Images", "Web_Images"),
+    "comic": ("30_Images", "Comics"),
+    "audio": ("50_Audio",),
+    "asset_pack": ("60_Assets",),
 }
 PATH_LENGTH_WARNING = 240
 ORGANIZE_EXECUTION_LOCK = threading.BoundedSemaphore(1)

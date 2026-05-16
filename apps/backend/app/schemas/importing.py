@@ -167,6 +167,30 @@ class PlanGeneratedResponse(BaseModel):
     warning_count: int
 
 
+class ImportFileCollectionRequest(BaseModel):
+    paths: list[str]
+    collection_name: str
+    suggested_object_type: str | None = None
+    target_library_root_id: int | None = None
+
+
+class ImportFileCollectionMemberResponse(BaseModel):
+    relative_path: str
+    file_id: int
+    inbox_item_id: int
+    role: str
+
+
+class ImportFileCollectionResponse(BaseModel):
+    batch_id: int
+    object_candidate_id: int
+    suggested_object_type: str | None = None
+    confidence: str | None = None
+    member_count: int
+    members: list[ImportFileCollectionMemberResponse] = []
+    failed_items: list[dict] = []
+
+
 class LibraryV2CapabilityResponse(BaseModel):
     status: str = "data_foundation"
     import_enabled: bool = False

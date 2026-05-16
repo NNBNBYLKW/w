@@ -5,7 +5,7 @@ import shutil
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -960,6 +960,286 @@ class ImportService:
             status="ok",
         )
 
+    # ── Phase 7H-3: Multi-file Collection Import ──────────────
+
+    @staticmethod
+    def suggest_collection_name(paths: list[str]) -> str:
+        """Generate a collection name from selected file basenames."""
+        import re as _re
+        from datetime import datetime as _dt
+
+        if not paths:
+            return "Collection"
+
+        # strip extensions and normalize separators
+        stems: list[str] = []
+        for p in paths:
+            s = PurePath(p).stem
+            s = _re.sub(r"[_\-.\s]+", " ", s).strip()
+            if s:
+                stems.append(s)
+
+        if not stems:
+            return f"Collection {_dt.now().strftime('%Y-%m-%d %H%M')}"
+
+        # find longest common prefix
+        prefix = stems[0]
+        for s in stems[1:]:
+            while prefix and not s.lower().startswith(prefix.lower()):
+                prefix = prefix[:-1].rstrip()
+
+        prefix = prefix.strip()
+
+        # trim trailing sequence tokens
+        prefix = _re.sub(
+            r"\s*(S?\d{1,2}[Ee]\d{1,3}|EP?\d{2,3}|Lesson\s*\d{2,3}|Part\s*\d{2,3}|Chapter\s*\d{2,3}|第?\d{2,3}[课章节]?|\d{2,4})\s*$",
+            "", prefix,
+        ).strip()
+        # second pass: trim any remaining trailing digits (handles partial numeric common prefixes)
+        prefix = _re.sub(r"\s+\d*\s*$", "", prefix).strip()
+
+        # reject if too short, too generic, or empty
+        GENERIC_PREFIXES = {"img", "dsc", "vid", "dscn", "pict", "mov", "clip", "img_", "dsc_"}
+        if len(prefix) < 3 or prefix.lower() in GENERIC_PREFIXES or not prefix:
+            prefix = f"Collection {_dt.now().strftime('%Y-%m-%d %H%M')}"
+
+        # Windows-safe sanitize
+        prefix = _re.sub(r'[\\/:*?"<>|]', " ", prefix)
+        prefix = _re.sub(r"\s+", " ", prefix).strip()
+        prefix = prefix.rstrip(". ")
+
+        return prefix or f"Collection {_dt.now().strftime('%Y-%m-%d %H%M')}"
+
+    @staticmethod
+    def suggest_type_for_files(paths: list[str]) -> tuple[str | None, str]:
+        """Suggest object type for a set of selected files. Returns (type, confidence)."""
+        exts: set[str] = set()
+        for p in paths:
+            ext = PurePath(p).suffix.lower().lstrip(".")
+            if ext:
+                exts.add(ext)
+
+        video_exts = {"mp4", "mkv", "avi", "mov", "webm", "wmv", "m4v", "mpg", "mpeg"}
+        image_exts = {"jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "tif"}
+        audio_exts = {"mp3", "wav", "flac", "ogg", "m4a", "aac", "opus"}
+        doc_exts = {"pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "txt", "md", "rtf"}
+
+        video_count = sum(1 for e in exts if e in video_exts)
+        image_count = sum(1 for e in exts if e in image_exts)
+        audio_count = sum(1 for e in exts if e in audio_exts)
+        doc_count = sum(1 for e in exts if e in doc_exts)
+
+        total = len(exts) or 1
+
+        if video_count > 0 and image_count + audio_count + doc_count == 0:
+            return "video_collection", "medium"
+        if video_count > 0 and doc_count > 0:
+            return "course", "medium"
+        if image_count > 0 and video_count + audio_count == 0:
+            return "imgset", "medium"
+        if audio_count > 0 and video_count + image_count == 0:
+            return "audio", "medium"
+        if video_count + image_count + audio_count + doc_count >= 3:
+            return "asset_pack", "low"
+        return None, "unknown"
+
+    def import_file_collection(
+        self,
+        session: Session,
+        *,
+        paths: list[str],
+        collection_name: str,
+        suggested_object_type: str | None = None,
+        target_library_root_id: int | None = None,
+    ) -> dict[str, Any]:
+        """Phase 7H-3: Import selected files as a synthetic collection object."""
+        import re as _re
+
+        # validate paths
+        if not paths:
+            raise ValueError("At least one file path is required.")
+        for p in paths:
+            sp = Path(p).resolve()
+            if not sp.is_file():
+                raise ValueError(f"Path is not an existing file: {p}")
+
+        # sanitize collection name
+        collection_name = _re.sub(r'[\\/:*?"<>|]', " ", collection_name)
+        collection_name = _re.sub(r"\s+", " ", collection_name).strip()
+        collection_name = collection_name.rstrip(". ")
+        if not collection_name:
+            raise ValueError("Collection name is required.")
+
+        # validate target root
+        if target_library_root_id is not None:
+            lib_root = self.root_repo.get_by_id(session, target_library_root_id)
+            if lib_root is None:
+                raise ValueError("Target library root not found.")
+            if not lib_root.is_enabled:
+                raise ValueError("Target library root is disabled.")
+
+        # create batch
+        batch = self.repository.create_batch(
+            session, source_kind="file_collection", import_method="copy"
+        )
+        self.repository.update_batch_status(session, batch, "running")
+
+        op_id = str(uuid.uuid4())
+        target_root = self._resolve_inbox_root(session)
+        managed_source = self._get_managed_source(session)
+
+        # create synthetic inbox folder
+        inbox_parent = self._ensure_inbox_dir(target_root.root_path, batch.id)
+        synthetic_folder = self._no_overwrite_target(inbox_parent / collection_name)
+
+        self.repository.append_journal_entry(
+            session,
+            operation_id=op_id,
+            operation_type="import_collection_copy",
+            entity_type="import_batch",
+            entity_id=batch.id,
+            status="started",
+            before_json=json.dumps({"source_paths": [str(Path(p).resolve()) for p in paths]}),
+            after_json=json.dumps({"synthetic_folder": str(synthetic_folder)}),
+        )
+
+        synthetic_folder.mkdir(parents=True, exist_ok=True)
+
+        # copy files into synthetic folder
+        copied: list[tuple[Path, Path, File]] = []  # (source, dest, file_record)
+        failed: list[dict[str, Any]] = []
+        for p in paths:
+            source_path = Path(p).resolve()
+            target_file = self._no_overwrite_target(synthetic_folder / source_path.name)
+            tmp = target_file.with_name(f".tmp-{uuid.uuid4().hex[:8]}-{target_file.name}")
+            try:
+                shutil.copy2(str(source_path), str(tmp))
+                tmp.replace(target_file)
+                file_record = self._register_imported_file(
+                    session, source_path, target_file, managed_source.id
+                )
+                copied.append((source_path, target_file, file_record))
+            except Exception as exc:
+                if tmp.exists():
+                    tmp.unlink(missing_ok=True)
+                failed.append({"path": str(source_path), "error": str(exc)})
+
+        # collect relative member paths for detection
+        member_rel_paths = [str(dest.relative_to(synthetic_folder)) for _src, dest, _fr in copied]
+
+        # detect object type from folder + member paths
+        detection = detect_object_type(collection_name, member_rel_paths)
+
+        # override suggestion with user-provided if given
+        final_suggested = suggested_object_type or detection.suggested_object_type or "unknown"
+
+        # create object candidate
+        reason_json = json.dumps({
+            "signals": detection.signals,
+            "member_count": len(copied),
+        })
+        obj_candidate = self.repository.create_object_candidate(
+            session,
+            import_batch_id=batch.id,
+            source_root_path=str(copied[0][0].parent) if copied else "",
+            inbox_root_path=str(synthetic_folder),
+            suggested_object_type=final_suggested,
+            confidence=detection.confidence,
+            member_count=len(copied),
+            reason_json=reason_json,
+        )
+        obj_candidate.status = "pending_review"
+
+        # create inbox_items and object_members
+        member_items: list[dict[str, Any]] = []
+        for src_file, dest_file, file_record in copied:
+            rel_path = str(dest_file.relative_to(synthetic_folder))
+            classification = classify_file(
+                dest_file.suffix.lstrip(".") if dest_file.suffix else None,
+                str(dest_file),
+            )
+            inbox_item = self.repository.create_inbox_item(
+                session,
+                import_batch_id=batch.id,
+                file_id=file_record.id,
+                source_path=str(src_file),
+                inbox_path=str(dest_file),
+                status="imported",
+                detected_file_kind=classification.file_kind,
+                detected_placement=classification.auto_placement,
+                target_library_root_id=target_library_root_id,
+            )
+            file_record.inbox_item_id = inbox_item.id
+
+            role_info = detection.member_roles.get(rel_path)
+            role = role_info.role if role_info else "unknown_child"
+            role_confidence = role_info.confidence if role_info else "low"
+            role_reason = role_info.reason if role_info else "Member of collection import"
+
+            self.repository.create_object_member(
+                session,
+                import_object_candidate_id=obj_candidate.id,
+                inbox_item_id=inbox_item.id,
+                role=role,
+                confidence=role_confidence,
+                reason=role_reason,
+            )
+            member_items.append({
+                "relative_path": rel_path,
+                "file_id": file_record.id,
+                "inbox_item_id": inbox_item.id,
+                "role": role,
+            })
+
+        # set launch/cover file references
+        if detection.launch_candidate_path:
+            for item in member_items:
+                if item["relative_path"] == detection.launch_candidate_path:
+                    obj_candidate.launch_file_id = item["file_id"]
+                    break
+        if detection.cover_candidate_path:
+            for item in member_items:
+                if item["relative_path"] == detection.cover_candidate_path:
+                    obj_candidate.primary_file_id = item["file_id"]
+                    break
+
+        session.flush()
+
+        # finalize batch
+        total = len(copied) + len(failed)
+        self.repository.update_batch_counts(
+            session, batch,
+            file_count=total, completed_count=len(copied), failed_count=len(failed),
+        )
+        final_status = "completed" if not failed else "completed_with_errors"
+        self.repository.update_batch_status(session, batch, final_status)
+
+        self.repository.append_journal_entry(
+            session,
+            operation_id=op_id,
+            operation_type="import_collection_copy",
+            entity_type="import_batch",
+            entity_id=batch.id,
+            status="succeeded" if not failed else "completed_with_errors",
+            after_json=json.dumps({
+                "copied": len(copied), "failed": len(failed),
+                "synthetic_folder": str(synthetic_folder),
+                "object_candidate_id": obj_candidate.id,
+            }),
+        )
+
+        session.commit()
+
+        return {
+            "batch_id": batch.id,
+            "object_candidate_id": obj_candidate.id,
+            "suggested_object_type": final_suggested,
+            "confidence": detection.confidence,
+            "member_count": len(member_items),
+            "members": member_items,
+            "failed_items": failed,
+        }
+
     @staticmethod
     def _no_overwrite_target(target: Path) -> Path:
         if not target.exists():
@@ -1017,11 +1297,11 @@ class ImportService:
     def _detect_object_type(file_kind: str) -> str | None:
         kind_to_type: dict[str, str] = {
             "video": "clip",
-            "image": "image",
+            "image": "imgset",
             "audio": "audio",
-            "document": "document",
-            "ebook": "document",
-            "archive": "archive",
+            "document": "docset",
+            "ebook": "docset",
+            "archive": "",
             "executable": "software",
             "installer": "software",
         }

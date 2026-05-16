@@ -20,6 +20,9 @@ OBJECT_PREFIX = {
     "movie_collection": "MOVIE_COLL",
     "photo_event": "PHOTO_EVENT",
     "web_image_set": "WEB_IMAGE",
+    "comic": "COMIC",
+    "audio": "AUDIO",
+    "asset_pack": "ASSET",
 }
 
 

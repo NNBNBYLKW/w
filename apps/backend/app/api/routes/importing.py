@@ -9,6 +9,8 @@ from app.schemas.importing import (
     ImportBatchCreateRequest,
     ImportBatchListResponse,
     ImportBatchResponse,
+    ImportFileCollectionRequest,
+    ImportFileCollectionResponse,
     ImportFilesRequest,
     ImportFilesResponse,
     ImportFolderRequest,
@@ -473,4 +475,26 @@ def retry_failed_import(item_id: int, db: Session = Depends(get_db)):
         db.commit()
         return {"status": "ok", "inbox_item_id": item.id, "inbox_path": result.inbox_path}
     except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# ── Phase 7H-3: Multi-file Collection Import ──────────────
+
+@router.post("/file-collections", response_model=ImportFileCollectionResponse, status_code=201)
+def import_file_collection(
+    body: ImportFileCollectionRequest,
+    db: Session = Depends(get_db),
+) -> ImportFileCollectionResponse:
+    try:
+        result = import_service.import_file_collection(
+            db,
+            paths=body.paths,
+            collection_name=body.collection_name,
+            suggested_object_type=body.suggested_object_type,
+            target_library_root_id=body.target_library_root_id,
+        )
+        return ImportFileCollectionResponse(**result)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

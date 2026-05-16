@@ -5,27 +5,67 @@ import { hasDesktopFilePicker, selectImportFiles, selectImportFolder } from "../
 import {
   confirmInboxItem, confirmObjectCandidate, createCandidateFromInboxItem,
   createCandidateFromObjectCandidate, createImportBatch, generateDraftPlan,
-  getObjectCandidate, importFilesToBatch, importFolderToBatch,
+  getObjectCandidate, importFileCollection, importFilesToBatch, importFolderToBatch,
   listImportBatches, listInboxItems, listObjectCandidates,
   rejectInboxItem, rejectObjectCandidate, updateInboxItem,
-  type ImportBatchVM, type ImportFilesResponse, type ImportFolderResponse,
-  type InboxItemVM, type ObjectCandidateDetailVM, type ObjectCandidateMemberVM,
-  type ObjectCandidateVM,
+  type ImportBatchVM, type ImportFileCollectionResponse, type ImportFilesResponse,
+  type ImportFolderResponse, type InboxItemVM, type ObjectCandidateDetailVM,
+  type ObjectCandidateMemberVM, type ObjectCandidateVM,
 } from "../../services/api/importingApi";
 import { listLibraryRoots, type LibraryRootVM } from "../../services/api/libraryObjectsApi";
+import { getObjectTypeGroups, objectTypeLabel, isAliasValue, canonicalValue } from "./objectTypeOptions";
 
 // ── helpers ──────────────────────────────────────────────
 
-type ImportMode = "files" | "folder-as-object" | "folder-as-loose";
+type ImportMode = "files" | "folder-as-object" | "folder-as-loose" | "file-collection";
 
-const OBJECT_TYPE_OPTIONS = [
-  "movie", "clip", "course", "anime", "video_collection", "clip_set", "movie_collection",
-  "game", "software", "imgset", "comic", "photo_event", "web_image_set", "docset",
-] as const;
+function suggestCollectionName(paths: string[]): string {
+  if (paths.length === 0) return "Collection";
+  const stems = paths.map(p => {
+    const base = p.replace(/\\/g, "/").split("/").pop() || p;
+    const dot = base.lastIndexOf(".");
+    const stem = dot > 0 ? base.substring(0, dot) : base;
+    return stem.replace(/[_\-.\s]+/g, " ").trim();
+  }).filter(s => s.length > 0);
+  if (stems.length === 0) {
+    const now = new Date();
+    return `Collection ${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")} ${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}`;
+  }
+  let prefix = stems[0];
+  for (let i = 1; i < stems.length; i++) {
+    while (prefix && !stems[i].toLowerCase().startsWith(prefix.toLowerCase())) {
+      prefix = prefix.substring(0, prefix.length - 1).trimEnd();
+    }
+  }
+  prefix = prefix.replace(/\s+(S?\d{1,2}[Ee]\d{1,3}|EP?\d{2,3}|Lesson\s*\d{2,3}|Part\s*\d{2,3}|Chapter\s*\d{2,3}|\d{2,4})\s*$/i, "").trim();
+  prefix = prefix.replace(/\s+\d*\s*$/, "").trim();
+  const generic = new Set(["img", "dsc", "vid", "dscn", "pict", "mov", "clip", "img_", "dsc_"]);
+  if (prefix.length < 3 || generic.has(prefix.toLowerCase()) || !prefix) {
+    const now = new Date();
+    return `Collection ${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")} ${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}`;
+  }
+  return prefix;
+}
 
-function objectTypeLabel(ot: string): string {
-  const key = `features.library.inbox.objectTypes.${ot}`;
-  return t(key as Parameters<typeof t>[0]) || ot;
+function suggestTypeForFiles(paths: string[]): string {
+  const exts = new Set(paths.map(p => {
+    const base = p.replace(/\\/g, "/").split("/").pop() || "";
+    const dot = base.lastIndexOf(".");
+    return dot > 0 ? base.substring(dot + 1).toLowerCase() : "";
+  }).filter(e => e));
+  const vExts = new Set(["mp4","mkv","avi","mov","webm","wmv","m4v","mpg","mpeg"]);
+  const iExts = new Set(["jpg","jpeg","png","gif","bmp","webp","tiff","tif"]);
+  const aExts = new Set(["mp3","wav","flac","ogg","m4a","aac","opus"]);
+  const dExts = new Set(["pdf","doc","docx","ppt","pptx","xls","xlsx","txt","md","rtf"]);
+  const vc = [...exts].filter(e => vExts.has(e)).length;
+  const ic = [...exts].filter(e => iExts.has(e)).length;
+  const ac = [...exts].filter(e => aExts.has(e)).length;
+  const dc = [...exts].filter(e => dExts.has(e)).length;
+  if (vc > 0 && ic + ac + dc === 0) return "video_collection";
+  if (vc > 0 && dc > 0) return "course";
+  if (ic > 0 && vc + ac === 0) return "imgset";
+  if (ac > 0 && vc + ic === 0) return "audio";
+  return "";
 }
 
 function batchStatusLabel(status: string): string {
@@ -82,6 +122,13 @@ export function LibraryInboxPanel() {
   const [pathInput, setPathInput] = useState("");
   const [mode, setMode] = useState<ImportMode>("files");
   const [objectCandidates, setObjectCandidates] = useState<ObjectCandidateVM[]>([]);
+
+  // collection import modal state
+  const [showCollectionModal, setShowCollectionModal] = useState(false);
+  const [collectionPaths, setCollectionPaths] = useState<string[]>([]);
+  const [collectionName, setCollectionName] = useState("");
+  const [collectionType, setCollectionType] = useState("");
+  const [collectionTargetRoot, setCollectionTargetRoot] = useState<number | null>(null);
   const [expandedCandidate, setExpandedCandidate] = useState<ObjectCandidateDetailVM | null>(null);
   const [roots, setRoots] = useState<LibraryRootVM[]>([]);
 
@@ -122,8 +169,8 @@ export function LibraryInboxPanel() {
     if (item.detected_object_type) return item.detected_object_type;
     const k = item.detected_file_kind;
     if (k === "video") return "clip";
-    if (k === "image") return "image";
-    if (k === "audio") return "clip";
+    if (k === "image") return "imgset";
+    if (k === "audio") return "audio";
     if (k === "document" || k === "ebook") return "docset";
     if (k === "executable" || k === "installer") return "software";
     if (k === "archive") return "";
@@ -190,6 +237,44 @@ export function LibraryInboxPanel() {
     const fp = await selectImportFolder();
     if (fp) await doImportFolderPath(fp);
     else if (!hasDesktopFilePicker()) setShowPathModal(true);
+  }
+
+  async function handleChooseFilesForCollection() {
+    setImportResult(null);
+    const paths = await selectImportFiles();
+    if (paths.length > 0) {
+      setCollectionPaths(paths);
+      setCollectionName(suggestCollectionName(paths));
+      setCollectionType(suggestTypeForFiles(paths));
+      setCollectionTargetRoot(defaultRootId);
+      setShowCollectionModal(true);
+    } else if (!hasDesktopFilePicker()) {
+      setShowPathModal(true);
+    }
+  }
+
+  async function handleCollectionImport() {
+    if (collectionPaths.length === 0 || !collectionName.trim()) return;
+    setImporting(true); setImportResult(null); setError(null);
+    try {
+      const r = await importFileCollection({
+        paths: collectionPaths,
+        collection_name: collectionName.trim(),
+        suggested_object_type: collectionType || undefined,
+        target_library_root_id: collectionTargetRoot ?? undefined,
+      });
+      setImportResult({
+        ...r,
+        object_candidates: [{ object_candidate_id: r.object_candidate_id, suggested_object_type: r.suggested_object_type, confidence: r.confidence, member_count: r.member_count, members: r.members }],
+        created_items: r.members.map(m => ({ ...m, source_path: "", inbox_path: "" })),
+        failed_items: r.failed_items,
+      } as unknown as ImportFolderResponse);
+      setShowCollectionModal(false);
+      setCollectionPaths([]);
+      await loadBatches();
+      await loadObjectCandidates();
+    } catch (err) { setError(String(err)); }
+    finally { setImporting(false); }
   }
 
   async function handleCreateBatch() {
@@ -344,16 +429,30 @@ export function LibraryInboxPanel() {
       {/* ── Toolbar ── */}
       <div className="library-inbox-toolbar">
         <div className="library-inbox-mode-picker" role="radiogroup" aria-label="Import mode">
-          {(["files", "folder-as-object", "folder-as-loose"] as const).map(val => (
+          <span className="library-inbox-mode-label">{t("features.library.inbox.importModes.looseFilesGroup")}</span>
+          {(["files", "folder-as-loose"] as const).map(val => (
             <button key={val} className={`secondary-button settings-segmented-button${mode === val ? " settings-segmented-button--selected" : ""}`} type="button" role="radio" aria-checked={mode === val} onClick={() => setMode(val)}>
-              {t(`features.library.inbox.importModes.${val === "files" ? "files" : val === "folder-as-object" ? "folderAsObject" : "folderAsLoose"}` as Parameters<typeof t>[0])}
+              {t(`features.library.inbox.importModes.${val === "files" ? "files" : "folderAsLoose"}` as Parameters<typeof t>[0])}
+            </button>
+          ))}
+          <span className="library-inbox-mode-sep">|</span>
+          <span className="library-inbox-mode-label">{t("features.library.inbox.importModes.objectGroup")}</span>
+          {(["folder-as-object", "file-collection"] as const).map(val => (
+            <button key={val} className={`secondary-button settings-segmented-button${mode === val ? " settings-segmented-button--selected" : ""}`} type="button" role="radio" aria-checked={mode === val} onClick={() => setMode(val)}>
+              {t(`features.library.inbox.importModes.${val === "folder-as-object" ? "folderAsObject" : "fileCollection"}` as Parameters<typeof t>[0])}
             </button>
           ))}
         </div>
-        {mode === "files" ? (
-          <button className="primary-button" type="button" onClick={handleChooseFiles} disabled={importing}>{importing ? "…" : t("features.library.inbox.importFiles")}</button>
-        ) : (
+        {mode === "files" || mode === "folder-as-loose" ? (
+          mode === "files" ? (
+            <button className="primary-button" type="button" onClick={handleChooseFiles} disabled={importing}>{importing ? "…" : t("features.library.inbox.importFiles")}</button>
+          ) : (
+            <button className="primary-button" type="button" onClick={handleChooseFolder} disabled={importing}>{importing ? "…" : t("features.library.inbox.importModes.folderAsLoose")}</button>
+          )
+        ) : mode === "folder-as-object" ? (
           <button className="primary-button" type="button" onClick={handleChooseFolder} disabled={importing}>{importing ? "…" : t("features.library.inbox.importModes.folderAsObject")}</button>
+        ) : (
+          <button className="primary-button" type="button" onClick={handleChooseFilesForCollection} disabled={importing}>{importing ? "…" : t("features.library.inbox.importModes.fileCollection")}</button>
         )}
         <button className="secondary-button" type="button" onClick={handleCreateBatch} disabled={importing}>{t("features.library.inbox.createBatch")}</button>
         <button className="secondary-button" type="button" onClick={() => setShowPathModal(true)} disabled={importing}>{t("features.library.inbox.enterPathsManually")}</button>
@@ -384,6 +483,56 @@ export function LibraryInboxPanel() {
               <button className="secondary-button" type="button" onClick={() => { setShowPathModal(false); setPathInput(""); }}>{t("features.library.inbox.cancel")}</button>
               <button className="primary-button" type="button" disabled={!pathInput.trim()} onClick={handlePathModalConfirm}>{t("features.library.inbox.import")}</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showCollectionModal && (
+        <div className="library-inbox-modal-overlay" onClick={() => { setShowCollectionModal(false); setCollectionPaths([]); }}>
+          <div className="library-inbox-modal" role="dialog" onClick={e => e.stopPropagation()} style={{maxWidth:500}}>
+            <h3>{t("features.library.inbox.collectionModal.title")}</h3>
+            <p className="library-inbox-modal-hint">{t("features.library.inbox.collectionModal.hint")}</p>
+            <div className="library-review-form" style={{marginTop:8}}>
+              <div className="library-review-form__field">
+                <label>{t("features.library.inbox.collectionModal.fileCount")}</label>
+                <span>{collectionPaths.length} files selected</span>
+              </div>
+              <div className="library-review-form__field">
+                <label>{t("features.library.inbox.collectionModal.collectionName")}</label>
+                <input type="text" value={collectionName} onChange={e => setCollectionName(e.target.value)} disabled={importing} style={{width:"100%",padding:"4px 8px"}} />
+              </div>
+              <div className="library-review-form__field">
+                <label>{t("features.library.inbox.review.finalObjectType")}</label>
+                <select value={collectionType} onChange={e => setCollectionType(e.target.value)} disabled={importing}>
+                  <option value="">— {t("features.library.inbox.review.selectType")} —</option>
+                  {isAliasValue(collectionType) && <option value={collectionType}>{objectTypeLabel(collectionType)}</option>}
+                  {getObjectTypeGroups().map(group => (
+                    <optgroup key={group.groupKey} label={t(group.groupKey as Parameters<typeof t>[0])}>
+                      {group.options.map(opt => <option key={opt.value} value={opt.value}>{objectTypeLabel(opt.value)}</option>)}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+              <div className="library-review-form__field">
+                <label>{t("features.library.inbox.review.targetRoot")}</label>
+                {enabledRootOptions.length > 0 ? (
+                  <select value={collectionTargetRoot ?? ""} onChange={e => setCollectionTargetRoot(e.target.value ? Number(e.target.value) : null)} disabled={importing}>
+                    <option value="">— {t("features.library.inbox.review.selectRoot")} —</option>
+                    {enabledRootOptions.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                  </select>
+                ) : (
+                  <span className="library-review-form__hint">{t("features.library.inbox.review.noRoots")}</span>
+                )}
+              </div>
+            </div>
+            <div className="library-inbox-collection-preview" style={{maxHeight:150,overflowY:"auto",margin:"8px 0",fontSize:12}}>
+              {collectionPaths.map((p, i) => <div key={i} style={{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={p}>{p.replace(/\\/g,"/").split("/").pop() || p}</div>)}
+            </div>
+            <div className="library-inbox-modal-actions">
+              <button className="secondary-button" type="button" onClick={() => { setShowCollectionModal(false); setCollectionPaths([]); }} disabled={importing}>{t("features.library.inbox.cancel")}</button>
+              <button className="primary-button" type="button" disabled={!collectionName.trim() || importing} onClick={handleCollectionImport}>{importing ? "…" : t("features.library.inbox.collectionModal.confirmImport")}</button>
+            </div>
+            <p className="library-review-notice" style={{marginTop:8}}>{t("features.library.inbox.collectionModal.safetyNotice")}</p>
           </div>
         </div>
       )}
@@ -430,8 +579,14 @@ export function LibraryInboxPanel() {
                           <label>{t("features.library.inbox.review.finalObjectType")}</label>
                           <select value={rs.finalType} onChange={e => updateReviewState(oc.id, { finalType: e.target.value })} disabled={rs.busy}>
                             <option value="">— {t("features.library.inbox.review.selectType")} —</option>
-                            {OBJECT_TYPE_OPTIONS.map(ot => <option key={ot} value={ot}>{objectTypeLabel(ot)}</option>)}
+                            {isAliasValue(rs.finalType) && <option value={rs.finalType}>{objectTypeLabel(rs.finalType)}</option>}
+                            {getObjectTypeGroups().map(group => (
+                              <optgroup key={group.groupKey} label={t(group.groupKey as Parameters<typeof t>[0])}>
+                                {group.options.map(opt => <option key={opt.value} value={opt.value}>{objectTypeLabel(opt.value)}</option>)}
+                              </optgroup>
+                            ))}
                           </select>
+                          <span className="library-review-form__hint">{t("features.library.inbox.objectTypeHint")}</span>
                           {oc.suggested_object_type && oc.suggested_object_type !== rs.finalType && (
                             <span className="library-review-form__suggestion">← {t("features.library.inbox.review.suggested")}: {objectTypeLabel(oc.suggested_object_type)}</span>
                           )}
@@ -542,9 +697,14 @@ export function LibraryInboxPanel() {
                   <td>
                     {(item.status === "imported" || item.status === "pending_review" || item.status === "classified") && item.status !== "rejected" && (
                       <div className="library-inbox-item-review" style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-                        <select value={rs.finalType} onChange={e => updateReviewState(item.id, { finalType: e.target.value })} style={{width:100}} disabled={rs.busy}>
+                        <select value={rs.finalType} onChange={e => updateReviewState(item.id, { finalType: e.target.value })} style={{width:120}} disabled={rs.busy}>
                           <option value="">—</option>
-                          {OBJECT_TYPE_OPTIONS.map(ot => <option key={ot} value={ot}>{objectTypeLabel(ot)}</option>)}
+                          {isAliasValue(rs.finalType) && <option value={rs.finalType}>{objectTypeLabel(rs.finalType)}</option>}
+                          {getObjectTypeGroups().map(group => (
+                            <optgroup key={group.groupKey} label={t(group.groupKey as Parameters<typeof t>[0])}>
+                              {group.options.map(opt => <option key={opt.value} value={opt.value}>{objectTypeLabel(opt.value)}</option>)}
+                            </optgroup>
+                          ))}
                         </select>
                         <select value={rs.targetRootId ?? ""} onChange={e => updateReviewState(item.id, { targetRootId: e.target.value ? Number(e.target.value) : null })} style={{width:140}} disabled={rs.busy}>
                           <option value="">— root —</option>

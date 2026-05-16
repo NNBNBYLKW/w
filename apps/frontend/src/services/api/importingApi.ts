@@ -315,3 +315,40 @@ export async function generateDraftPlan(candidateIds: number[]): Promise<{
   });
   return parseResponse(res);
 }
+
+// ── Phase 7H-3: Multi-file Collection Import ────────────
+
+export interface ImportFileCollectionRequest {
+  paths: string[];
+  collection_name: string;
+  suggested_object_type?: string;
+  target_library_root_id?: number;
+}
+
+export interface ImportFileCollectionMember {
+  relative_path: string;
+  file_id: number;
+  inbox_item_id: number;
+  role: string;
+}
+
+export interface ImportFileCollectionResponse {
+  batch_id: number;
+  object_candidate_id: number;
+  suggested_object_type: string | null;
+  confidence: string | null;
+  member_count: number;
+  members: ImportFileCollectionMember[];
+  failed_items: Array<{ path: string; error: string }>;
+}
+
+export async function importFileCollection(
+  data: ImportFileCollectionRequest,
+): Promise<ImportFileCollectionResponse> {
+  const res = await fetch(`${BASE()}/file-collections`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseResponse<ImportFileCollectionResponse>(res);
+}

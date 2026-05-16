@@ -22,6 +22,7 @@ EXCLUDE_LAUNCH_NAMES = {
 }
 IMAGE_EXTS = {"jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "tif"}
 VIDEO_EXTS = {"mp4", "mkv", "avi", "mov", "webm", "wmv", "m4v", "mpg", "mpeg"}
+AUDIO_EXTS = {"mp3", "wav", "flac", "ogg", "m4a", "aac", "opus"}
 SUBTITLE_EXTS = {"srt", "ass", "sub", "vtt", "ssa"}
 DOC_EXTS = {"txt", "md", "pdf", "rtf", "doc", "docx", "odt"}
 CONFIG_EXTS = {"json", "ini", "cfg", "toml", "yaml", "yml", "xml", "conf"}
@@ -111,6 +112,29 @@ def detect_object_type(
         # bare exe in folder — still software
         signals.append("exe_present")
         result = _build_result("software", "medium", signals, member_paths, member_paths)
+        return result
+
+    # ——— audio detection ———
+    audio_paths = [p for p in member_paths if PurePath(p).suffix.lower().lstrip(".") in AUDIO_EXTS]
+    audio_count = len(audio_paths)
+    if audio_count >= 2:
+        non_audio = len(member_paths) - audio_count
+        if non_audio <= audio_count:  # audio is dominant or equal
+            signals.append(f"audio_count_{audio_count}")
+            result = _build_result("audio", "high" if non_audio == 0 else "medium", signals, member_paths, member_paths)
+            return result
+
+    # ——— asset pack detection ———
+    creative_exts = {"psd", "ai", "blend", "fbx", "obj", "glb", "gltf", "ttf", "otf", "woff", "woff2"}
+    creative_count = sum(1 for p in member_paths if PurePath(p).suffix.lower().lstrip(".") in creative_exts)
+    mixed_types = len({PurePath(p).suffix.lower().lstrip(".") for p in member_paths} & (IMAGE_EXTS | AUDIO_EXTS | creative_exts | DOC_EXTS))
+    asset_pack_dir_names = {"assets", "resources", "textures", "fonts", "materials", "references", "samples", "pack", "素材"}
+    has_asset_dir = folder_lower in asset_pack_dir_names or any(
+        PurePath(p).parent.name.lower() in asset_pack_dir_names for p in members_lower
+    )
+    if (creative_count >= 2 or (mixed_types >= 3 and has_asset_dir)):
+        signals.append("mixed_creative_assets")
+        result = _build_result("asset_pack", "low", signals, member_paths, member_paths)
         return result
 
     # ——— image set detection ———
