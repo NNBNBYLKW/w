@@ -9,6 +9,8 @@ from app.schemas.importing import (
     ImportBatchCreateRequest,
     ImportBatchListResponse,
     ImportBatchResponse,
+    ComposeExternalRequest,
+    ComposeExternalResponse,
     ComposeObjectRequest,
     ComposeObjectResponse,
     ImportFileCollectionRequest,
@@ -518,5 +520,25 @@ def compose_inbox_items(
             target_library_root_id=body.target_library_root_id,
         )
         return ComposeObjectResponse(**result)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# ── Phase 8C-3: Compose external files ──────────────────
+
+@router.post("/compose/external-files", response_model=ComposeExternalResponse, status_code=201)
+def compose_external_files(
+    body: ComposeExternalRequest,
+    db: Session = Depends(get_db),
+) -> ComposeExternalResponse:
+    try:
+        result = import_service.compose_external_files(
+            db,
+            file_ids=body.file_ids,
+            object_name=body.object_name,
+            suggested_object_type=body.suggested_object_type,
+            target_library_root_id=body.target_library_root_id,
+        )
+        return ComposeExternalResponse(**result)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

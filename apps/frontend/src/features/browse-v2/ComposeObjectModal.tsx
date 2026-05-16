@@ -8,9 +8,11 @@ import { suggestCollectionName, suggestTypeForFiles } from "./composeHelpers";
 interface Props {
   selectedFiles: BrowseV2LooseFileCard[];
   roots: LibraryRootVM[];
+  selectionSS: string;
   onCancel: () => void;
   onConfirm: (params: {
-    inbox_item_ids: number[];
+    inbox_item_ids?: number[];
+    file_ids?: number[];
     object_name: string;
     suggested_object_type?: string;
     target_library_root_id?: number;
@@ -18,7 +20,7 @@ interface Props {
   busy: boolean;
 }
 
-export function ComposeObjectModal({ selectedFiles, roots, onCancel, onConfirm, busy }: Props) {
+export function ComposeObjectModal({ selectedFiles, roots, selectionSS, onCancel, onConfirm, busy }: Props) {
   const defaultName = suggestCollectionName(selectedFiles.map(f => f.name));
   const defaultType = suggestTypeForFiles(selectedFiles.map(f => ({ name: f.name })));
   const defaultRootId = roots.find(r => r.is_default)?.id ?? roots[0]?.id ?? null;
@@ -31,12 +33,21 @@ export function ComposeObjectModal({ selectedFiles, roots, onCancel, onConfirm, 
 
   function handleConfirm() {
     if (!objectName.trim()) return;
-    onConfirm({
-      inbox_item_ids: selectedFiles.map(f => f.inbox_item_id!).filter(id => id != null),
-      object_name: objectName.trim(),
-      suggested_object_type: objectType || undefined,
-      target_library_root_id: targetRootId ?? undefined,
-    });
+    if (selectionSS === "inbox") {
+      onConfirm({
+        inbox_item_ids: selectedFiles.map(f => f.inbox_item_id!).filter(id => id != null),
+        object_name: objectName.trim(),
+        suggested_object_type: objectType || undefined,
+        target_library_root_id: targetRootId ?? undefined,
+      });
+    } else {
+      onConfirm({
+        file_ids: selectedFiles.map(f => f.file_id),
+        object_name: objectName.trim(),
+        suggested_object_type: objectType || undefined,
+        target_library_root_id: targetRootId ?? undefined,
+      });
+    }
   }
 
   return (
@@ -78,7 +89,11 @@ export function ComposeObjectModal({ selectedFiles, roots, onCancel, onConfirm, 
             <div key={i} style={{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={f.name}>{f.name}</div>
           ))}
         </div>
-        <p className="library-review-notice">{t("features.browseV2.compose.safety")}</p>
+        {selectionSS === "inbox" ? (
+          <p className="library-review-notice">{t("features.browseV2.compose.safety")}</p>
+        ) : (
+          <p className="library-review-notice">{t("features.browseV2.compose.safetyExternal")}</p>
+        )}
         <div className="library-inbox-modal-actions">
           <button className="secondary-button" type="button" onClick={onCancel} disabled={busy}>{t("features.library.inbox.cancel")}</button>
           <button className="primary-button" type="button" disabled={!objectName.trim() || busy} onClick={handleConfirm}>

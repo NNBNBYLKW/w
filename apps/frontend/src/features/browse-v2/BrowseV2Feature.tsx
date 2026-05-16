@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { getBrowseObjectDetail, listBrowseCards, type BrowseV2Card, type BrowseV2LooseFileCard, type BrowseV2ObjectCard, type BrowseV2Response } from "../../services/api/browseV2Api";
-import { composeInboxItems } from "../../services/api/importingApi";
+import { composeExternalFiles, composeInboxItems } from "../../services/api/importingApi";
 import { listLibraryRoots, type LibraryRootVM } from "../../services/api/libraryObjectsApi";
 import { t } from "../../shared/text";
 import { InspectorSection, MetricStrip, WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
@@ -239,11 +239,21 @@ export function BrowseV2Feature() {
   }
 
   function handleCheckboxToggle(card: BrowseV2LooseFileCard) {
-    if (card.storage_state !== "inbox" || card.inbox_item_id == null) return;
+    if (card.storage_state === "managed") return;
     setSelectedFileIds(prev => {
       const next = new Set(prev);
-      if (next.has(card.file_id)) next.delete(card.file_id);
-      else next.add(card.file_id);
+      if (next.has(card.file_id)) {
+        next.delete(card.file_id);
+      } else {
+        // If mixing types, clear previous selection
+        const existingSS = prev.size > 0
+          ? (looseFileCards.filter(f => prev.has(f.file_id) && f.storage_state === "inbox").length > 0 ? "inbox" : "external")
+          : null;
+        if (existingSS && existingSS !== card.storage_state) {
+          next.clear();
+        }
+        next.add(card.file_id);
+      }
       return next;
     });
   }
@@ -253,21 +263,36 @@ export function BrowseV2Feature() {
   }
 
   const selectedFiles: BrowseV2LooseFileCard[] = looseFileCards.filter(
-    f => selectedFileIds.has(f.file_id) && f.storage_state === "inbox" && f.inbox_item_id != null
+    f => selectedFileIds.has(f.file_id) && (f.storage_state === "inbox" || f.storage_state === "external")
   );
+  const selectionSS = selectedFiles.length > 0 ? selectedFiles[0].storage_state : null;
 
   async function handleComposeConfirm(params: {
-    inbox_item_ids: number[];
+    inbox_item_ids?: number[];
+    file_ids?: number[];
     object_name: string;
     suggested_object_type?: string;
     target_library_root_id?: number;
   }) {
     setComposing(true); setComposeError(null);
     try {
-      await composeInboxItems(params);
+      if (selectionSS === "inbox" && params.inbox_item_ids) {
+        await composeInboxItems({
+          inbox_item_ids: params.inbox_item_ids,
+          object_name: params.object_name,
+          suggested_object_type: params.suggested_object_type,
+          target_library_root_id: params.target_library_root_id,
+        });
+      } else if (selectionSS === "external" && params.file_ids) {
+        await composeExternalFiles({
+          file_ids: params.file_ids,
+          object_name: params.object_name,
+          suggested_object_type: params.suggested_object_type,
+          target_library_root_id: params.target_library_root_id,
+        });
+      }
       setShowComposeModal(false);
       clearSelection();
-      // Refresh browse data
       await queryClient.invalidateQueries({ queryKey: ["browse-v2"] });
     } catch (err) {
       setComposeError(String(err));
@@ -399,7 +424,9 @@ export function BrowseV2Feature() {
           {selectedFileIds.size > 0 && (
             <div className="browse-v2-selection-bar" style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:"#f0f4ff",borderRadius:4,marginBottom:4}}>
               <span style={{fontSize:13}}>
-                {t("features.browseV2.compose.selectedCount", { count: String(selectedFileIds.size) })}
+                {selectionSS === "inbox"
+                  ? t("features.browseV2.compose.selectedInbox", { count: String(selectedFileIds.size) })
+                  : t("features.browseV2.compose.selectedExternal", { count: String(selectedFileIds.size) })}
               </span>
               <button className="primary-button" type="button" disabled={composing} onClick={() => setShowComposeModal(true)}>
                 {t("features.browseV2.compose.action")}
@@ -607,6 +634,7 @@ export function BrowseV2Feature() {
         <ComposeObjectModal
           selectedFiles={selectedFiles}
           roots={(roots as LibraryRootVM[]) ?? []}
+          selectionSS={selectionSS ?? ""}
           busy={composing}
           onCancel={() => { setShowComposeModal(false); setComposeError(null); }}
           onConfirm={handleComposeConfirm}

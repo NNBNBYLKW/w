@@ -211,6 +211,28 @@ class ComposeObjectResponse(BaseModel):
     notes: list[str] = []
 
 
+# ── Phase 8C-3: Compose external files ────────────────────
+
+class ComposeExternalRequest(BaseModel):
+    file_ids: list[int]
+    object_name: str
+    suggested_object_type: str | None = None
+    target_library_root_id: int | None = None
+
+
+class ComposeExternalResponse(BaseModel):
+    import_batch_id: int
+    object_candidate_id: int
+    object_name: str
+    suggested_object_type: str | None = None
+    confidence: str = "low"
+    member_count: int
+    copied_count: int
+    status: str = "pending_review"
+    members: list[dict] = []
+    notes: list[str] = []
+
+
 class LibraryV2CapabilityResponse(BaseModel):
     status: str = "data_foundation"
     import_enabled: bool = False

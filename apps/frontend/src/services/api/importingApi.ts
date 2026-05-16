@@ -387,3 +387,40 @@ export async function composeInboxItems(
   }
   return res.json() as Promise<ComposeInboxResponse>;
 }
+
+// ── Phase 8C-3: Compose external files ───────────────────
+
+export interface ComposeExternalRequest {
+  file_ids: number[];
+  object_name: string;
+  suggested_object_type?: string;
+  target_library_root_id?: number;
+}
+
+export interface ComposeExternalResponse {
+  import_batch_id: number;
+  object_candidate_id: number;
+  object_name: string;
+  suggested_object_type: string | null;
+  confidence: string;
+  member_count: number;
+  copied_count: number;
+  status: string;
+  members: Array<{ file_id: number; inbox_item_id: number; source_file_id: string; name: string; role: string }>;
+  notes: string[];
+}
+
+export async function composeExternalFiles(
+  data: ComposeExternalRequest,
+): Promise<ComposeExternalResponse> {
+  const res = await fetch(`${BASE()}/compose/external-files`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const payload = (await res.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(payload?.detail || "Compose failed.");
+  }
+  return res.json() as Promise<ComposeExternalResponse>;
+}

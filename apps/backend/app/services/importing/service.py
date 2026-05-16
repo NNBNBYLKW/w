@@ -1509,5 +1509,244 @@ class ImportService:
             session.rollback()
             raise
 
+    # ── Phase 8C-3: Compose external loose files ──────────────
+
+    def compose_external_files(
+        self,
+        session: Session,
+        *,
+        file_ids: list[int],
+        object_name: str,
+        suggested_object_type: str | None = None,
+        target_library_root_id: int | None = None,
+    ) -> dict[str, Any]:
+        """Copy external loose files into Inbox and compose into an object candidate.
+
+        Source files are copy-only — never moved or deleted. Inbox copies are
+        registered as new files (storage_state=inbox), then grouped into a
+        pending_review import_object_candidate.
+        """
+        import re as _re
+        from app.db.models.importing import ImportObjectCandidate as IOC, ImportObjectMember as IOM
+
+        if not file_ids:
+            raise ValueError("At least one file is required.")
+
+        # Validate target root
+        if target_library_root_id is not None:
+            lib_root = self.root_repo.get_by_id(session, target_library_root_id)
+            if lib_root is None or not lib_root.is_enabled:
+                raise ValueError("Target library root not found or disabled.")
+
+        # Sanitize object name
+        object_name = _re.sub(r'[\\/:*?"<>|]', " ", object_name)
+        object_name = _re.sub(r"\s+", " ", object_name).strip()
+        if not object_name:
+            raise ValueError("Object name is required.")
+
+        # Load and validate all files
+        files: list[File] = []
+        member_file_ids: set[int] = set()
+
+        # Gather existing member file_ids to reject already-composed files
+        from app.db.models.library_object import LibraryObjectMember as LOM
+        lom_ids = session.query(LOM.file_id).filter(
+            LOM.file_id.isnot(None)
+        ).all()
+        member_file_ids.update(r[0] for r in lom_ids if r[0] is not None)
+
+        from app.db.models.importing import InboxItem as II
+        iom_ii_ids = session.query(IOM.inbox_item_id).join(
+            IOC, IOM.import_object_candidate_id == IOC.id
+        ).filter(IOC.status.in_(["pending_review", "confirmed"])).all()
+        ii_ids = [r[0] for r in iom_ii_ids if r[0] is not None]
+        if ii_ids:
+            ii_fids = session.query(II.file_id).filter(II.id.in_(ii_ids)).all()
+            member_file_ids.update(r[0] for r in ii_fids if r[0] is not None)
+
+        for fid in file_ids:
+            f = session.query(File).filter(File.id == fid).first()
+            if f is None:
+                raise ValueError(f"File not found: {fid}")
+            if f.storage_state != "external":
+                raise ValueError(f"File {fid} must have storage_state=external, got {f.storage_state}")
+            if f.is_deleted:
+                raise ValueError(f"File {fid} is deleted.")
+            source_path = Path(f.path)
+            if not source_path.is_file():
+                raise ValueError(f"Source file does not exist on disk: {f.path}")
+            if fid in member_file_ids:
+                raise ValueError(f"File {fid} is already a member of an object.")
+            files.append(f)
+
+        # Create batch and Inbox folder
+        op_id = str(uuid.uuid4())
+        batch = self.repository.create_batch(
+            session, source_kind="compose_external", import_method="copy"
+        )
+        self.repository.update_batch_status(session, batch, "running")
+
+        target_root = self._resolve_inbox_root(session)
+        inbox_parent = self._ensure_inbox_dir(target_root.root_path, batch.id)
+        inbox_folder = self._no_overwrite_target(inbox_parent / object_name)
+
+        self.repository.append_journal_entry(
+            session, operation_id=op_id, operation_type="compose_external",
+            entity_type="import_batch", entity_id=batch.id, status="started",
+            before_json=json.dumps({"source_file_ids": file_ids}),
+            after_json=json.dumps({"inbox_folder": str(inbox_folder)}),
+        )
+
+        copied: list[tuple[Path, Path, File]] = []
+        try:
+            inbox_folder.mkdir(parents=True, exist_ok=True)
+            for f in files:
+                source_path = Path(f.path)
+                dest = self._no_overwrite_target(inbox_folder / source_path.name)
+                tmp = dest.with_name(f".tmp-{uuid.uuid4().hex[:8]}-{dest.name}")
+                try:
+                    shutil.copy2(str(source_path), str(tmp))
+                    tmp.replace(dest)
+                    file_rec = self._register_imported_file(
+                        session, source_path, dest, self._get_managed_source(session).id
+                    )
+                    copied.append((source_path, dest, file_rec))
+                except Exception:
+                    if tmp.exists():
+                        tmp.unlink(missing_ok=True)
+                    raise
+        except Exception:
+            # Clean up created inbox folder on failure
+            session.rollback()
+            if inbox_folder.exists():
+                shutil.rmtree(str(inbox_folder), ignore_errors=True)
+            raise
+
+        try:
+            # Create members
+            member_rel_paths: list[str] = []
+            member_items: list[dict[str, Any]] = []
+
+            for source_path, dest, file_rec in copied:
+                rel_path = str(dest.relative_to(inbox_folder))
+                member_rel_paths.append(rel_path)
+
+                kind = file_rec.file_kind or "other"
+                role = "unknown_child"
+                if kind == "image":
+                    role = "image_member"
+                elif kind == "video":
+                    role = "main_video"
+                elif kind == "document":
+                    role = "document_attachment"
+                elif kind in ("executable",):
+                    role = "launch_exe"
+
+                ii = self.repository.create_inbox_item(
+                    session,
+                    import_batch_id=batch.id,
+                    file_id=file_rec.id,
+                    source_path=str(source_path),
+                    inbox_path=str(dest),
+                    status="imported",
+                    detected_file_kind=kind,
+                    detected_placement=file_rec.auto_placement,
+                    target_library_root_id=target_library_root_id,
+                )
+                file_rec.inbox_item_id = ii.id
+
+                member_items.append({
+                    "file_id": file_rec.id,
+                    "inbox_item_id": ii.id,
+                    "source_file_id": Path(str(source_path)).name,
+                    "name": file_rec.name,
+                    "role": role,
+                })
+
+            session.flush()
+
+            # Create object candidate
+            oc = self.repository.create_object_candidate(
+                session,
+                import_batch_id=batch.id,
+                source_root_path=str(Path(files[0].path).parent) if files else "",
+                inbox_root_path=str(inbox_folder),
+                suggested_object_type=suggested_object_type or "unknown",
+                confidence="low",
+                member_count=len(copied),
+                reason_json=json.dumps({
+                    "source": "compose_external",
+                    "original_file_ids": file_ids,
+                    "copy_only": True,
+                    "source_preserved": True,
+                }),
+            )
+            oc.status = "pending_review"
+
+            for mi in member_items:
+                ii_id = mi["inbox_item_id"]
+                role = mi["role"]
+                self.repository.create_object_member(
+                    session,
+                    import_object_candidate_id=oc.id,
+                    inbox_item_id=ii_id,
+                    role=role,
+                    confidence="low",
+                    reason="Composed from external loose file",
+                )
+
+            if target_library_root_id:
+                oc.target_library_root_id = target_library_root_id
+
+            # Type detection
+            from app.services.importing.object_boundary import detect_object_type
+            detection = detect_object_type(object_name, member_rel_paths)
+            if detection.suggested_object_type and detection.suggested_object_type != "unknown":
+                if not suggested_object_type:
+                    oc.suggested_object_type = detection.suggested_object_type
+                    oc.confidence = detection.confidence
+
+            session.flush()
+
+            self.repository.update_batch_counts(
+                session, batch,
+                file_count=len(copied), completed_count=len(copied), failed_count=0,
+            )
+            self.repository.update_batch_status(session, batch, "completed")
+            self.repository.append_journal_entry(
+                session, operation_id=op_id, operation_type="compose_external",
+                entity_type="import_batch", entity_id=batch.id, status="succeeded",
+                after_json=json.dumps({
+                    "object_candidate_id": oc.id,
+                    "copied_count": len(copied),
+                    "source_preserved": True,
+                }),
+            )
+            session.commit()
+
+            return {
+                "import_batch_id": batch.id,
+                "object_candidate_id": oc.id,
+                "object_name": object_name,
+                "suggested_object_type": oc.suggested_object_type,
+                "confidence": oc.confidence or "low",
+                "member_count": len(member_items),
+                "copied_count": len(copied),
+                "status": oc.status,
+                "members": member_items,
+                "notes": [
+                    "External source files were copied to Inbox. Source files were not moved or deleted.",
+                    "Object candidate created as pending_review. Review required before draft plan.",
+                    "No organize candidate, draft plan, or execute was triggered.",
+                ],
+            }
+
+        except Exception:
+            session.rollback()
+            # Clean up created inbox folder
+            if inbox_folder.exists():
+                shutil.rmtree(str(inbox_folder), ignore_errors=True)
+            raise
+
 
 import_service = ImportService()

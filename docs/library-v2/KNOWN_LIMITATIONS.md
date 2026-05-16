@@ -35,7 +35,6 @@
 | Complex dashboard / charts | Minimal UI |
 | Full Explorer replacement | Workbench is an asset workbench, not a file manager |
 | AI auto-classification | AI must never write final facts or execute |
-| External loose file compose | Phase 8C-3: copy-to-inbox compose not implemented |
 | Managed loose file compose | Phase 8C-4: object creation plan not implemented |
 | Object amendment plan | Phase 8D: add/remove members deferred |
 | Compose multi-batch | 8C-1 single-batch compose only; cross-batch not supported |
