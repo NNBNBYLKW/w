@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.orm import Session
 
 from app.db.session.session import get_db
@@ -14,6 +14,8 @@ from app.schemas.library_organize import (
     ExecutePlanResponse,
     GeneratePlanRequest,
     GeneratePlanResponse,
+    ManagedComposePlanRequest,
+    ManagedComposePlanResponse,
     OrganizeCandidateItem,
     OrganizeStatsResponse,
     OrganizeSuggestionItem,
@@ -246,3 +248,23 @@ def list_templates() -> OrganizeTemplateListResponse:
 @router.get("/stats", response_model=OrganizeStatsResponse)
 def get_organize_stats(db: Session = Depends(get_db)) -> OrganizeStatsResponse:
     return organize_service.organize_stats(db)
+
+
+# ── Phase 8C-4A: Managed Compose Creation Plan ───────────
+
+@router.post("/plans/managed-compose", response_model=ManagedComposePlanResponse, status_code=201)
+def create_managed_compose_plan(
+    body: ManagedComposePlanRequest,
+    db: Session = Depends(get_db),
+) -> ManagedComposePlanResponse:
+    try:
+        result = organize_service.create_managed_compose_plan(
+            db,
+            file_ids=body.file_ids,
+            object_name=body.object_name,
+            object_type=body.object_type,
+            target_library_root_id=body.target_library_root_id,
+        )
+        return ManagedComposePlanResponse(**result)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

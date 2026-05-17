@@ -280,3 +280,32 @@ class GenerateAssetYamlMergeResponse(BaseModel):
     update_action_id: int
     plan_origin: str
     field_diff: list[FieldDiffItem]
+
+
+# ── Phase 8C-4A: Managed Compose Creation Plan ──────────
+
+class ManagedComposePlanMember(BaseModel):
+    file_id: int
+    role: str
+    relative_path: str
+    source_path: str | None = None
+    target_path: str | None = None
+
+
+class ManagedComposePlanRequest(BaseModel):
+    file_ids: list[int] = Field(min_length=1)
+    object_name: str
+    object_type: str
+    target_library_root_id: int | None = None
+
+
+class ManagedComposePlanResponse(BaseModel):
+    plan_id: int
+    status: str
+    plan_kind: str
+    actions_count: int
+    target_library_root_id: int | None = None
+    target_root_path: str | None = None
+    target_object_dir: str
+    planned_members: list[ManagedComposePlanMember] = []
+    notes: list[str] = []

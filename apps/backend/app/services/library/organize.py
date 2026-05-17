@@ -2049,6 +2049,193 @@ class LibraryOrganizeService:
         )
         return entry.id
 
+    # ── Phase 8C-4A: Managed Compose Creation Plan ───────────
+
+    def create_managed_compose_plan(
+        self,
+        session: Session,
+        *,
+        file_ids: list[int],
+        object_name: str,
+        object_type: str,
+        target_library_root_id: int | None = None,
+    ) -> dict[str, Any]:
+        """Create a draft object creation plan for managed loose files.
+
+        Only validates and creates the plan — no preflight, execute, or file ops.
+        """
+        import re as _re
+
+        if not file_ids:
+            raise HTTPException(status_code=400, detail="At least one file is required.")
+
+        # Validate object type
+        if object_type not in PLAN_TARGET_DIRS:
+            raise HTTPException(status_code=400, detail=f"Unknown object_type: {object_type}")
+
+        # Sanitize name
+        object_name = _re.sub(r'[\\/:*?"<>|]', " ", object_name)
+        object_name = _re.sub(r"\s+", " ", object_name).strip()
+        if not object_name:
+            raise HTTPException(status_code=400, detail="Object name is required.")
+
+        # Load and validate files
+        files: list[File] = []
+        managed_root_id: int | None = None
+
+        # Collect member file_ids to reject already-composed files
+        member_file_ids: set[int] = set()
+        from app.db.models.library_object import LibraryObjectMember as LOM
+        lom_rows = session.query(LOM.file_id).filter(LOM.file_id.isnot(None)).all()
+        member_file_ids.update(r[0] for r in lom_rows if r[0] is not None)
+        from app.db.models.importing import ImportObjectMember as IOM, ImportObjectCandidate as IOC, InboxItem as II
+        iom_ii = session.query(IOM.inbox_item_id).join(IOC, IOM.import_object_candidate_id == IOC.id).filter(IOC.status.in_(["pending_review", "confirmed"])).all()
+        iom_ii_ids = [r[0] for r in iom_ii if r[0] is not None]
+        if iom_ii_ids:
+            iom_fids = session.query(II.file_id).filter(II.id.in_(iom_ii_ids)).all()
+            member_file_ids.update(r[0] for r in iom_fids if r[0] is not None)
+
+        for fid in file_ids:
+            f = session.query(File).filter(File.id == fid).first()
+            if f is None:
+                raise HTTPException(status_code=404, detail=f"File not found: {fid}")
+            if f.storage_state != "managed":
+                raise HTTPException(status_code=400, detail=f"File {fid} must be storage_state=managed, got {f.storage_state}")
+            if fid in member_file_ids:
+                raise HTTPException(status_code=400, detail=f"File {fid} is already a member of an object.")
+            src = Path(f.path)
+            if not src.is_file():
+                raise HTTPException(status_code=400, detail=f"Source file does not exist: {f.path}")
+            if managed_root_id is None:
+                managed_root_id = f.managed_root_id
+            elif f.managed_root_id != managed_root_id:
+                raise HTTPException(status_code=400, detail="Cross-managed-root compose is not supported in Phase 8C-4A.")
+            files.append(f)
+
+        # Validate / resolve target root
+        if target_library_root_id is not None:
+            lib_root = self.library_root_repository.get_by_id(session, target_library_root_id)
+            if lib_root is None or not lib_root.is_enabled:
+                raise HTTPException(status_code=400, detail="Target library root not found or disabled.")
+            base_root = Path(lib_root.root_path).resolve()
+        else:
+            if managed_root_id:
+                lib_root = self.library_root_repository.get_by_id(session, managed_root_id)
+                base_root = Path(lib_root.root_path).resolve() if lib_root else Path(files[0].path).parent
+                target_library_root_id = managed_root_id
+            else:
+                base_root = Path(files[0].path).parent
+                target_library_root_id = None
+
+        # Render target object directory
+        prefix = OBJECT_PREFIX.get(object_type, "OBJ")
+        safe_title = _safe_title(_strip_extension(object_name))
+        year = _year_from_text(object_name)
+        suffix = f" ({year})" if year else ""
+        folder_name = f"[{prefix}] {safe_title}{suffix}"
+
+        target_dirs = PLAN_TARGET_DIRS[object_type]
+        target_object_dir = base_root.joinpath(*target_dirs, folder_name)
+
+        # Build actions
+        now = _now()
+        plan_title = f"Object creation: {object_name}"
+        plan = OrganizePlan(
+            title=plan_title,
+            status="draft",
+            plan_kind="object_creation_managed_compose",
+            summary=f"Draft object creation plan for {object_name}. No files have been moved.",
+            target_library_root_id=target_library_root_id,
+            created_at=now,
+            updated_at=now,
+        )
+        self.repository.add_plan(session, plan)
+
+        planned_members: list[dict[str, Any]] = []
+        actions: list[OrganizeAction] = []
+        order = 1
+
+        # mkdir action
+        actions.append(OrganizeAction(
+            plan_id=plan.id, action_order=order, action_type="mkdir",
+            source_path=None, target_path=str(target_object_dir), payload_json=None,
+            status="draft", conflict_status="unchecked",
+            reason=f"Create object directory for {object_name}",
+            import_object_candidate_id=None, inbox_item_id=None,
+            created_at=now, updated_at=now,
+        ))
+        order += 1
+
+        # move actions — one per file
+        for f in files:
+            source_path = Path(f.path)
+            safe_fname = _re.sub(r'[<>:"/\\|?*]', " ", f.name).strip()
+            target_file = target_object_dir / safe_fname
+            payload = {
+                "file_id": f.id,
+                "member_role": "unknown_child",
+                "selected_relative_path": safe_fname,
+                "object_creation_plan": True,
+            }
+            if f.file_kind == "image":
+                payload["member_role"] = "image_member"
+            elif f.file_kind == "video":
+                payload["member_role"] = "main_video"
+            elif f.file_kind == "document":
+                payload["member_role"] = "document_attachment"
+            elif f.file_kind in ("executable",):
+                payload["member_role"] = "launch_exe"
+
+            actions.append(OrganizeAction(
+                plan_id=plan.id, action_order=order, action_type="move",
+                source_path=str(source_path), target_path=str(target_file),
+                payload_json=json.dumps(payload, ensure_ascii=False),
+                status="draft", conflict_status="unchecked",
+                reason=f"Move managed loose file into object directory",
+                import_object_candidate_id=None, inbox_item_id=None,
+                created_at=now, updated_at=now,
+            ))
+            planned_members.append({
+                "file_id": f.id,
+                "role": payload["member_role"],
+                "relative_path": safe_fname,
+                "source_path": str(source_path),
+                "target_path": str(target_file),
+            })
+            order += 1
+
+        self.repository.add_actions(session, actions)
+
+        # summary_json
+        plan.summary_json = json.dumps({
+            "plan_type": "object_creation",
+            "object_name": object_name,
+            "object_type": object_type,
+            "target_object_dir": str(target_object_dir),
+            "selected_file_ids": [f.id for f in files],
+            "planned_members": [{k: v for k, v in m.items() if k != "source_path"} for m in planned_members],
+            "finalize_policy": "all_or_nothing_object_creation",
+        }, ensure_ascii=False)
+
+        session.flush()
+        session.commit()
+
+        return {
+            "plan_id": plan.id,
+            "status": plan.status,
+            "plan_kind": plan.plan_kind,
+            "actions_count": len(actions),
+            "target_library_root_id": target_library_root_id,
+            "target_root_path": str(base_root),
+            "target_object_dir": str(target_object_dir),
+            "planned_members": planned_members,
+            "notes": [
+                "Draft plan only — no files have been moved.",
+                "Mark ready, preflight, then execute to create the object.",
+                "Object creation only after full successful execute.",
+            ],
+        }
+
 
 organize_service = LibraryOrganizeService()
 
