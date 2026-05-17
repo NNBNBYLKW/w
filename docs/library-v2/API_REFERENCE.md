@@ -127,4 +127,15 @@ Safety: no filesystem operations (pure DB grouping), same-batch required, item s
 
 ### Phase 8C-2: Frontend compose UI
 
-Browse v2 loose file cards now include `inbox_item_id` and `import_batch_id` (Phase 8C-2 read model addition). The frontend uses these to select inbox loose files and open the Compose Object modal. Selection is restricted to storage_state=inbox loose files only. managed/external files have no compose checkbox.
+Browse v2 loose file cards now include `inbox_item_id` and `import_batch_id` (Phase 8C-2 read model addition). The frontend uses these to select inbox loose files and open the Compose Object modal with auto-suggested object name and type. Selection clears on filter/page change. Inbox and external cannot be mixed.
+
+## Compose External (Phase 8C-3)
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/library/import/compose/external-files` | Copy external loose files to Inbox and compose into one object candidate |
+
+**Request:** `{ "file_ids": [1,2,3], "object_name": "My Object", "suggested_object_type": "imgset", "target_library_root_id": 1 }`  
+**Response:** `{ "import_batch_id": 10, "object_candidate_id": 5, "copied_count": 3, "member_count": 3, "status": "pending_review", ... }`  
+
+Safety: external files are copy-only (shutil.copy2) to Inbox object folder, source files preserved. No overwrite (auto-suffix). Transaction-safe rollback with inbox folder cleanup on failure. Creates pending_review candidate only — no organize candidate, no draft plan, no execute.
