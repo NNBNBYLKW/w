@@ -217,6 +217,14 @@ export function BrowseV2Feature() {
     enabled: selectedObject !== null,
   });
 
+  const items = data?.items ?? [];
+  const objectCards = items.filter(isObjectCard);
+  const looseFileCards = items.filter(isLooseFileCard);
+  const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
+  const showObjects = cardKind !== "loose_file";
+  const showLooseFiles = cardKind !== "object";
+  const activeScope = getCategoryLabel(domain, category);
+
   useEffect(() => {
     setMemberPage(1);
   }, [selectedObject?.object_source, selectedObject?.source_id]);
@@ -303,14 +311,6 @@ export function BrowseV2Feature() {
   useEffect(() => {
     clearSelection();
   }, [domain, category, storageState, cardKind, page]);
-
-  const items = data?.items ?? [];
-  const objectCards = items.filter(isObjectCard);
-  const looseFileCards = items.filter(isLooseFileCard);
-  const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
-  const showObjects = cardKind !== "loose_file";
-  const showLooseFiles = cardKind !== "object";
-  const activeScope = getCategoryLabel(domain, category);
 
   return (
     <WorkbenchPage className="browse-v2-page browse-surface browse-surface--browse-v2" variant="browse-v2">
@@ -505,7 +505,11 @@ export function BrowseV2Feature() {
                             card={card}
                             selected={selectedItemId === String(card.file_id)}
                             checked={selectedFileIds.has(card.file_id)}
-                            onCheckboxToggle={() => handleCheckboxToggle(card)}
+                            onCheckboxToggle={
+                              card.storage_state === "inbox" || card.storage_state === "external"
+                                ? () => handleCheckboxToggle(card)
+                                : undefined
+                            }
                             onClick={() => handleCardClick(card)}
                           />
                         ))}
