@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.orm import Session
 
 from app.db.session.session import get_db
@@ -84,3 +84,29 @@ def list_library_object_members(
 @router.get("/overview", response_model=LibraryOverviewStatsResponse)
 def get_library_overview(db: Session = Depends(get_db)) -> LibraryOverviewStatsResponse:
     return library_object_service.overview_stats(db)
+
+
+# ── Phase 8D-A2: Object Amendment Plans ──────────────────
+
+from app.schemas.library_organize import AmendmentPlanRequest, AmendmentPlanResponse
+from app.services.library.organize import organize_service as org_svc
+
+
+@router.post("/objects/{object_id}/amendment-plans", response_model=AmendmentPlanResponse, status_code=201)
+def create_amendment_plan(
+    object_id: int,
+    body: AmendmentPlanRequest,
+    db: Session = Depends(get_db),
+) -> AmendmentPlanResponse:
+    try:
+        result = org_svc.create_amendment_plan(
+            db,
+            object_id=object_id,
+            add_file_ids=body.add_file_ids,
+            remove_member_ids=body.remove_member_ids,
+            target_library_root_id=body.target_library_root_id,
+            remove_target_policy=body.remove_target_policy,
+        )
+        return AmendmentPlanResponse(**result)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

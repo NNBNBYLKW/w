@@ -2497,6 +2497,240 @@ class LibraryOrganizeService:
             f"with {len(planned_members)} members.",
         )
 
+    # ── Phase 8D-A2: Object Amendment Draft Plan ──────────────
+
+    def create_amendment_plan(
+        self,
+        session: Session,
+        *,
+        object_id: int,
+        add_file_ids: list[int],
+        remove_member_ids: list[int],
+        target_library_root_id: int | None = None,
+        remove_target_policy: str = "managed_loose_area",
+    ) -> dict[str, Any]:
+        """Create a draft amendment plan for an existing library_object.
+
+        Supports add-only and remove-only. Mixed deferred. No file move. No member mutation.
+        """
+        import re as _re
+
+        # Validate: at least one add or remove, not both
+        has_add = len(add_file_ids) > 0
+        has_remove = len(remove_member_ids) > 0
+        if not has_add and not has_remove:
+            raise HTTPException(status_code=400, detail="At least one of add_file_ids or remove_member_ids is required.")
+        if has_add and has_remove:
+            raise HTTPException(status_code=400, detail="Mixed add+remove amendment plans are not supported in Phase 8D-A2.")
+
+        amendment_type = "add_members" if has_add else "remove_members"
+
+        # Validate object exists
+        lo = session.query(LibraryObject).filter(LibraryObject.id == object_id).first()
+        if lo is None:
+            raise HTTPException(status_code=404, detail="Library object not found.")
+
+        object_root = Path(lo.root_path)
+
+        # Resolve target root
+        base_root: Path
+        if target_library_root_id is not None:
+            lib_root = self.library_root_repository.get_by_id(session, target_library_root_id)
+            if lib_root is None or not lib_root.is_enabled:
+                raise HTTPException(status_code=400, detail="Target library root not found or disabled.")
+            base_root = Path(lib_root.root_path).resolve()
+        else:
+            base_root = object_root.parent if object_root.parent != object_root else object_root
+
+        # Gather member file_ids
+        member_file_ids: set[int] = set()
+        from app.db.models.library_object import LibraryObjectMember as LOM
+        lom_rows = session.query(LOM.file_id).filter(
+            LOM.file_id.isnot(None), LOM.member_status == "active"
+        ).all()
+        member_file_ids.update(r[0] for r in lom_rows if r[0] is not None)
+
+        from app.db.models.importing import ImportObjectMember as IOM, ImportObjectCandidate as IOC, InboxItem as II
+        iom_rows = session.query(IOM.inbox_item_id).join(
+            IOC, IOM.import_object_candidate_id == IOC.id
+        ).filter(IOC.status.in_(["pending_review", "confirmed"])).all()
+        iom_ii_ids = [r[0] for r in iom_rows if r[0] is not None]
+        if iom_ii_ids:
+            iom_fids = session.query(II.file_id).filter(II.id.in_(iom_ii_ids)).all()
+            member_file_ids.update(r[0] for r in iom_fids if r[0] is not None)
+
+        planned_actions: list[dict[str, Any]] = []
+        now = _now()
+        plan_title = f"Amendment: {lo.title or lo.root_name}"
+
+        if has_add:
+            # ── Add-only amendment ─────────────────────────
+            files: list[File] = []
+            for fid in add_file_ids:
+                f = session.query(File).filter(File.id == fid).first()
+                if f is None:
+                    raise HTTPException(status_code=400, detail=f"File not found: {fid}")
+                if f.storage_state != "managed":
+                    raise HTTPException(status_code=400, detail=f"File {fid} must be managed, got {f.storage_state}")
+                if fid in member_file_ids:
+                    raise HTTPException(status_code=400, detail=f"File {fid} is already an object member.")
+                if not Path(f.path).is_file():
+                    raise HTTPException(status_code=400, detail=f"File {fid} source path does not exist on disk.")
+                files.append(f)
+
+            add_members_meta: list[dict[str, Any]] = []
+            actions: list[OrganizeAction] = []
+            order = 1
+            for f in files:
+                safe_name = _re.sub(r'[<>:"/\\|?*]', " ", f.name).strip()
+                target_file = self._no_overwrite_target(object_root / safe_name)
+                role = "unknown_child"
+                if f.file_kind:
+                    if f.file_kind == "image":
+                        role = "image_member"
+                    elif f.file_kind == "video":
+                        role = "main_video"
+                    elif f.file_kind in ("document", "ebook"):
+                        role = "document_attachment"
+                    elif f.file_kind in ("executable",):
+                        role = "launch_exe"
+                add_members_meta.append({"file_id": f.id, "role": role, "relative_path": safe_name})
+                actions.append(OrganizeAction(
+                    plan_id=0, action_order=order, action_type="move",
+                    source_path=f.path, target_path=str(target_file),
+                    payload_json=json.dumps({
+                        "object_amendment_plan": True, "amendment_action": "add_member",
+                        "object_id": object_id, "file_id": f.id,
+                        "member_role": role, "member_relative_path": safe_name,
+                    }, ensure_ascii=False),
+                    status="draft", conflict_status="unchecked",
+                    reason=f"Add managed loose file to object",
+                    created_at=now, updated_at=now,
+                ))
+                planned_actions.append({
+                    "action_type": "move", "source_path": f.path,
+                    "target_path": str(target_file), "file_id": f.id,
+                    "member_role": role, "amendment_action": "add_member",
+                })
+                order += 1
+
+            plan = OrganizePlan(
+                title=plan_title, status="draft", plan_kind="object_amendment",
+                summary="Draft amendment plan to add members. No files have been moved.",
+                summary_json=json.dumps({
+                    "plan_type": "object_amendment", "amendment_type": "add_members",
+                    "object_id": object_id, "object_root_path": str(object_root),
+                    "add_file_ids": add_file_ids, "remove_member_ids": [],
+                    "planned_add_members": add_members_meta,
+                    "finalize_policy": "all_or_nothing_object_amendment",
+                    "mixed_amendment_allowed": False,
+                }, ensure_ascii=False),
+                target_library_root_id=target_library_root_id,
+                created_at=now, updated_at=now,
+            )
+            self.repository.add_plan(session, plan)
+            for a in actions:
+                a.plan_id = plan.id
+            self.repository.add_actions(session, actions)
+            session.commit()
+            return {
+                "plan_id": plan.id, "plan_kind": plan.plan_kind,
+                "object_id": object_id, "amendment_type": "add_members",
+                "status": "draft", "add_count": len(files), "remove_count": 0,
+                "planned_actions": planned_actions,
+                "notes": ["Draft amendment plan only. No files were moved and object members were not changed."],
+            }
+
+        else:
+            # ── Remove-only amendment ──────────────────────
+            members: list[LOM] = []
+            for mid in remove_member_ids:
+                m = session.query(LOM).filter(LOM.id == mid).first()
+                if m is None:
+                    raise HTTPException(status_code=400, detail=f"Member not found: {mid}")
+                if m.object_id != object_id:
+                    raise HTTPException(status_code=400, detail=f"Member {mid} does not belong to object {object_id}")
+                if m.member_status != "active":
+                    raise HTTPException(status_code=400, detail=f"Member {mid} is not active (current: {m.member_status})")
+                f = session.query(File).filter(File.id == m.file_id).first() if m.file_id else None
+                if f is None:
+                    raise HTTPException(status_code=400, detail=f"Member {mid} file not found.")
+                if not Path(f.path).is_file():
+                    raise HTTPException(status_code=400, detail=f"Member {mid} file does not exist on disk.")
+                members.append(m)
+
+            remove_target_dir = base_root / "90_Loose" / f"Removed_{lo.root_name}"
+            remove_members_meta: list[dict[str, Any]] = []
+            actions: list[OrganizeAction] = []
+            order = 1
+            for m in members:
+                f = session.query(File).filter(File.id == m.file_id).first()
+                safe_name = _re.sub(r'[<>:"/\\|?*]', " ", f.name).strip()
+                target_file = self._no_overwrite_target(remove_target_dir / safe_name)
+                remove_members_meta.append({
+                    "member_id": m.id, "file_id": m.file_id,
+                    "previous_role": m.member_role, "relative_path": safe_name,
+                })
+                actions.append(OrganizeAction(
+                    plan_id=0, action_order=order, action_type="move",
+                    source_path=f.path, target_path=str(target_file),
+                    payload_json=json.dumps({
+                        "object_amendment_plan": True, "amendment_action": "remove_member",
+                        "object_id": object_id, "member_id": m.id,
+                        "file_id": m.file_id or 0, "previous_member_role": m.member_role,
+                        "remove_target_policy": remove_target_policy,
+                    }, ensure_ascii=False),
+                    status="draft", conflict_status="unchecked",
+                    reason=f"Remove member from object",
+                    created_at=now, updated_at=now,
+                ))
+                planned_actions.append({
+                    "action_type": "move", "source_path": f.path,
+                    "target_path": str(target_file), "file_id": m.file_id,
+                    "amendment_action": "remove_member",
+                })
+                order += 1
+
+            plan = OrganizePlan(
+                title=plan_title, status="draft", plan_kind="object_amendment",
+                summary="Draft amendment plan to remove members. No files have been moved.",
+                summary_json=json.dumps({
+                    "plan_type": "object_amendment", "amendment_type": "remove_members",
+                    "object_id": object_id, "object_root_path": str(object_root),
+                    "add_file_ids": [], "remove_member_ids": remove_member_ids,
+                    "planned_remove_members": remove_members_meta,
+                    "remove_target_policy": remove_target_policy,
+                    "remove_target_dir": str(remove_target_dir),
+                    "finalize_policy": "all_or_nothing_object_amendment",
+                    "mixed_amendment_allowed": False,
+                }, ensure_ascii=False),
+                target_library_root_id=target_library_root_id,
+                created_at=now, updated_at=now,
+            )
+            self.repository.add_plan(session, plan)
+            for a in actions:
+                a.plan_id = plan.id
+            self.repository.add_actions(session, actions)
+            session.commit()
+            return {
+                "plan_id": plan.id, "plan_kind": plan.plan_kind,
+                "object_id": object_id, "amendment_type": "remove_members",
+                "status": "draft", "add_count": 0, "remove_count": len(members),
+                "planned_actions": planned_actions,
+                "notes": ["Draft amendment plan only. No files were moved and object members were not changed."],
+            }
+
+    @staticmethod
+    def _no_overwrite_target(target: Path) -> Path:
+        if not target.exists():
+            return target
+        stem, suffix = target.stem, target.suffix
+        parent = target.parent
+        counter = 1
+        while (parent / f"{stem} ({counter}){suffix}").exists():
+            counter += 1
+        return parent / f"{stem} ({counter}){suffix}"
+
 
 organize_service = LibraryOrganizeService()
 

@@ -309,3 +309,33 @@ class ManagedComposePlanResponse(BaseModel):
     target_object_dir: str
     planned_members: list[ManagedComposePlanMember] = []
     notes: list[str] = []
+
+
+# ── Phase 8D-A2: Object Amendment Draft Plan ────────────
+
+class AmendmentPlannedAction(BaseModel):
+    action_type: str
+    source_path: str | None = None
+    target_path: str | None = None
+    file_id: int | None = None
+    member_role: str | None = None
+    amendment_action: str | None = None
+
+
+class AmendmentPlanRequest(BaseModel):
+    add_file_ids: list[int] = []
+    remove_member_ids: list[int] = []
+    target_library_root_id: int | None = None
+    remove_target_policy: str = "managed_loose_area"
+
+
+class AmendmentPlanResponse(BaseModel):
+    plan_id: int
+    plan_kind: str = "object_amendment"
+    object_id: int
+    amendment_type: str
+    status: str
+    add_count: int
+    remove_count: int
+    planned_actions: list[AmendmentPlannedAction] = []
+    notes: list[str] = []
