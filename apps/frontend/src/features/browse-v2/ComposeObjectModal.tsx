@@ -91,13 +91,15 @@ export function ComposeObjectModal({ selectedFiles, roots, selectionSS, onCancel
         </div>
         {selectionSS === "inbox" ? (
           <p className="library-review-notice">{t("features.browseV2.compose.safety")}</p>
+        ) : selectionSS === "managed" ? (
+          <p className="library-review-notice">{t("features.browseV2.compose.safetyManaged")}</p>
         ) : (
           <p className="library-review-notice">{t("features.browseV2.compose.safetyExternal")}</p>
         )}
         <div className="library-inbox-modal-actions">
           <button className="secondary-button" type="button" onClick={onCancel} disabled={busy}>{t("features.library.inbox.cancel")}</button>
           <button className="primary-button" type="button" disabled={!objectName.trim() || busy} onClick={handleConfirm}>
-            {busy ? "…" : t("features.browseV2.compose.confirm")}
+            {busy ? "…" : selectionSS === "managed" ? t("features.browseV2.compose.createPlan") : t("features.browseV2.compose.confirm")}
           </button>
         </div>
       </div>

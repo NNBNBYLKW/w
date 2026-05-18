@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUIStore } from "../../app/providers/uiStore";
 import { getBrowseObjectDetail, listBrowseCards, type BrowseV2Card, type BrowseV2LooseFileCard, type BrowseV2ObjectCard, type BrowseV2Response } from "../../services/api/browseV2Api";
 import { composeExternalFiles, composeInboxItems } from "../../services/api/importingApi";
+import { createManagedComposePlan } from "../../services/api/libraryOrganizeApi";
 import { listLibraryRoots, type LibraryRootVM } from "../../services/api/libraryObjectsApi";
 import { t } from "../../shared/text";
 import { InspectorSection, MetricStrip, WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
@@ -247,15 +248,13 @@ export function BrowseV2Feature() {
   }
 
   function handleCheckboxToggle(card: BrowseV2LooseFileCard) {
-    if (card.storage_state === "managed") return;
     setSelectedFileIds(prev => {
       const next = new Set(prev);
       if (next.has(card.file_id)) {
         next.delete(card.file_id);
       } else {
-        // If mixing types, clear previous selection
         const existingSS = prev.size > 0
-          ? (looseFileCards.filter(f => prev.has(f.file_id) && f.storage_state === "inbox").length > 0 ? "inbox" : "external")
+          ? (looseFileCards.find(f => prev.has(f.file_id))?.storage_state ?? null)
           : null;
         if (existingSS && existingSS !== card.storage_state) {
           next.clear();
@@ -271,7 +270,7 @@ export function BrowseV2Feature() {
   }
 
   const selectedFiles: BrowseV2LooseFileCard[] = looseFileCards.filter(
-    f => selectedFileIds.has(f.file_id) && (f.storage_state === "inbox" || f.storage_state === "external")
+    f => selectedFileIds.has(f.file_id) && (f.storage_state === "inbox" || f.storage_state === "external" || f.storage_state === "managed")
   );
   const selectionSS = selectedFiles.length > 0 ? selectedFiles[0].storage_state : null;
 
@@ -296,6 +295,13 @@ export function BrowseV2Feature() {
           file_ids: params.file_ids,
           object_name: params.object_name,
           suggested_object_type: params.suggested_object_type,
+          target_library_root_id: params.target_library_root_id,
+        });
+      } else if (selectionSS === "managed" && params.file_ids) {
+        await createManagedComposePlan({
+          file_ids: params.file_ids,
+          object_name: params.object_name,
+          object_type: params.suggested_object_type || "imgset",
           target_library_root_id: params.target_library_root_id,
         });
       }
@@ -426,6 +432,8 @@ export function BrowseV2Feature() {
               <span style={{fontSize:13}}>
                 {selectionSS === "inbox"
                   ? t("features.browseV2.compose.selectedInbox", { count: String(selectedFileIds.size) })
+                  : selectionSS === "managed"
+                  ? t("features.browseV2.compose.selectedManaged", { count: String(selectedFileIds.size) })
                   : t("features.browseV2.compose.selectedExternal", { count: String(selectedFileIds.size) })}
               </span>
               <button className="primary-button" type="button" disabled={composing} onClick={() => setShowComposeModal(true)}>
@@ -506,7 +514,7 @@ export function BrowseV2Feature() {
                             selected={selectedItemId === String(card.file_id)}
                             checked={selectedFileIds.has(card.file_id)}
                             onCheckboxToggle={
-                              card.storage_state === "inbox" || card.storage_state === "external"
+                              card.storage_state === "inbox" || card.storage_state === "external" || card.storage_state === "managed"
                                 ? () => handleCheckboxToggle(card)
                                 : undefined
                             }
