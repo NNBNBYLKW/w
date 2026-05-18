@@ -721,6 +721,9 @@ class LibraryOrganizeService:
                 # Phase 7D: sync import-linked paths after successful moves
                 self._sync_import_paths_after_execute(session, plan_id)
 
+                # Phase 8C-4C: Finalize managed compose object creation
+                self._finalize_managed_compose(session, plan_id, failed)
+
                 plan = self.repository.get_plan(session, plan_id)
                 if plan is None:
                     return
@@ -2313,6 +2316,185 @@ class LibraryOrganizeService:
             return "stale", f"File {file_id} path changed since plan creation."
 
         return None
+
+    # ── Phase 8C-4C: Managed compose finalization ─────────────
+
+    def _finalize_managed_compose(
+        self, session: Session, plan_id: int, failed_count: int,
+    ) -> None:
+        """After successful execute, finalize object creation for managed compose plans.
+
+        Only runs when plan_kind == object_creation_managed_compose and all required
+        move actions succeeded. Creates LibraryObject + LibraryObjectMember rows,
+        updates file paths, writes history and journal.
+        """
+        plan = self.repository.get_plan(session, plan_id)
+        if plan is None:
+            return
+        if plan.plan_kind != "object_creation_managed_compose":
+            return
+        if failed_count > 0:
+            # completed_with_errors — do not create partial object
+            return
+
+        # Parse summary_json
+        summary: dict[str, Any] = {}
+        if plan.summary_json:
+            try:
+                summary = json.loads(plan.summary_json)
+            except json.JSONDecodeError:
+                return
+        if summary.get("plan_type") != "object_creation":
+            return
+        if summary.get("finalize_policy") != "all_or_nothing_object_creation":
+            return
+
+        object_name = summary.get("object_name", "")
+        object_type = summary.get("object_type", "")
+        target_object_dir = summary.get("target_object_dir", "")
+        if not object_name or not object_type or not target_object_dir:
+            return
+
+        # Verify all required move actions succeeded
+        actions = self.repository.list_plan_actions(session, plan_id)
+        created_file_ids: list[int] = []
+        planned_members: list[dict[str, Any]] = []
+        for a in actions:
+            if a.action_type != "move":
+                continue
+            if a.status != "succeeded":
+                # A required move failed or was skipped — do not finalize
+                return
+            payload: dict[str, Any] = {}
+            if a.payload_json:
+                try:
+                    payload = json.loads(a.payload_json)
+                except json.JSONDecodeError:
+                    payload = {}
+            if not payload.get("object_creation_plan"):
+                continue
+            fid = payload.get("file_id")
+            role = payload.get("member_role", "unknown_child")
+            rel = payload.get("selected_relative_path", "")
+            if fid is None:
+                return  # missing file_id — cannot finalize
+            created_file_ids.append(fid)
+            planned_members.append({
+                "file_id": fid, "role": role, "relative_path": rel,
+            })
+
+        if not created_file_ids:
+            return
+        if len(created_file_ids) != len(summary.get("selected_file_ids", [])):
+            return  # mismatch — abort
+
+        prefix_map = {v: k for k, v in OBJECT_PREFIX.items()}
+        type_prefix = prefix_map.get(object_type, "OBJ")
+
+        now = _now()
+        from pathlib import Path
+
+        # Create LibraryObject
+        lib_obj = LibraryObject(
+            object_type=object_type,
+            type_prefix=type_prefix,
+            root_path=target_object_dir,
+            root_name=Path(target_object_dir).name,
+            title=object_name,
+            filesystem_title=object_name,
+            metadata_source="managed_compose",
+            needs_review=False,
+            last_scanned_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(lib_obj)
+
+        # Create LibraryObjectMember for each moved file
+        from app.db.models.library_object import LibraryObjectMember as LOM
+        for pm in planned_members:
+            fid = pm["file_id"]
+            file = session.query(File).filter(File.id == fid).first()
+            if file is None:
+                continue
+            # Update file paths (already moved by execute action)
+            old_path = file.path
+            move_action = next(
+                (a for a in actions if a.action_type == "move" and a.status == "succeeded"
+                 and a.payload_json and str(fid) in (a.payload_json or "")),
+                None,
+            )
+            if move_action and move_action.target_path:
+                new_path = move_action.target_path
+                file.path = new_path
+                file.name = Path(new_path).name
+                file.parent_path = str(Path(new_path).parent)
+            file.storage_state = "managed"
+            if plan.target_library_root_id:
+                file.managed_root_id = plan.target_library_root_id
+            file.managed_at = now
+            file.updated_at = now
+
+            # Write path history
+            if move_action and move_action.target_path:
+                journal_id = self._append_path_sync_journal(
+                    session, move_action, "managed_compose", "file", fid,
+                    old_path, file.path,
+                )
+                from app.repositories.importing.repository import ImportRepository
+                ImportRepository().append_path_history(
+                    session, file_id=fid, old_path=old_path,
+                    new_path=file.path, reason="managed_compose_finalize",
+                    operation_journal_id=journal_id,
+                )
+
+            # Create member
+            rel_path = pm["relative_path"]
+            member = LOM(
+                object_id=lib_obj.id,
+                file_id=fid,
+                member_role=pm["role"],
+                relative_path=rel_path,
+                absolute_path=file.path,
+                extension=Path(file.path).suffix.lstrip(".") if file.path else "",
+                created_at=now,
+            )
+            session.add(member)
+
+        # Update summary_json with finalization info
+        summary["finalized"] = True
+        summary["library_object_id"] = lib_obj.id
+        summary["finalized_at"] = now.isoformat()
+        summary["finalized_member_count"] = len(planned_members)
+        plan.summary_json = json.dumps(summary, ensure_ascii=False)
+        plan.updated_at = now
+
+        # Write operation journal
+        from app.repositories.importing.repository import ImportRepository
+        import uuid as _uuid
+        repo = ImportRepository()
+        repo.append_journal_entry(
+            session,
+            operation_id=str(_uuid.uuid4()),
+            operation_type="managed_compose_finalize",
+            entity_type="organize_plan",
+            entity_id=plan.id,
+            status="succeeded",
+            after_json=json.dumps({
+                "library_object_id": lib_obj.id,
+                "object_type": object_type,
+                "object_name": object_name,
+                "member_count": len(planned_members),
+                "file_ids": created_file_ids,
+                "target_object_dir": target_object_dir,
+            }),
+        )
+
+        self._log_event(
+            session, plan.id, None, "managed_compose_finalized",
+            f"Object creation finalized: library_object {lib_obj.id} "
+            f"with {len(planned_members)} members.",
+        )
 
 
 organize_service = LibraryOrganizeService()
