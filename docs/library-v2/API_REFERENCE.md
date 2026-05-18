@@ -168,3 +168,7 @@ The existing `POST /library/organize/plans/{id}/execute` flow now supports `plan
 - Updates plan `summary_json` with `finalized: true, library_object_id, finalized_at, finalized_member_count`
 
 Safety: `completed_with_errors` or `failed` plans do NOT create partial objects. All required move actions must succeed.
+
+### Object Member Soft Status (8D-A1)
+
+`library_object_members` now has a `member_status` column (values: `active`, `removed`). Browse v2 and object detail default to `member_status = "active"`. Managed compose execute creates members with `member_status = "active"`. The `removed` status is reserved for future amendment remove-member flow. No hard delete — membership rows are soft-deactivated.
