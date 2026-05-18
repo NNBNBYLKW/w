@@ -1072,6 +1072,8 @@ export const features = {
       safetyManaged: "These managed loose files will be moved into a new object directory through an organize plan. Submitting creates a draft plan only and does not move files immediately. Preflight and execute are still required.",
       createPlan: "Create plan",
       confirm: "Create object candidate",
+      success: "Object candidate created.",
+      planCreated: "Draft plan created. Files have not been moved yet; preflight and execute are still required.",
       error: "Compose failed",
     },
     errors: {

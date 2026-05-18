@@ -184,6 +184,7 @@ export function BrowseV2Feature() {
   const [showComposeModal, setShowComposeModal] = useState(false);
   const [composing, setComposing] = useState(false);
   const [composeError, setComposeError] = useState<string | null>(null);
+  const [composeSuccess, setComposeSuccess] = useState<string | null>(null);
 
   const { data: roots } = useQuery({
     queryKey: ["library-roots"],
@@ -281,7 +282,7 @@ export function BrowseV2Feature() {
     suggested_object_type?: string;
     target_library_root_id?: number;
   }) {
-    setComposing(true); setComposeError(null);
+    setComposing(true); setComposeError(null); setComposeSuccess(null);
     try {
       if (selectionSS === "inbox" && params.inbox_item_ids) {
         await composeInboxItems({
@@ -308,6 +309,11 @@ export function BrowseV2Feature() {
       setShowComposeModal(false);
       clearSelection();
       await queryClient.invalidateQueries({ queryKey: ["browse-v2"] });
+      if (selectionSS === "managed") {
+        setComposeSuccess(t("features.browseV2.compose.planCreated"));
+      } else {
+        setComposeSuccess(t("features.browseV2.compose.success"));
+      }
     } catch (err) {
       setComposeError(String(err));
     } finally { setComposing(false); }
@@ -657,6 +663,14 @@ export function BrowseV2Feature() {
         <div className="danger-text" style={{padding:8}} role="alert">
           {t("features.browseV2.compose.error")}: {composeError}
           <button className="secondary-button" type="button" style={{marginLeft:8}} onClick={() => setComposeError(null)}>
+            {t("features.library.inbox.cancel")}
+          </button>
+        </div>
+      )}
+      {composeSuccess && (
+        <div style={{padding:8,background:"#e8f5e9",borderRadius:4}} role="status">
+          {composeSuccess}
+          <button className="secondary-button" type="button" style={{marginLeft:8}} onClick={() => setComposeSuccess(null)}>
             {t("features.library.inbox.cancel")}
           </button>
         </div>

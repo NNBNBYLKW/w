@@ -1053,6 +1053,8 @@ export const features = {
       safetyManaged: "这些已入库散文件将通过整理计划移动到新的对象目录。提交后只会生成草案计划，不会立即移动文件。后续仍需进行预检和执行。",
       createPlan: "创建计划",
       confirm: "创建对象候选",
+      success: "对象候选已创建。",
+      planCreated: "草案计划已创建，文件尚未移动。后续仍需进行预检和执行。",
       error: "合成失败",
     },
     errors: {
