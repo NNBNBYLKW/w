@@ -139,3 +139,18 @@ Browse v2 loose file cards now include `inbox_item_id` and `import_batch_id` (Ph
 **Response:** `{ "import_batch_id": 10, "object_candidate_id": 5, "copied_count": 3, "member_count": 3, "status": "pending_review", ... }`  
 
 Safety: external files are copy-only (shutil.copy2) to Inbox object folder, source files preserved. No overwrite (auto-suffix). Transaction-safe rollback with inbox folder cleanup on failure. Creates pending_review candidate only — no organize candidate, no draft plan, no execute.
+
+## Managed Compose (Phase 8C-4A / 8C-4B)
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/library/organize/plans/managed-compose` | Create draft object creation plan from managed loose files |
+
+**Request:** `{ "file_ids": [1,2,3], "object_name": "My Object", "object_type": "imgset", "target_library_root_id": 1 }`  
+**Response:** `{ "plan_id": 5, "status": "draft", "plan_kind": "object_creation_managed_compose", "actions_count": 4, "target_object_dir": "...", "planned_members": [...] }`  
+
+Safety: Creates draft plan only (plan_kind="object_creation_managed_compose"). No files moved. No library_object or members created. Requires mark_ready → preflight → execute chain. Cross-managed-root rejected. Uses existing PlanAction model (1 mkdir + N move actions with payload_json containing file_id/member_role).
+
+### Managed Compose Preflight (8C-4B)
+
+The existing `POST /library/organize/plans/{id}/mark-ready` and `POST /library/organize/plans/{id}/preflight` endpoints now support `plan_kind="object_creation_managed_compose"`. Preflight validates: payload file_id/member_role present, file still managed and loose, path matches DB, source exists on disk, target not overwritten, target within root. No files moved, no objects created. Execute/finalize deferred to Phase 8C-4C.
