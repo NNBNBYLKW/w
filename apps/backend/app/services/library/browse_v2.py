@@ -186,8 +186,10 @@ class BrowseV2Service:
             # Collect file_ids that are object members
             member_file_ids: set[int] = set()
 
-            # From library_object_members
-            lom_rows = session.query(LibraryObjectMember.file_id).all()
+            # From library_object_members (active only — Phase 8D-A1)
+            lom_rows = session.query(LibraryObjectMember.file_id).filter(
+                LibraryObjectMember.member_status == "active"
+            ).all()
             member_file_ids.update(r[0] for r in lom_rows if r[0] is not None)
 
             # From active import_object_members
@@ -302,9 +304,10 @@ class BrowseV2Service:
         if lo is None:
             raise ValueError(f"Library object not found: {source_id}")
 
-        # members
+        # members (active only — Phase 8D-A1)
         member_query = session.query(LibraryObjectMember).filter(
-            LibraryObjectMember.object_id == lo.id
+            LibraryObjectMember.object_id == lo.id,
+            LibraryObjectMember.member_status == "active",
         ).order_by(LibraryObjectMember.sort_index, LibraryObjectMember.id)
 
         member_total = member_query.count()

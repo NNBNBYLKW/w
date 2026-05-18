@@ -171,6 +171,13 @@ def _ensure_library_object_tables(connection: sqlite3.Connection) -> None:
         "CREATE INDEX IF NOT EXISTS idx_library_object_members_member_role ON library_object_members(member_role)"
     )
 
+    # Phase 8D-A1: add member_status column for soft-deactivate
+    lom_columns = _table_columns(connection, "library_object_members")
+    if "member_status" not in lom_columns:
+        connection.execute(
+            "ALTER TABLE library_object_members ADD COLUMN member_status TEXT NOT NULL DEFAULT 'active'"
+        )
+
 
 def _ensure_library_organize_tables(connection: sqlite3.Connection) -> None:
     connection.execute(

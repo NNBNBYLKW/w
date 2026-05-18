@@ -47,6 +47,7 @@ class LibraryObjectMember(Base):
     size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     modified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    member_status: Mapped[str] = mapped_column(String, nullable=False, default="active", server_default="active")
 
 
 class AssetMetadataCache(Base):

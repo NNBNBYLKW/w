@@ -2457,6 +2457,7 @@ class LibraryOrganizeService:
                 relative_path=rel_path,
                 absolute_path=file.path,
                 extension=Path(file.path).suffix.lstrip(".") if file.path else "",
+                member_status="active",
                 created_at=now,
             )
             session.add(member)
