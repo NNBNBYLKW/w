@@ -860,6 +860,11 @@ class LibraryOrganizeService:
             if not source.exists():
                 return "stale", "Source path no longer exists."
 
+            # Phase 8C-4B: managed compose object creation validation
+            oc_result = self._validate_object_creation_move(session, action, plan)
+            if oc_result is not None:
+                return oc_result
+
             if plan is not None and plan.target_library_root_id is not None:
                 lib_root = self.library_root_repository.get_by_id(session, plan.target_library_root_id)
                 if lib_root is None or not lib_root.is_enabled:
@@ -1336,6 +1341,12 @@ class LibraryOrganizeService:
                 action.conflict_status = "blocked"
                 action.conflict_message = "Target path already exists and would be overwritten."
                 return
+            if action.action_type in {"move", "rename"}:
+                oc_result = self._validate_object_creation_move(session, action, plan)
+                if oc_result is not None:
+                    action.conflict_status = oc_result[0]
+                    action.conflict_message = oc_result[1]
+                    return
             if action.action_type in {"write_asset_yaml", "update_metadata"} and target.exists():
                 action.conflict_status = "warning"
                 action.conflict_message = "Target metadata file exists; this remains a draft preview only."
@@ -2235,6 +2246,73 @@ class LibraryOrganizeService:
                 "Object creation only after full successful execute.",
             ],
         }
+
+    # ── Phase 8C-4B: Managed compose preflight validation ─────
+
+    def _validate_object_creation_move(
+        self, session: Session, action: OrganizeAction, plan: OrganizePlan | None,
+    ) -> tuple[str, str] | None:
+        """Validate move actions for object_creation_managed_compose plans.
+
+        Returns (conflict_status, conflict_message) or None if not applicable.
+        """
+        if plan is None or plan.plan_kind != "object_creation_managed_compose":
+            return None
+        if action.action_type != "move":
+            return None
+
+        # Parse payload
+        payload: dict[str, Any] = {}
+        if action.payload_json:
+            try:
+                payload = json.loads(action.payload_json)
+            except json.JSONDecodeError:
+                return "blocked", "Action payload is not valid JSON."
+        if not payload.get("object_creation_plan"):
+            return None
+
+        file_id = payload.get("file_id")
+        member_role = payload.get("member_role")
+        if file_id is None or not member_role:
+            return "blocked", "Move action is missing file_id or member_role in payload."
+
+        # Verify file exists in DB
+        file = session.query(File).filter(File.id == file_id).first()
+        if file is None:
+            return "stale", f"Object creation target file {file_id} no longer exists in the database."
+
+        # Verify storage_state
+        if file.storage_state != "managed":
+            return "blocked", f"File {file_id} is no longer managed (current: {file.storage_state})."
+
+        # Verify not already a formal member
+        from app.db.models.library_object import LibraryObjectMember as LOM
+        lom = session.query(LOM).filter(LOM.file_id == file_id).first()
+        if lom is not None:
+            return "blocked", f"File {file_id} is already a member of library object {lom.object_id}."
+
+        # Verify not an active import member
+        from app.db.models.importing import ImportObjectMember as IOM, ImportObjectCandidate as IOC
+        iom = session.query(IOM).join(IOC, IOM.import_object_candidate_id == IOC.id).filter(
+            IOM.inbox_item_id.isnot(None)
+        ).filter(IOC.status.in_(["pending_review", "confirmed"])).first()
+        if iom is not None:
+            # Check if any of our import inbox item is also a member
+            # Since we don't have inbox_item_id, check if file_id appears via inbox
+            from app.db.models.importing import InboxItem as II
+            ii = session.query(II).filter(II.file_id == file_id).first()
+            if ii:
+                iom_check = session.query(IOM).filter(IOM.inbox_item_id == ii.id).join(
+                    IOC, IOM.import_object_candidate_id == IOC.id
+                ).filter(IOC.status.in_(["pending_review", "confirmed"])).first()
+                if iom_check is not None:
+                    return "blocked", f"File {file_id} is already an active import object member."
+
+        # Verify source path matches DB
+        if action.source_path and file.path != action.source_path:
+            return "stale", f"File {file_id} path changed since plan creation."
+
+        return None
 
 
 organize_service = LibraryOrganizeService()
