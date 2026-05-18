@@ -153,4 +153,18 @@ Safety: Creates draft plan only (plan_kind="object_creation_managed_compose"). N
 
 ### Managed Compose Preflight (8C-4B)
 
-The existing `POST /library/organize/plans/{id}/mark-ready` and `POST /library/organize/plans/{id}/preflight` endpoints now support `plan_kind="object_creation_managed_compose"`. Preflight validates: payload file_id/member_role present, file still managed and loose, path matches DB, source exists on disk, target not overwritten, target within root. No files moved, no objects created. Execute/finalize deferred to Phase 8C-4C.
+The existing `POST /library/organize/plans/{id}/mark-ready` and `POST /library/organize/plans/{id}/preflight` endpoints now support `plan_kind="object_creation_managed_compose"`. Preflight validates: payload file_id/member_role present, file still managed and loose, path matches DB, source exists on disk, target not overwritten, target within root. No files moved, no objects created.
+
+### Managed Compose Execute/Finalize (8C-4C)
+
+The existing `POST /library/organize/plans/{id}/execute` flow now supports `plan_kind="object_creation_managed_compose"`. After all required move actions succeed, the execute worker finalizes the object:
+
+- Moves managed loose files into the target object directory
+- Creates `LibraryObject` (object_type, type_prefix, root_path, title, metadata_source=managed_compose)
+- Creates `LibraryObjectMember` rows (one per moved file, with role and relative_path)
+- Updates `files.path/name/parent_path/managed_root_id/storage_state` for each moved file
+- Writes `FilePathHistory` (old_path → new_path, reason=managed_compose_finalize)
+- Writes `OperationJournal` (operation_type=managed_compose_finalize)
+- Updates plan `summary_json` with `finalized: true, library_object_id, finalized_at, finalized_member_count`
+
+Safety: `completed_with_errors` or `failed` plans do NOT create partial objects. All required move actions must succeed.
