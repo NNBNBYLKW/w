@@ -193,3 +193,12 @@ The existing mark_ready and preflight endpoints now support `plan_kind="object_a
 - **Both**: payload has required trace fields (object_id, file_id, member_role/member_id), object exists, source file exists
 
 No file move, no member mutation. Preflight blocks stale plans at mark_ready phase.
+
+### Amendment Execute/Finalize (8D-C)
+
+The existing `POST /library/organize/plans/{id}/execute` flow now supports `plan_kind="object_amendment"`. After all required move actions succeed:
+- **Add member**: Creates active `LibraryObjectMember`, updates `files.path/name/parent_path/managed_root_id/storage_state`, writes `FilePathHistory` and `OperationJournal`
+- **Remove member**: Sets `member_status = "removed"` (soft-deactivate), moves file to managed loose area, updates file paths, writes history and journal
+- **Both**: Updates plan `summary_json` with `finalized: true, finalized_add_count/finalized_remove_count`
+
+Safety: `completed_with_errors` or `failed` plans do NOT mutate membership. All required move actions must succeed. No hard delete. No source cleanup.
