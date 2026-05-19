@@ -868,6 +868,11 @@ class LibraryOrganizeService:
             if oc_result is not None:
                 return oc_result
 
+            # Phase 8D-B: object amendment validation
+            am_result = self._validate_object_amendment_move(session, action, plan)
+            if am_result is not None:
+                return am_result
+
             if plan is not None and plan.target_library_root_id is not None:
                 lib_root = self.library_root_repository.get_by_id(session, plan.target_library_root_id)
                 if lib_root is None or not lib_root.is_enabled:
@@ -1349,6 +1354,11 @@ class LibraryOrganizeService:
                 if oc_result is not None:
                     action.conflict_status = oc_result[0]
                     action.conflict_message = oc_result[1]
+                    return
+                am_result = self._validate_object_amendment_move(session, action, plan)
+                if am_result is not None:
+                    action.conflict_status = am_result[0]
+                    action.conflict_message = am_result[1]
                     return
             if action.action_type in {"write_asset_yaml", "update_metadata"} and target.exists():
                 action.conflict_status = "warning"
@@ -2314,6 +2324,127 @@ class LibraryOrganizeService:
         # Verify source path matches DB
         if action.source_path and file.path != action.source_path:
             return "stale", f"File {file_id} path changed since plan creation."
+
+        return None
+
+    # ── Phase 8D-B: Object amendment preflight ─────────────────
+
+    def _validate_object_amendment_move(
+        self, session: Session, action: OrganizeAction, plan: OrganizePlan | None,
+    ) -> tuple[str, str] | None:
+        """Validate move actions for object_amendment plans.
+
+        Returns (conflict_status, conflict_message) or None if not applicable.
+        """
+        if plan is None or plan.plan_kind != "object_amendment":
+            return None
+        if action.action_type != "move":
+            return None
+
+        payload: dict[str, Any] = {}
+        if action.payload_json:
+            try:
+                payload = json.loads(action.payload_json)
+            except json.JSONDecodeError:
+                return "blocked", "Action payload is not valid JSON."
+        if not payload.get("object_amendment_plan"):
+            return None
+
+        amendment_action = payload.get("amendment_action", "")
+        object_id = payload.get("object_id")
+
+        if not object_id:
+            return "blocked", "Amendment action missing object_id in payload."
+
+        # Verify object exists
+        lo = session.query(LibraryObject).filter(LibraryObject.id == object_id).first()
+        if lo is None:
+            return "stale", f"Object {object_id} no longer exists."
+
+        if amendment_action == "add_member":
+            return self._validate_amendment_add_member(session, action, payload, lo)
+        elif amendment_action == "remove_member":
+            return self._validate_amendment_remove_member(session, action, payload, lo)
+        else:
+            return "blocked", f"Unknown amendment_action: {amendment_action}"
+
+    def _validate_amendment_add_member(
+        self, session: Session, action: OrganizeAction,
+        payload: dict[str, Any], lo: LibraryObject,
+    ) -> tuple[str, str] | None:
+        file_id = payload.get("file_id")
+        member_role = payload.get("member_role")
+        if file_id is None or not member_role:
+            return "blocked", "Move action is missing file_id or member_role in payload."
+
+        file = session.query(File).filter(File.id == file_id).first()
+        if file is None:
+            return "stale", f"Amendment target file {file_id} no longer exists in the database."
+
+        if file.storage_state != "managed":
+            return "blocked", f"File {file_id} is no longer managed (current: {file.storage_state})."
+
+        # Not already a formal member
+        from app.db.models.library_object import LibraryObjectMember as LOM
+        lom = session.query(LOM).filter(LOM.file_id == file_id, LOM.member_status == "active").first()
+        if lom is not None:
+            return "blocked", f"File {file_id} is already an active member of library object {lom.object_id}."
+
+        # Not an active import member
+        from app.db.models.importing import ImportObjectMember as IOM, ImportObjectCandidate as IOC, InboxItem as II
+        ii = session.query(II).filter(II.file_id == file_id).first()
+        if ii:
+            iom_check = session.query(IOM).filter(IOM.inbox_item_id == ii.id).join(
+                IOC, IOM.import_object_candidate_id == IOC.id
+            ).filter(IOC.status.in_(["pending_review", "confirmed"])).first()
+            if iom_check is not None:
+                return "blocked", f"File {file_id} is already an active import object member."
+
+        # Path not stale
+        if action.source_path and file.path != action.source_path:
+            return "stale", f"File {file_id} path changed since plan creation."
+
+        # Target within object root
+        if action.target_path:
+            obj_root = Path(lo.root_path)
+            if not is_path_within(Path(action.target_path), obj_root):
+                return "blocked", f"Add target path is outside object root: {lo.root_path}"
+
+        return None
+
+    def _validate_amendment_remove_member(
+        self, session: Session, action: OrganizeAction,
+        payload: dict[str, Any], lo: LibraryObject,
+    ) -> tuple[str, str] | None:
+        member_id = payload.get("member_id")
+        file_id = payload.get("file_id")
+        if member_id is None or file_id is None:
+            return "blocked", "Remove action is missing member_id or file_id in payload."
+
+        from app.db.models.library_object import LibraryObjectMember as LOM
+        member = session.query(LOM).filter(LOM.id == member_id).first()
+        if member is None:
+            return "stale", f"Member {member_id} no longer exists."
+
+        if member.object_id != lo.id:
+            return "blocked", f"Member {member_id} no longer belongs to object {lo.id}."
+
+        if member.member_status != "active":
+            return "blocked", f"Member {member_id} is no longer active (current: {member.member_status})."
+
+        file = session.query(File).filter(File.id == file_id).first()
+        if file is None:
+            return "stale", f"Remove target file {file_id} no longer exists."
+
+        if file.storage_state != "managed":
+            return "blocked", f"File {file_id} is no longer managed."
+
+        if action.source_path and file.path != action.source_path:
+            return "stale", f"File {file_id} path changed since plan creation."
+
+        remove_policy = payload.get("remove_target_policy")
+        if remove_policy and remove_policy not in ("managed_loose_area",):
+            return "blocked", f"Unsupported remove_target_policy: {remove_policy}"
 
         return None
 
