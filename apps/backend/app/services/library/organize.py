@@ -724,6 +724,9 @@ class LibraryOrganizeService:
                 # Phase 8C-4C: Finalize managed compose object creation
                 self._finalize_managed_compose(session, plan_id, failed)
 
+                # Phase 8D-C: Finalize object amendment
+                self._finalize_object_amendment(session, plan_id, failed)
+
                 plan = self.repository.get_plan(session, plan_id)
                 if plan is None:
                     return
@@ -2447,6 +2450,223 @@ class LibraryOrganizeService:
             return "blocked", f"Unsupported remove_target_policy: {remove_policy}"
 
         return None
+
+    # ── Phase 8D-C: Object amendment finalization ─────────────
+
+    def _finalize_object_amendment(
+        self, session: Session, plan_id: int, failed_count: int,
+    ) -> None:
+        """After successful execute, finalize object amendment (add/remove members).
+
+        Only runs when plan_kind == object_amendment and all required move
+        actions succeeded. Creates/deactivates LibraryObjectMember rows,
+        updates file paths, writes history and journal.
+        """
+        plan = self.repository.get_plan(session, plan_id)
+        if plan is None:
+            return
+        if plan.plan_kind != "object_amendment":
+            return
+        if failed_count > 0:
+            return
+
+        summary: dict[str, Any] = {}
+        if plan.summary_json:
+            try:
+                summary = json.loads(plan.summary_json)
+            except json.JSONDecodeError:
+                return
+        if summary.get("plan_type") != "object_amendment":
+            return
+        if summary.get("finalize_policy") != "all_or_nothing_object_amendment":
+            return
+
+        amendment_type = summary.get("amendment_type", "")
+        object_id = summary.get("object_id")
+        if not object_id:
+            return
+
+        lo = session.query(LibraryObject).filter(LibraryObject.id == object_id).first()
+        if lo is None:
+            return
+
+        actions = self.repository.list_plan_actions(session, plan_id)
+        now = _now()
+
+        if amendment_type == "add_members":
+            self._finalize_add_members(session, plan, actions, lo, now)
+        elif amendment_type == "remove_members":
+            self._finalize_remove_members(session, plan, actions, lo, now)
+
+    def _finalize_add_members(
+        self, session: Session, plan: OrganizePlan,
+        actions: list[OrganizeAction], lo: LibraryObject, now: datetime,
+    ) -> None:
+        from app.db.models.library_object import LibraryObjectMember as LOM
+        from app.repositories.importing.repository import ImportRepository
+        import uuid as _uuid
+
+        added = 0
+        for a in actions:
+            if a.action_type != "move" or a.status != "succeeded":
+                continue
+            payload: dict[str, Any] = {}
+            if a.payload_json:
+                try:
+                    payload = json.loads(a.payload_json)
+                except json.JSONDecodeError:
+                    continue
+            if payload.get("amendment_action") != "add_member":
+                continue
+
+            file_id = payload.get("file_id")
+            role = payload.get("member_role", "unknown_child")
+            rel_path = payload.get("member_relative_path", "")
+            if not file_id or not role:
+                continue
+
+            file = session.query(File).filter(File.id == file_id).first()
+            if file is None:
+                continue
+            if not a.target_path or not Path(a.target_path).exists():
+                continue
+
+            old_path = a.source_path or file.path
+            new_path = a.target_path
+
+            # Update file
+            file.path = new_path
+            file.name = Path(new_path).name
+            file.parent_path = str(Path(new_path).parent)
+            file.storage_state = "managed"
+            if plan.target_library_root_id:
+                file.managed_root_id = plan.target_library_root_id
+            file.updated_at = now
+
+            # Create active member
+            member = LOM(
+                object_id=lo.id, file_id=file_id,
+                member_role=role, relative_path=rel_path,
+                absolute_path=new_path,
+                extension=Path(new_path).suffix.lstrip("."),
+                member_status="active", created_at=now,
+            )
+            session.add(member)
+
+            # Path history
+            journal_id = self._append_path_sync_journal(
+                session, a, "object_amendment_add", "file", file_id, old_path, new_path,
+            )
+            ImportRepository().append_path_history(
+                session, file_id=file_id, old_path=old_path, new_path=new_path,
+                reason="object_amendment_add_member", operation_journal_id=journal_id,
+            )
+            added += 1
+
+        # Journal
+        from app.repositories.importing.repository import ImportRepository as IR
+        repo = IR()
+        repo.append_journal_entry(
+            session, operation_id=str(_uuid.uuid4()),
+            operation_type="object_amendment_finalize",
+            entity_type="organize_plan", entity_id=plan.id,
+            status="succeeded",
+            after_json=json.dumps({
+                "amendment_type": "add_members", "object_id": lo.id,
+                "added_count": added, "plan_id": plan.id,
+            }),
+        )
+
+        # Update plan summary
+        summary: dict[str, Any] = json.loads(plan.summary_json or "{}")
+        summary["finalized"] = True
+        summary["finalized_at"] = now.isoformat()
+        summary["finalized_add_count"] = added
+        plan.summary_json = json.dumps(summary, ensure_ascii=False)
+
+    def _finalize_remove_members(
+        self, session: Session, plan: OrganizePlan,
+        actions: list[OrganizeAction], lo: LibraryObject, now: datetime,
+    ) -> None:
+        from app.db.models.library_object import LibraryObjectMember as LOM
+        from app.repositories.importing.repository import ImportRepository
+        import uuid as _uuid
+
+        removed = 0
+        for a in actions:
+            if a.action_type != "move" or a.status != "succeeded":
+                continue
+            payload: dict[str, Any] = {}
+            if a.payload_json:
+                try:
+                    payload = json.loads(a.payload_json)
+                except json.JSONDecodeError:
+                    continue
+            if payload.get("amendment_action") != "remove_member":
+                continue
+
+            member_id = payload.get("member_id")
+            file_id = payload.get("file_id")
+            if not member_id or not file_id:
+                continue
+
+            member = session.query(LOM).filter(LOM.id == member_id).first()
+            if member is None:
+                continue
+            if member.member_status != "active":
+                continue
+            if member.object_id != lo.id:
+                continue
+
+            file = session.query(File).filter(File.id == file_id).first()
+            if file is None:
+                continue
+            if not a.target_path or not Path(a.target_path).exists():
+                continue
+
+            old_path = a.source_path or file.path
+            new_path = a.target_path
+
+            # Move file to loose area
+            file.path = new_path
+            file.name = Path(new_path).name
+            file.parent_path = str(Path(new_path).parent)
+            file.storage_state = "managed"
+            file.updated_at = now
+
+            # Soft-deactivate member
+            member.member_status = "removed"
+
+            # Path history
+            journal_id = self._append_path_sync_journal(
+                session, a, "object_amendment_remove", "file", file_id, old_path, new_path,
+            )
+            ImportRepository().append_path_history(
+                session, file_id=file_id, old_path=old_path, new_path=new_path,
+                reason="object_amendment_remove_member", operation_journal_id=journal_id,
+            )
+            removed += 1
+
+        # Journal
+        from app.repositories.importing.repository import ImportRepository as IR
+        repo = IR()
+        repo.append_journal_entry(
+            session, operation_id=str(_uuid.uuid4()),
+            operation_type="object_amendment_finalize",
+            entity_type="organize_plan", entity_id=plan.id,
+            status="succeeded",
+            after_json=json.dumps({
+                "amendment_type": "remove_members", "object_id": lo.id,
+                "removed_count": removed, "plan_id": plan.id,
+            }),
+        )
+
+        # Update plan summary
+        summary: dict[str, Any] = json.loads(plan.summary_json or "{}")
+        summary["finalized"] = True
+        summary["finalized_at"] = now.isoformat()
+        summary["finalized_remove_count"] = removed
+        plan.summary_json = json.dumps(summary, ensure_ascii=False)
 
     # ── Phase 8C-4C: Managed compose finalization ─────────────
 
