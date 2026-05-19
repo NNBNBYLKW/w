@@ -36,7 +36,7 @@
 | Full Explorer replacement | Workbench is an asset workbench, not a file manager |
 | AI auto-classification | AI must never write final facts or execute |
 | Managed compose plan review UI | No dedicated plan review page within Browse v2 |
-| Object amendment add/remove member | Amendment draft plan backend exists; preflight/execute/frontend not implemented |
+| Object amendment add/remove member | Draft plan and preflight exist; execute/finalize and frontend UI not implemented |
 | Removed member history UI | Not implemented |
 | Object amendment plan | Phase 8D: add/remove members deferred |
 | Compose multi-batch | 8C-1 single-batch compose only; cross-batch not supported |

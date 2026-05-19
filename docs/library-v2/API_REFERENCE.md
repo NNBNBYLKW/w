@@ -184,3 +184,12 @@ Safety: `completed_with_errors` or `failed` plans do NOT create partial objects.
 **Response:** `{ "plan_id": 1, "plan_kind": "object_amendment", "object_id": 5, "amendment_type": "add_members", "status": "draft", "add_count": 2, ... }`  
 
 Safety: Draft plan only. No file move. No member mutation. Mixed add+remove rejected in v1. Amended members remain active until execute (deferred). Remove target uses managed loose area policy.
+
+### Amendment Preflight (8D-B)
+
+The existing mark_ready and preflight endpoints now support `plan_kind="object_amendment"`. Preflight validates:
+- **Add member**: file still managed and loose, path not stale, target inside object root, no overwrite
+- **Remove member**: member still active and belongs to object, path not stale, supported remove policy, no overwrite
+- **Both**: payload has required trace fields (object_id, file_id, member_role/member_id), object exists, source file exists
+
+No file move, no member mutation. Preflight blocks stale plans at mark_ready phase.
