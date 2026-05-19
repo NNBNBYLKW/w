@@ -37,7 +37,9 @@
 | AI auto-classification | AI must never write final facts or execute |
 | Managed compose plan review UI | No dedicated plan review page within Browse v2 |
 | Object amendment mixed add/remove | Not implemented |
-| Object amendment preflight/execute UI | Not implemented; plan-only frontend exists |
+| Object amendment direct preflight/execute UI | Not implemented; plan-only frontend exists |
+| Object amendment removed member history UI | Not implemented |
+| Object amendment automatic rollback | Not implemented |
 | Removed member history UI | Not implemented |
 | Object amendment plan | Phase 8D: add/remove members deferred |
 | Compose multi-batch | 8C-1 single-batch compose only; cross-batch not supported |
