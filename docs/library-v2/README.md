@@ -1,6 +1,6 @@
 # Workbench Library v2
 
-> Status: **Phase 7A–7F Complete, Phase 8A–8D-A1 Complete** | 250 tests | 2026-05-18
+> Status: **Phase 7A–7F Complete, Phase 8A–8D-A2 Complete** | 264 tests | 2026-05-18
 
 ## What is Library v2
 

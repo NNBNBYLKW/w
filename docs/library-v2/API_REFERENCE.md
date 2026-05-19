@@ -172,3 +172,15 @@ Safety: `completed_with_errors` or `failed` plans do NOT create partial objects.
 ### Object Member Soft Status (8D-A1)
 
 `library_object_members` now has a `member_status` column (values: `active`, `removed`). Browse v2 and object detail default to `member_status = "active"`. Managed compose execute creates members with `member_status = "active"`. The `removed` status is reserved for future amendment remove-member flow. No hard delete — membership rows are soft-deactivated.
+
+### Object Amendment Plans (8D-A2)
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/library/objects/{object_id}/amendment-plans` | Create amendment draft plan (add-only or remove-only) |
+
+**Add-only request:** `{ "add_file_ids": [1,2], "remove_member_ids": [], "target_library_root_id": 1 }`  
+**Remove-only request:** `{ "add_file_ids": [], "remove_member_ids": [10,11], "target_library_root_id": 1, "remove_target_policy": "managed_loose_area" }`  
+**Response:** `{ "plan_id": 1, "plan_kind": "object_amendment", "object_id": 5, "amendment_type": "add_members", "status": "draft", "add_count": 2, ... }`  
+
+Safety: Draft plan only. No file move. No member mutation. Mixed add+remove rejected in v1. Amended members remain active until execute (deferred). Remove target uses managed loose area policy.
