@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUIStore } from "../../app/providers/uiStore";
 import { getBrowseObjectDetail, listBrowseCards, type BrowseV2Card, type BrowseV2LooseFileCard, type BrowseV2ObjectCard, type BrowseV2Response } from "../../services/api/browseV2Api";
 import { composeExternalFiles, composeInboxItems } from "../../services/api/importingApi";
-import { createManagedComposePlan } from "../../services/api/libraryOrganizeApi";
+import { createManagedComposePlan, createObjectAmendmentPlan } from "../../services/api/libraryOrganizeApi";
 import { listLibraryRoots, type LibraryRootVM } from "../../services/api/libraryObjectsApi";
 import { t } from "../../shared/text";
 import { InspectorSection, MetricStrip, WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
@@ -185,6 +185,56 @@ export function BrowseV2Feature() {
   const [composing, setComposing] = useState(false);
   const [composeError, setComposeError] = useState<string | null>(null);
   const [composeSuccess, setComposeSuccess] = useState<string | null>(null);
+
+  // Phase 8D-D: Amendment state
+  const [showAddMembersModal, setShowAddMembersModal] = useState(false);
+  const [showRemoveMemberModal, setShowRemoveMemberModal] = useState(false);
+  const [removeTargetMember, setRemoveTargetMember] = useState<{member_id: number; name: string} | null>(null);
+  const [amending, setAmending] = useState(false);
+  const [amendmentError, setAmendmentError] = useState<string | null>(null);
+  const [amendmentSuccess, setAmendmentSuccess] = useState<string | null>(null);
+
+  // Amendment: managed loose file candidates
+  const { data: looseCandidates } = useQuery({
+    queryKey: ["browse-v2-loose-candidates"],
+    queryFn: () => listBrowseCards({ storage_state: "managed", card_kind: "loose_file", page_size: 50 }),
+    enabled: showAddMembersModal,
+  });
+  const [selectedAddFileIds, setSelectedAddFileIds] = useState<Set<number>>(new Set());
+
+  async function handleAddMembersConfirm() {
+    if (!selectedObject || selectedAddFileIds.size === 0) return;
+    setAmending(true); setAmendmentError(null); setAmendmentSuccess(null);
+    try {
+      const result = await createObjectAmendmentPlan(selectedObject.source_id, {
+        add_file_ids: [...selectedAddFileIds],
+        remove_member_ids: [],
+        target_library_root_id: objectDetail?.managed_root_id ?? undefined,
+        remove_target_policy: "managed_loose_area",
+      });
+      setAmendmentSuccess(t("features.browseV2.amendment.addPlanCreated", { planId: String(result.plan_id) }));
+      setShowAddMembersModal(false);
+      setSelectedAddFileIds(new Set());
+    } catch (err) { setAmendmentError(String(err)); }
+    finally { setAmending(false); }
+  }
+
+  async function handleRemoveMemberConfirm() {
+    if (!selectedObject || !removeTargetMember || !objectDetail) return;
+    setAmending(true); setAmendmentError(null); setAmendmentSuccess(null);
+    try {
+      const result = await createObjectAmendmentPlan(selectedObject.source_id, {
+        add_file_ids: [],
+        remove_member_ids: [removeTargetMember.member_id],
+        target_library_root_id: objectDetail.managed_root_id ?? undefined,
+        remove_target_policy: "managed_loose_area",
+      });
+      setAmendmentSuccess(t("features.browseV2.amendment.removePlanCreated", { planId: String(result.plan_id) }));
+      setShowRemoveMemberModal(false);
+      setRemoveTargetMember(null);
+    } catch (err) { setAmendmentError(String(err)); }
+    finally { setAmending(false); }
+  }
 
   const { data: roots } = useQuery({
     queryKey: ["library-roots"],
@@ -597,8 +647,27 @@ export function BrowseV2Feature() {
                       </span>
                     </div>
                   ) : null}
+                  {objectDetail.object_source === "library_object" && (
+                    <button className="primary-button" type="button" style={{marginTop:8}} onClick={() => setShowAddMembersModal(true)}>
+                      {t("features.browseV2.amendment.addMembers")}
+                    </button>
+                  )}
                 </div>
               </InspectorSection>
+
+              {amendmentError && (
+                <div className="danger-text" style={{padding:8}} role="alert">
+                  {t("features.browseV2.amendment.failed")}: {amendmentError}
+                  <button className="secondary-button" type="button" style={{marginLeft:8}} onClick={() => setAmendmentError(null)}>{t("features.library.inbox.cancel")}</button>
+                </div>
+              )}
+              {amendmentSuccess && (
+                <div style={{padding:8,background:"#e8f5e9",borderRadius:4}} role="status">
+                  {amendmentSuccess}
+                  <p style={{fontSize:12,marginTop:4}}>{t("features.browseV2.amendment.filesHaveNotMoved")} / {t("features.browseV2.amendment.preflightExecuteRequired")}</p>
+                  <button className="secondary-button" type="button" style={{marginTop:4}} onClick={() => setAmendmentSuccess(null)}>{t("features.library.inbox.cancel")}</button>
+                </div>
+              )}
 
               <InspectorSection className="browse-v2-detail__section" title={`${t("features.browseV2.overview.membersTitle")} (${objectDetail.member_total})`}>
                 {objectDetail.members.length === 0 ? (
@@ -615,6 +684,16 @@ export function BrowseV2Feature() {
                           {member.missing ? <span className="status-badge status-badge--danger">{t("features.browseV2.overview.missing")}</span> : null}
                           {member.size_bytes !== null ? <span className="browse-v2-member-row__size">{formatBytes(member.size_bytes)}</span> : null}
                         </span>
+                        {objectDetail.object_source === "library_object" && (
+                          <button
+                            className="secondary-button"
+                            type="button"
+                            style={{fontSize:11,marginLeft:"auto"}}
+                            onClick={(e) => { e.stopPropagation(); setRemoveTargetMember({member_id: member.member_id, name: member.name || `#${member.member_id}`}); setShowRemoveMemberModal(true); }}
+                          >
+                            {t("features.browseV2.amendment.removeFromObject")}
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -673,6 +752,56 @@ export function BrowseV2Feature() {
           <button className="secondary-button" type="button" style={{marginLeft:8}} onClick={() => setComposeSuccess(null)}>
             {t("features.library.inbox.cancel")}
           </button>
+        </div>
+      )}
+
+      {/* Phase 8D-D: Add Members Modal */}
+      {showAddMembersModal && (
+        <div className="library-inbox-modal-overlay" onClick={amending ? undefined : () => { setShowAddMembersModal(false); setSelectedAddFileIds(new Set()); }}>
+          <div className="library-inbox-modal" role="dialog" onClick={e => e.stopPropagation()} style={{maxWidth:520}}>
+            <h3>{t("features.browseV2.amendment.addMembersTitle")}</h3>
+            <p className="library-inbox-modal-hint">{t("features.browseV2.amendment.addMembersDescription")}</p>
+            <div style={{maxHeight:200,overflowY:"auto",margin:"8px 0",border:"1px solid #e0e0e0",borderRadius:4,padding:4}}>
+              {looseCandidates?.items.filter(c => c.card_kind === "loose_file").length === 0 && (
+                <p style={{fontSize:12}}>{t("features.browseV2.amendment.noManagedLooseCandidates")}</p>
+              )}
+              {looseCandidates?.items.filter(c => c.card_kind === "loose_file").map((card: any) => (
+                <label key={card.file_id} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 4px",cursor:"pointer",fontSize:12}}>
+                  <input type="checkbox" checked={selectedAddFileIds.has(card.file_id)} onChange={() => {
+                    setSelectedAddFileIds(prev => { const n = new Set(prev); if (n.has(card.file_id)) n.delete(card.file_id); else n.add(card.file_id); return n; });
+                  }} disabled={amending} />
+                  <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={card.path}>{card.name}</span>
+                </label>
+              ))}
+            </div>
+            <p className="library-review-notice">{t("features.browseV2.amendment.draftPlanOnlyNotice")}</p>
+            <div className="library-inbox-modal-actions">
+              <button className="secondary-button" type="button" onClick={() => { setShowAddMembersModal(false); setSelectedAddFileIds(new Set()); }} disabled={amending}>{t("features.library.inbox.cancel")}</button>
+              <button className="primary-button" type="button" disabled={selectedAddFileIds.size === 0 || amending} onClick={handleAddMembersConfirm}>
+                {amending ? "…" : t("features.browseV2.amendment.createPlan")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Phase 8D-D: Remove Member Modal */}
+      {showRemoveMemberModal && removeTargetMember && (
+        <div className="library-inbox-modal-overlay" onClick={amending ? undefined : () => { setShowRemoveMemberModal(false); setRemoveTargetMember(null); }}>
+          <div className="library-inbox-modal" role="dialog" onClick={e => e.stopPropagation()} style={{maxWidth:420}}>
+            <h3>{t("features.browseV2.amendment.removeMemberTitle")}</h3>
+            <p className="library-inbox-modal-hint">{t("features.browseV2.amendment.removeMemberDescription")}</p>
+            <div style={{padding:8,margin:"8px 0",background:"#fafafa",borderRadius:4}}>
+              <strong>{t("features.browseV2.overview.name")}:</strong> {removeTargetMember.name}
+            </div>
+            <p className="library-review-notice">{t("features.browseV2.amendment.noDeleteNotice")}</p>
+            <div className="library-inbox-modal-actions">
+              <button className="secondary-button" type="button" onClick={() => { setShowRemoveMemberModal(false); setRemoveTargetMember(null); }} disabled={amending}>{t("features.library.inbox.cancel")}</button>
+              <button className="primary-button" type="button" disabled={amending} onClick={handleRemoveMemberConfirm}>
+                {amending ? "…" : t("features.browseV2.amendment.createPlan")}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </WorkbenchPage>

@@ -50,3 +50,52 @@ export async function createManagedComposePlan(
   }
   return res.json() as Promise<ManagedComposePlanResponse>;
 }
+
+// ── Phase 8D-D: Object Amendment ────────────────────────
+
+export interface AmendmentPlanRequestParams {
+  object_id: number;
+  add_file_ids: number[];
+  remove_member_ids: number[];
+  target_library_root_id?: number;
+  remove_target_policy?: string;
+}
+
+export interface AmendmentPlannedAction {
+  action_type: string;
+  source_path: string | null;
+  target_path: string | null;
+  file_id: number | null;
+  member_role: string | null;
+  amendment_action: string | null;
+}
+
+export interface AmendmentPlanResponse {
+  plan_id: number;
+  plan_kind: string;
+  object_id: number;
+  amendment_type: string;
+  status: string;
+  add_count: number;
+  remove_count: number;
+  planned_actions: AmendmentPlannedAction[];
+  notes: string[];
+}
+
+const OBJ_BASE = () => `${getApiBaseUrl()}/library/objects`;
+
+export async function createObjectAmendmentPlan(
+  objectId: number,
+  data: { add_file_ids: number[]; remove_member_ids: number[]; target_library_root_id?: number; remove_target_policy?: string },
+): Promise<AmendmentPlanResponse> {
+  const res = await fetch(`${OBJ_BASE()}/${objectId}/amendment-plans`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const payload = (await res.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(payload?.detail || "Failed to create amendment plan.");
+  }
+  return res.json() as Promise<AmendmentPlanResponse>;
+}
