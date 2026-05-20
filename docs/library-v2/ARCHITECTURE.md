@@ -94,6 +94,15 @@ API Routes (routes/*.py)
   → Object boundary detection (services/importing/object_boundary.py) — pure, no DB
 ```
 
+## Managed Import Source Sentinel
+
+All Library v2 import operations require a `source_id` on every `File` row. Import-created files are assigned to a special internal sentinel `Source` record with `path = "__workbench_managed_import__"` (display name: "Managed Import"). This sentinel has `scan_mode = "manual"` and `last_scan_status = "not_applicable"` — it is never scanned.
+
+- The sentinel is created automatically during database initialization (`_ensure_library_v2_source()` in `engine.py`).
+- If the sentinel is missing (e.g., the DB was created before Library v2 migrations ran), `ImportService._get_managed_source()` auto-creates it on first access.
+- This sentinel is **not** a user-visible Source. It does not appear in Settings > Source Management and users should never need to manage it.
+- This sentinel is **not** a Managed Root. Adding a Managed Root in Library > Roots does not create or affect this sentinel.
+
 ## Hybrid Mode
 
 Library v2 coexists with source-scan beta:

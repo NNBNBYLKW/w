@@ -837,7 +837,18 @@ class ImportService:
             Source.path == "__workbench_managed_import__"
         ).one_or_none()
         if source is None:
-            raise ValueError("Managed import source not initialized.")
+            now = datetime.utcnow()
+            source = Source(
+                path="__workbench_managed_import__",
+                display_name="Managed Import",
+                is_enabled=True,
+                scan_mode="manual",
+                last_scan_status="not_applicable",
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(source)
+            session.flush()
         return source
 
     def _ensure_inbox_dir(self, root_path: str, batch_id: int) -> Path:
