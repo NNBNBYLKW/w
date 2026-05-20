@@ -6,6 +6,7 @@ Pure read-only — no DB writes, no file operations, no schema changes.
 from __future__ import annotations
 
 from pathlib import Path
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.db.models.file import File
@@ -113,7 +114,25 @@ class BrowseV2Service:
             lo_query = session.query(LibraryObject).filter(
                 LibraryObject.object_type.in_(type_filter),
             )
-            for lo in lo_query.all():
+            lo_rows = lo_query.all()
+            lo_ids = [lo.id for lo in lo_rows]
+            active_member_counts: dict[int, int] = {}
+            if lo_ids:
+                count_rows = (
+                    session.query(
+                        LibraryObjectMember.object_id,
+                        func.count(LibraryObjectMember.id),
+                    )
+                    .filter(
+                        LibraryObjectMember.object_id.in_(lo_ids),
+                        LibraryObjectMember.member_status == "active",
+                    )
+                    .group_by(LibraryObjectMember.object_id)
+                    .all()
+                )
+                active_member_counts = {object_id: count for object_id, count in count_rows}
+
+            for lo in lo_rows:
                 if storage_state != "all":
                     # library_objects don't have storage_state yet; skip if filtering
                     # but keep for "managed" since these ARE managed objects
@@ -126,7 +145,7 @@ class BrowseV2Service:
                     source_id=lo.id,
                     object_type=lo.object_type,
                     display_title=lo.title or lo.root_name or lo.root_path,
-                    member_count=getattr(lo, "member_count", 0) or 0,
+                    member_count=active_member_counts.get(lo.id, 0),
                     storage_state="managed",
                     root_path=lo.root_path,
                     needs_review=bool(lo.needs_review),
@@ -209,21 +228,20 @@ class BrowseV2Service:
                 ).all()
                 member_file_ids.update(r[0] for r in ii_rows if r[0] is not None)
 
-            # Query loose files
+            # Query all filtered loose files. Combined object+loose pagination is
+            # applied once after cards are merged to keep totals stable.
             file_query = session.query(File).filter(
                 File.is_deleted == False,
-                ~File.id.in_(member_file_ids) if member_file_ids else True,
             )
+            if member_file_ids:
+                file_query = file_query.filter(~File.id.in_(member_file_ids))
 
             if storage_state != "all":
                 file_query = file_query.filter(File.storage_state == storage_state)
 
-            # Paginate
-            total_files = file_query.count()
-            offset = (page - 1) * page_size
             file_rows = file_query.order_by(
                 File.modified_at_fs.desc() if sort_order == "desc" else File.modified_at_fs.asc()
-            ).offset(offset).limit(page_size).all()
+            ).all()
 
             # Pre-load inbox item info for inbox files (Phase 8C-2)
             inbox_file_ids = [f.id for f in file_rows if f.storage_state == "inbox"]
@@ -257,7 +275,12 @@ class BrowseV2Service:
         # ── Sort and paginate combined results ──────────────
         items.sort(key=lambda c: (
             0 if getattr(c, "card_kind", None) == "object" else 1,
-            getattr(c, "display_title", "") if hasattr(c, "display_title") else getattr(c, "name", ""),
+            (
+                getattr(c, "display_title", "")
+                if hasattr(c, "display_title")
+                else getattr(c, "name", "")
+            ).casefold(),
+            getattr(c, "namespaced_id", None) or f"loose_file:{getattr(c, 'file_id', 0)}",
         ))
 
         total = len(items)

@@ -2,9 +2,9 @@
 
 ## 1. Executive Summary
 
-Phase 8 is **beta-ready for controlled local testing**. The Browse v2, object detail, compose (inbox/external/managed), and object amendment (add/remove) chains are complete end-to-end. The application is not ready for destructive production use without backups.
+Phase 8 is **beta-ready for controlled local testing after audit P0/P1 stabilization**. The Browse v2, object detail, compose (inbox/external/managed), and object amendment (add/remove) chains are complete end-to-end. The application is not ready for destructive production use without backups.
 
-**Current recommendation**: GREEN for local controlled testing with disposable test data.
+**Current recommendation**: GREEN for controlled local beta after audit P0/P1 fixes, using disposable test data first.
 
 ## 2. Completed Capabilities
 
@@ -39,6 +39,9 @@ Priority test areas:
 | Risk | Severity | Mitigation |
 |---|---|---|
 | Path move failure during execute | Medium | completed_with_errors prevents partial mutation; action logs preserved |
+| Amendment skipped/cancelled action | Low | Audit fix requires all amendment move actions to succeed and prevents duplicate finalization |
+| Removed-member recompose confusion | Low | Audit fix treats only active memberships as compose/amendment blockers |
+| Browse card count/pagination drift | Low | Audit fix applies stable combined pagination and active-member counts |
 | User misunderstanding plan-only UI | Medium | Plan-only feedback messages explicit: "files not moved yet" |
 | No direct preflight/execute UI from object detail | Low | Users must navigate to Library > Plans to execute amendment plans |
 | Removed member hidden by default | Low | Soft-delete preserves DB row; member can be inspected directly |
@@ -105,13 +108,14 @@ Prepare:
 
 ## 8. Release Decision
 
-### Green criteria (all met)
+### Green criteria (all met after audit P0/P1 fixes)
 - [x] All backend tests pass (151+ tests)
 - [x] Frontend build passes
 - [x] Desktop build passes
 - [x] No raw i18n keys
 - [x] No hard delete of members
 - [x] completed_with_errors prevents partial mutation
+- [x] Phase 8 audit P0/P1 regression tests pass
 
 ### Yellow criteria (acceptable for beta)
 - [x] Manual data-present smoke not yet performed
@@ -121,4 +125,4 @@ Prepare:
 - No data loss paths identified
 - No security issues identified
 
-### Current status: **GREEN for controlled local beta testing**
+### Current status: **GREEN for controlled local beta testing after audit P0/P1 fixes**

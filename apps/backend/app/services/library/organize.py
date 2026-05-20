@@ -2113,7 +2113,10 @@ class LibraryOrganizeService:
         # Collect member file_ids to reject already-composed files
         member_file_ids: set[int] = set()
         from app.db.models.library_object import LibraryObjectMember as LOM
-        lom_rows = session.query(LOM.file_id).filter(LOM.file_id.isnot(None)).all()
+        lom_rows = session.query(LOM.file_id).filter(
+            LOM.file_id.isnot(None),
+            LOM.member_status == "active",
+        ).all()
         member_file_ids.update(r[0] for r in lom_rows if r[0] is not None)
         from app.db.models.importing import ImportObjectMember as IOM, ImportObjectCandidate as IOC, InboxItem as II
         iom_ii = session.query(IOM.inbox_item_id).join(IOC, IOM.import_object_candidate_id == IOC.id).filter(IOC.status.in_(["pending_review", "confirmed"])).all()
@@ -2303,7 +2306,10 @@ class LibraryOrganizeService:
 
         # Verify not already a formal member
         from app.db.models.library_object import LibraryObjectMember as LOM
-        lom = session.query(LOM).filter(LOM.file_id == file_id).first()
+        lom = session.query(LOM).filter(
+            LOM.file_id == file_id,
+            LOM.member_status == "active",
+        ).first()
         if lom is not None:
             return "blocked", f"File {file_id} is already a member of library object {lom.object_id}."
 
@@ -2453,6 +2459,40 @@ class LibraryOrganizeService:
 
     # ── Phase 8D-C: Object amendment finalization ─────────────
 
+    @staticmethod
+    def _is_action_success_status(status: str | None) -> bool:
+        return status in {"succeeded", "completed"}
+
+    def _all_required_amendment_move_actions_succeeded(
+        self, actions: list[OrganizeAction], amendment_type: str,
+    ) -> bool:
+        expected_action = {
+            "add_members": "add_member",
+            "remove_members": "remove_member",
+        }.get(amendment_type)
+        if expected_action is None:
+            return False
+
+        required_actions: list[OrganizeAction] = []
+        for action in actions:
+            if action.action_type != "move":
+                continue
+            payload: dict[str, Any] = {}
+            if action.payload_json:
+                try:
+                    payload = json.loads(action.payload_json)
+                except json.JSONDecodeError:
+                    return False
+            if (
+                payload.get("object_amendment_plan")
+                and payload.get("amendment_action") == expected_action
+            ):
+                required_actions.append(action)
+
+        if not required_actions:
+            return False
+        return all(self._is_action_success_status(action.status) for action in required_actions)
+
     def _finalize_object_amendment(
         self, session: Session, plan_id: int, failed_count: int,
     ) -> None:
@@ -2480,17 +2520,22 @@ class LibraryOrganizeService:
             return
         if summary.get("finalize_policy") != "all_or_nothing_object_amendment":
             return
+        if summary.get("finalized"):
+            return
 
         amendment_type = summary.get("amendment_type", "")
         object_id = summary.get("object_id")
         if not object_id:
             return
 
+        actions = self.repository.list_plan_actions(session, plan_id)
+        if not self._all_required_amendment_move_actions_succeeded(actions, amendment_type):
+            return
+
         lo = session.query(LibraryObject).filter(LibraryObject.id == object_id).first()
         if lo is None:
             return
 
-        actions = self.repository.list_plan_actions(session, plan_id)
         now = _now()
 
         if amendment_type == "add_members":
@@ -2892,6 +2937,12 @@ class LibraryOrganizeService:
             base_root = Path(lib_root.root_path).resolve()
         else:
             base_root = object_root.parent if object_root.parent != object_root else object_root
+            for lib_root in self.library_root_repository.list_enabled(session):
+                root_path = Path(lib_root.root_path).resolve()
+                if is_path_within(object_root, root_path):
+                    base_root = root_path
+                    target_library_root_id = lib_root.id
+                    break
 
         # Gather member file_ids
         member_file_ids: set[int] = set()
@@ -3011,9 +3062,30 @@ class LibraryOrganizeService:
                 members.append(m)
 
             remove_target_dir = base_root / "90_Loose" / f"Removed_{lo.root_name}"
+            if not is_path_within(remove_target_dir, base_root):
+                raise HTTPException(status_code=400, detail="Remove target directory must stay inside the managed root.")
             remove_members_meta: list[dict[str, Any]] = []
             actions: list[OrganizeAction] = []
             order = 1
+            actions.append(OrganizeAction(
+                plan_id=0, action_order=order, action_type="mkdir",
+                source_path=None, target_path=str(remove_target_dir),
+                payload_json=json.dumps({
+                    "object_amendment_plan": True,
+                    "amendment_action": "remove_target_dir",
+                    "object_id": object_id,
+                    "remove_target_policy": remove_target_policy,
+                }, ensure_ascii=False),
+                status="draft", conflict_status="unchecked",
+                reason="Create removed-member loose target directory",
+                created_at=now, updated_at=now,
+            ))
+            planned_actions.append({
+                "action_type": "mkdir", "source_path": None,
+                "target_path": str(remove_target_dir),
+                "amendment_action": "remove_target_dir",
+            })
+            order += 1
             for m in members:
                 f = session.query(File).filter(File.id == m.file_id).first()
                 safe_name = _re.sub(r'[<>:"/\\|?*]', " ", f.name).strip()

@@ -1551,7 +1551,8 @@ class ImportService:
         # Gather existing member file_ids to reject already-composed files
         from app.db.models.library_object import LibraryObjectMember as LOM
         lom_ids = session.query(LOM.file_id).filter(
-            LOM.file_id.isnot(None)
+            LOM.file_id.isnot(None),
+            LOM.member_status == "active",
         ).all()
         member_file_ids.update(r[0] for r in lom_ids if r[0] is not None)
 

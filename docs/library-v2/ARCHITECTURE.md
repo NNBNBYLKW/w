@@ -41,6 +41,16 @@ Recovery
   → Retry failed import (copy-only)
 ```
 
+## Phase 8 Object Management Flow
+
+Browse v2 combines formal `library_objects`, active import object candidates, and managed loose files into one stable card read model. Pagination is applied to the combined filtered card list, and formal object card `member_count` is derived from active `library_object_members`.
+
+Managed compose and object amendment are plan-first flows:
+- `object_creation_managed_compose` creates a draft plan from managed loose files, then finalizes a formal object only after all required move actions succeed.
+- `object_amendment` supports add-only and remove-only plans. Add-member finalization creates active member rows. Remove-member finalization soft-deactivates existing rows with `member_status = "removed"` and moves files to the managed loose area.
+- `completed_with_errors` and `failed` amendment plans do not mutate membership. Amendment finalization also checks `summary_json.finalized` to avoid duplicate finalization.
+- Removed member files are treated as managed loose for future compose/add-member eligibility; active members remain excluded.
+
 ## Storage States
 
 | State | Source | Path |

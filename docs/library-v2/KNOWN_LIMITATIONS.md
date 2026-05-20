@@ -1,6 +1,6 @@
 # Library v2 Known Limitations
 
-> Phase 7A–7F complete. These limitations remain by design.
+> Phase 8 complete after audit P0/P1 stabilization. These limitations remain by design.
 
 ## Not Yet Implemented
 
@@ -36,12 +36,12 @@
 | Full Explorer replacement | Workbench is an asset workbench, not a file manager |
 | AI auto-classification | AI must never write final facts or execute |
 | Managed compose plan review UI | No dedicated plan review page within Browse v2 |
+| Object amendment add/remove single-mode plans | Implemented; add-only and remove-only plans are supported |
 | Object amendment mixed add/remove | Not implemented |
 | Object amendment direct preflight/execute UI | Not implemented; plan-only frontend exists |
 | Object amendment removed member history UI | Not implemented |
 | Object amendment automatic rollback | Not implemented |
 | Removed member history UI | Not implemented |
-| Object amendment plan | Phase 8D: add/remove members deferred |
 | Compose multi-batch | 8C-1 single-batch compose only; cross-batch not supported |
 
 ## Migration Notes

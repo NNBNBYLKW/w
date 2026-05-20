@@ -171,7 +171,7 @@ Safety: `completed_with_errors` or `failed` plans do NOT create partial objects.
 
 ### Object Member Soft Status (8D-A1)
 
-`library_object_members` now has a `member_status` column (values: `active`, `removed`). Browse v2 and object detail default to `member_status = "active"`. Managed compose execute creates members with `member_status = "active"`. The `removed` status is reserved for future amendment remove-member flow. No hard delete — membership rows are soft-deactivated.
+`library_object_members` now has a `member_status` column (values: `active`, `removed`). Browse v2 and object detail default to `member_status = "active"`. Managed compose execute and add-member amendment execute create members with `member_status = "active"`. Remove-member amendment execute sets existing rows to `member_status = "removed"`. Removed files return to managed loose eligibility; active members remain blocked from loose-file compose/amendment selection. No hard delete — membership rows are soft-deactivated.
 
 ### Object Amendment Plans (8D-A2)
 
@@ -183,7 +183,7 @@ Safety: `completed_with_errors` or `failed` plans do NOT create partial objects.
 **Remove-only request:** `{ "add_file_ids": [], "remove_member_ids": [10,11], "target_library_root_id": 1, "remove_target_policy": "managed_loose_area" }`  
 **Response:** `{ "plan_id": 1, "plan_kind": "object_amendment", "object_id": 5, "amendment_type": "add_members", "status": "draft", "add_count": 2, ... }`  
 
-Safety: Draft plan only. No file move. No member mutation. Mixed add+remove rejected in v1. Amended members remain active until execute (deferred). Remove target uses managed loose area policy.
+Safety: Draft plan only. No file move. No member mutation. Mixed add+remove rejected in v1. Amended members remain active until execute. Remove target uses managed loose area policy and includes a planned mkdir action for the removed-member loose target directory.
 
 ### Amendment Preflight (8D-B)
 
@@ -201,4 +201,4 @@ The existing `POST /library/organize/plans/{id}/execute` flow now supports `plan
 - **Remove member**: Sets `member_status = "removed"` (soft-deactivate), moves file to managed loose area, updates file paths, writes history and journal
 - **Both**: Updates plan `summary_json` with `finalized: true, finalized_add_count/finalized_remove_count`
 
-Safety: `completed_with_errors` or `failed` plans do NOT mutate membership. All required move actions must succeed. No hard delete. No source cleanup.
+Safety: `completed_with_errors` or `failed` plans do NOT mutate membership. All required amendment move actions must succeed and finalization is guarded against duplicate finalization. No hard delete. No source cleanup.
