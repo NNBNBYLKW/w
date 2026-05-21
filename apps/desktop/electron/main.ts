@@ -59,6 +59,9 @@ function getBackendLogPath(): string {
 }
 
 function getBackendDataDir(): string {
+  if (process.env.WORKBENCH_PORTABLE_DATA_DIR) {
+    return path.resolve(process.env.WORKBENCH_PORTABLE_DATA_DIR);
+  }
   return path.join(app.getPath("userData"), "backend-data");
 }
 
