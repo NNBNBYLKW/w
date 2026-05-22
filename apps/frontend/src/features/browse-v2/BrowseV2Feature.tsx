@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useUIStore } from "../../app/providers/uiStore";
@@ -135,6 +135,7 @@ function isLooseFileCard(card: BrowseV2Card): card is BrowseV2LooseFileCard {
 
 export function BrowseV2Feature() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const domain = (searchParams.get("domain") as DomainValue) || "media";
   const category = searchParams.get("category") || "";
   const storageState = searchParams.get("storage") || "all";
@@ -613,7 +614,12 @@ export function BrowseV2Feature() {
                 <div style={{padding:8,background:"#e8f5e9",borderRadius:4}} role="status">
                   {amendmentSuccess}
                   <p style={{fontSize:12,marginTop:4}}>{t("features.browseV2.amendment.filesHaveNotMoved")} / {t("features.browseV2.amendment.preflightExecuteRequired")}</p>
-                  <button className="secondary-button" type="button" style={{marginTop:4}} onClick={() => setAmendmentSuccess(null)}>{t("features.library.inbox.cancel")}</button>
+                  <div style={{display:"flex",gap:8,marginTop:4}}>
+                    <button className="primary-button" type="button" onClick={() => { setAmendmentSuccess(null); navigate("/library?tab=plans"); }}>
+                      {t("features.browseV2.amendment.goToPlans")}
+                    </button>
+                    <button className="secondary-button" type="button" onClick={() => setAmendmentSuccess(null)}>{t("features.library.inbox.cancel")}</button>
+                  </div>
                 </div>
               )}
 
@@ -697,9 +703,15 @@ export function BrowseV2Feature() {
       {composeSuccess && (
         <div style={{padding:8,background:"#e8f5e9",borderRadius:4}} role="status">
           {composeSuccess}
-          <button className="secondary-button" type="button" style={{marginLeft:8}} onClick={() => setComposeSuccess(null)}>
-            {t("features.library.inbox.cancel")}
-          </button>
+          <p style={{fontSize:12,marginTop:4}}>{t("features.browseV2.amendment.filesHaveNotMoved")} / {t("features.browseV2.amendment.preflightExecuteRequired")}</p>
+          <div style={{display:"flex",gap:8,marginTop:4}}>
+            <button className="primary-button" type="button" onClick={() => { setComposeSuccess(null); navigate("/library?tab=plans"); }}>
+              {t("features.browseV2.amendment.goToPlans")}
+            </button>
+            <button className="secondary-button" type="button" onClick={() => setComposeSuccess(null)}>
+              {t("features.library.inbox.cancel")}
+            </button>
+          </div>
         </div>
       )}
 

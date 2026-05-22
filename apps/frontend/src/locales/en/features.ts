@@ -1111,6 +1111,7 @@ export const features = {
       filesHaveNotMoved: "Files have not moved",
       membershipHasNotChanged: "membership has not changed",
       preflightExecuteRequired: "Preflight and execute are still required",
+      goToPlans: "Go to Plans",
       noManagedLooseCandidates: "No managed loose files available to add.",
       failed: "Amendment failed",
       error: "Compose failed",

@@ -1093,6 +1093,7 @@ export const features = {
       filesHaveNotMoved: "文件尚未移动",
       membershipHasNotChanged: "成员尚未变更",
       preflightExecuteRequired: "仍需预检和执行",
+      goToPlans: "前往计划",
       noManagedLooseCandidates: "没有可添加的已入库散文件。",
       failed: "修改失败",
     },
