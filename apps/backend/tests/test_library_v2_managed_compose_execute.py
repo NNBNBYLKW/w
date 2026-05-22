@@ -234,3 +234,47 @@ class ManagedComposeExecuteTestCase(unittest.TestCase):
             f = s.query(File).filter(File.id == unrelated).first()
             assert f is not None
             assert Path(f.path).exists()
+
+    # ── P0-01: type_prefix regression ────────────────────
+
+    def test_type_prefix_maps_correctly_for_imgset(self):
+        """_finalize_managed_compose writes correct type_prefix for imgset."""
+        fids = [self._create_managed_file(f"tp{i}.jpg") for i in range(2)]
+        pid = self._create_and_preflight_plan(fids, obj_type="imgset")
+        self.client.post(f"/library/organize/plans/{pid}/execute", json={"confirm": True})
+        import time; time.sleep(0.5)
+        with SessionLocal() as s:
+            from app.db.models.library_object import LibraryObject
+            obj = s.query(LibraryObject).first()
+            assert obj is not None
+            assert obj.type_prefix == "IMGSET", f"Expected IMGSET, got {obj.type_prefix}"
+
+    def test_type_prefix_maps_correctly_for_movie(self):
+        fids = [self._create_managed_file(f"tp_mov{i}.jpg") for i in range(2)]
+        pid = self._create_and_preflight_plan(fids, obj_type="movie")
+        self.client.post(f"/library/organize/plans/{pid}/execute", json={"confirm": True})
+        import time; time.sleep(0.5)
+        with SessionLocal() as s:
+            from app.db.models.library_object import LibraryObject
+            obj = s.query(LibraryObject).first()
+            assert obj.type_prefix == "MOVIE", f"Expected MOVIE, got {obj.type_prefix}"
+
+    def test_type_prefix_maps_correctly_for_game(self):
+        fids = [self._create_managed_file(f"tp_game{i}.jpg") for i in range(2)]
+        pid = self._create_and_preflight_plan(fids, obj_type="game")
+        self.client.post(f"/library/organize/plans/{pid}/execute", json={"confirm": True})
+        import time; time.sleep(0.5)
+        with SessionLocal() as s:
+            from app.db.models.library_object import LibraryObject
+            obj = s.query(LibraryObject).first()
+            assert obj.type_prefix == "GAME", f"Expected GAME, got {obj.type_prefix}"
+
+    def test_type_prefix_maps_correctly_for_asset_pack(self):
+        fids = [self._create_managed_file(f"tp_ap{i}.jpg") for i in range(2)]
+        pid = self._create_and_preflight_plan(fids, obj_type="asset_pack")
+        self.client.post(f"/library/organize/plans/{pid}/execute", json={"confirm": True})
+        import time; time.sleep(0.5)
+        with SessionLocal() as s:
+            from app.db.models.library_object import LibraryObject
+            obj = s.query(LibraryObject).first()
+            assert obj.type_prefix == "ASSET", f"Expected ASSET, got {obj.type_prefix}"

@@ -2784,8 +2784,7 @@ class LibraryOrganizeService:
         if len(created_file_ids) != len(summary.get("selected_file_ids", [])):
             return  # mismatch — abort
 
-        prefix_map = {v: k for k, v in OBJECT_PREFIX.items()}
-        type_prefix = prefix_map.get(object_type, "OBJ")
+        type_prefix = OBJECT_PREFIX.get(object_type, "OBJ")
 
         now = _now()
         from pathlib import Path
