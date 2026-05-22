@@ -1164,3 +1164,13 @@
 .app-shell--design-pen .app-sidebar__link--child.app-sidebar__link--active:hover .app-sidebar__link-label {
   color: var(--color-primary-hover);
 }
+
+/* ── Lazy page loader ── */
+.page-loader {
+  opacity: 0.6;
+  animation: page-loader-pulse 1.2s ease-in-out infinite;
+}
+@keyframes page-loader-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
