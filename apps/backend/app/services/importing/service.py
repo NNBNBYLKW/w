@@ -6,6 +6,8 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path, PurePath
+
+from app.core.time import utcnow
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -536,7 +538,7 @@ class ImportService:
         item.final_object_type = final_object_type
         item.target_library_root_id = target_library_root_id
         item.status = "classified"
-        item.updated_at = datetime.utcnow()
+        item.updated_at = utcnow()
         session.flush()
         return item
 
@@ -578,7 +580,7 @@ class ImportService:
             raise ValueError(f"Inbox file no longer exists: {item.inbox_path}")
 
         from app.db.models.organize import OrganizeCandidate
-        now = datetime.utcnow()
+        now = utcnow()
         candidate = OrganizeCandidate(
             candidate_type="inbox_item",
             source_kind="file",  # "file" so organize creates mkdir+move+write_asset_yaml actions
@@ -643,7 +645,7 @@ class ImportService:
         oc.launch_file_id = launch_file_id or oc.launch_file_id
         oc.target_library_root_id = target_library_root_id
         oc.status = "confirmed"
-        oc.updated_at = datetime.utcnow()
+        oc.updated_at = utcnow()
         session.flush()
         return oc
 
@@ -654,7 +656,7 @@ class ImportService:
         if oc.status in {"organized", "rejected"}:
             raise ValueError(f"Cannot reject object candidate with status '{oc.status}'.")
         oc.status = "rejected"
-        oc.updated_at = datetime.utcnow()
+        oc.updated_at = utcnow()
         # reject member inbox items too
         members = self.repository.list_object_members(session, oc_id)
         for m in members:
@@ -680,7 +682,7 @@ class ImportService:
             raise ValueError("Target library root must be selected first.")
 
         from app.db.models.organize import OrganizeCandidate
-        now = datetime.utcnow()
+        now = utcnow()
         reason_data = {
             "import_object_candidate_id": oc.id,
             "suggested_object_type": oc.suggested_object_type,
@@ -774,7 +776,7 @@ class ImportService:
         for oc in obj_candidates:
             oc.status = "planned"
             oc.organize_plan_id = plan_id
-            oc.updated_at = datetime.utcnow()
+            oc.updated_at = utcnow()
             # sync member inbox item statuses
             members = self.repository.list_object_members(session, oc.id)
             for m in members:
@@ -837,7 +839,7 @@ class ImportService:
             Source.path == "__workbench_managed_import__"
         ).one_or_none()
         if source is None:
-            now = datetime.utcnow()
+            now = utcnow()
             source = Source(
                 path="__workbench_managed_import__",
                 display_name="Managed Import",
@@ -1277,7 +1279,7 @@ class ImportService:
             str(target),
         )
         stat = target.stat()
-        now = datetime.utcnow()
+        now = utcnow()
         file = File(
             source_id=managed_source_id,
             path=str(target),
@@ -1470,7 +1472,7 @@ class ImportService:
                 item.detected_object_type = suggested_object_type or item.detected_object_type
                 if target_library_root_id:
                     item.target_library_root_id = target_library_root_id
-                item.updated_at = datetime.utcnow()
+                item.updated_at = utcnow()
 
                 member_items.append({
                     "inbox_item_id": item.id,

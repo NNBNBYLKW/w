@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from app.core.time import utcnow
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -33,7 +35,7 @@ class ImportRepository:
         batch = ImportBatch(
             source_kind=source_kind,
             import_method=import_method,
-            created_at=datetime.utcnow(),
+            created_at=utcnow(),
         )
         session.add(batch)
         session.flush()
@@ -82,7 +84,7 @@ class ImportRepository:
         if error_summary is not None:
             batch.error_summary = error_summary
         if status in {"completed", "completed_with_errors", "failed", "cancelled"}:
-            batch.finished_at = datetime.utcnow()
+            batch.finished_at = utcnow()
         session.flush()
         return batch
 
@@ -102,7 +104,7 @@ class ImportRepository:
         detected_object_type: str | None = None,
         target_library_root_id: int | None = None,
     ) -> InboxItem:
-        now = datetime.utcnow()
+        now = utcnow()
         item = InboxItem(
             import_batch_id=import_batch_id,
             file_id=file_id,
@@ -154,7 +156,7 @@ class ImportRepository:
         item.status = status
         if error_message is not None:
             item.error_message = error_message
-        item.updated_at = datetime.utcnow()
+        item.updated_at = utcnow()
         session.flush()
         return item
 
@@ -173,7 +175,7 @@ class ImportRepository:
             item.target_library_root_id = target_library_root_id
         if organize_candidate_id is not None:
             item.organize_candidate_id = organize_candidate_id
-        item.updated_at = datetime.utcnow()
+        item.updated_at = utcnow()
         session.flush()
         return item
 
@@ -201,10 +203,10 @@ class ImportRepository:
             before_json=before_json,
             after_json=after_json,
             error_message=error_message,
-            created_at=datetime.utcnow(),
+            created_at=utcnow(),
         )
         if status in {"succeeded", "failed", "needs_recovery"}:
-            entry.finished_at = datetime.utcnow()
+            entry.finished_at = utcnow()
         session.add(entry)
         session.flush()
         return entry
@@ -238,7 +240,7 @@ class ImportRepository:
             new_path=new_path,
             reason=reason,
             operation_journal_id=operation_journal_id,
-            created_at=datetime.utcnow(),
+            created_at=utcnow(),
         )
         session.add(entry)
         session.flush()
@@ -258,7 +260,7 @@ class ImportRepository:
         member_count: int = 0,
         reason_json: str | None = None,
     ) -> ImportObjectCandidate:
-        now = datetime.utcnow()
+        now = utcnow()
         candidate = ImportObjectCandidate(
             import_batch_id=import_batch_id,
             source_root_path=source_root_path,
@@ -323,7 +325,7 @@ class ImportRepository:
             role=role,
             confidence=confidence,
             reason=reason,
-            created_at=datetime.utcnow(),
+            created_at=utcnow(),
         )
         session.add(member)
         session.flush()

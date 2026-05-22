@@ -7,8 +7,10 @@ import shutil
 import threading
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
+
+from app.core.time import utcnow
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -1844,7 +1846,7 @@ class LibraryOrganizeService:
             ))
 
         plan.reconcile_status = "reconciled"
-        plan.reconciled_at = datetime.now(UTC)
+        plan.reconciled_at = utcnow()
         plan.reconcile_summary_json = json.dumps(summary)
         session.commit()
 
@@ -1919,7 +1921,7 @@ class LibraryOrganizeService:
             return
 
         managed_root_id = plan.target_library_root_id
-        now = dt.utcnow()
+        now = utcnow()
 
         for action in actions:
             if action.status != "succeeded":
@@ -3267,5 +3269,4 @@ def _suggestion_tags(candidate: OrganizeCandidate) -> list[str]:
 
 
 
-def _now() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
+_now = utcnow
