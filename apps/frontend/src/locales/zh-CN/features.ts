@@ -109,9 +109,10 @@ export const features = {
     },
     overview: {
       eyebrow: "文件库总览",
-      title: "面向真实文件结构管理的安全入口",
-      description: "文件库用于管理受管库、路径浏览、待整理文件、对象识别和整理计划。",
-      safety: "Phase 2 只读取对象根并缓存扫描结果，不会移动、重命名、删除或写入文件。",
+      title: "文件库管理中心",
+      description:
+        "文件库有两种数据来源：源扫描（Source Scan）索引外部目录（只读），受管导入（Managed Import）将文件复制到受管库后进行对象化组织。通过「导入」引入文件，再通过「整理计划」进行组织。",
+      safety: "所有操作均为仅复制或库内移动。原始文件不会被删除。任何文件移动前都会经过预检。",
       statsEyebrow: "对象扫描统计",
       structureEyebrow: "阶段结构",
       structure: {
@@ -922,8 +923,8 @@ export const features = {
     placementAuto: "已将 {count} 个文件恢复为自动所属库。",
   },
   browseV2: {
-    title: "新版浏览",
-    subtitle: "按内容领域浏览对象和散文件。",
+    title: "浏览",
+    subtitle: "按内容领域浏览已组织的对象和松散文件。左侧选择领域和分类，右侧查看详情。",
     empty: "当前筛选条件下没有匹配项。",
     objectPlaceholder: "对象详情将在后续阶段完善。",
     noSelection: "选择一个对象或文件查看详情。",

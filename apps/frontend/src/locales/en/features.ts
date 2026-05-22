@@ -113,10 +113,10 @@ export const features = {
     },
     overview: {
       eyebrow: "Library overview",
-      title: "A safer entry for real file-structure management",
+      title: "Library management center",
       description:
-        "Library manages roots, path browsing, pending files, object recognition, and organize plans.",
-      safety: "Phase 2 reads object roots and caches scan results only. It does not move, rename, delete, or write files.",
+        "Library has two data sources: Source Scan indexes external directories (read-only), and Managed Import copies files into managed roots for organization into formal objects. Use Import to bring files in, then Plans to organize them.",
+      safety: "All operations are copy-only or move-within-managed-root. Original source files are never deleted. Preflight checks run before any file movement.",
       statsEyebrow: "Object scan stats",
       structureEyebrow: "Phase structure",
       structure: {
@@ -942,7 +942,7 @@ export const features = {
   },
   browseV2: {
     title: "Browse",
-    subtitle: "Browse objects and loose files by content domain.",
+    subtitle: "Browse organized objects and loose files by content domain. Select a domain and category on the left, view details on the right.",
     empty: "No items match the current filters.",
     objectPlaceholder: "Object detail will be available in a later phase.",
     noSelection: "Select an object or file to view details.",

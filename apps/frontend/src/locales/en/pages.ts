@@ -23,31 +23,31 @@ export const pages = {
   library: {
     eyebrow: "File library",
     title: "Library",
-    description: "Manage library roots, path browsing, pending files, object recognition, and organize plans.",
+    description: "Library management center: import files, review inbox items, create organize plans, execute operations, and manage roots. To browse organized objects, use Browse.",
   },
   books: {
     eyebrow: "Library subset surface",
     title: "Documents",
     description:
-      "Browse recognized document files in a focused subset surface. Selection continues into shared details and the existing open actions.",
+      "A pre-filtered view of recognized document files. For the full object-and-file browse experience with taxonomy navigation, use Browse.",
   },
   media: {
     eyebrow: "Visual subset surface",
     title: "Media",
     description:
-      "Browse indexed images and videos in a visual subset surface. Selection continues into shared details and the existing open actions.",
+      "A pre-filtered view of indexed images and videos. For the full object-and-file browse experience with taxonomy navigation, use Browse.",
   },
   games: {
     eyebrow: "Library subset surface",
     title: "Games",
     description:
-      "Browse recognized game-entry files in a focused subset surface. Selection continues into shared details and the existing open actions.",
+      "A pre-filtered view of recognized game-entry files. For the full object-and-file browse experience with taxonomy navigation, use Browse.",
   },
   software: {
     eyebrow: "Library subset surface",
     title: "Software",
     description:
-      "Browse recognized software-related files in a focused subset surface. Selection continues into shared details and the existing open actions.",
+      "A pre-filtered view of recognized software-related files. For the full object-and-file browse experience with taxonomy navigation, use Browse.",
   },
   recent: {
     eyebrow: "Recent retrieval family",
@@ -75,6 +75,6 @@ export const pages = {
   browseV2: {
     eyebrow: "Content browse",
     title: "Browse",
-    description: "Browse objects and loose files by content domain.",
+    description: "Browse organized objects and loose files by content domain (Media, Documents, Apps, Assets). Select an object to view member details, add or remove members.",
   },
 } as const;
