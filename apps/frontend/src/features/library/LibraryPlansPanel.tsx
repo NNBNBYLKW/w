@@ -46,7 +46,7 @@ export function LibraryPlansPanel() {
             <EmptyState title={t("features.library.scan.unableToLoad")} description={String(plansQuery.error)} />
           ) : null}
           {plansQuery.data && plansQuery.data.items.length === 0 ? (
-            <EmptyState title={t("features.library.organize.noPlans")} description={t("features.library.organize.phase3Safety")} />
+            <EmptyState title={t("features.library.organize.noPlans")} description={t("features.library.organize.plansEmptyGuide")} />
           ) : null}
           <div className="library-object-list">
             {plansQuery.data?.items.map((plan) => (
