@@ -67,6 +67,20 @@ function fileKindLabel(fileKind: string | null): string {
   return t(asTextKey(`features.browseV2.fileKind.${fileKind}`)) || fileKind;
 }
 
+function memberRoleLabel(role: string | null): string {
+  if (!role) return "";
+  const map: Record<string, string> = {
+    primary: "features.browseV2.roles.primary",
+    extra: "features.browseV2.roles.extra",
+    subtitle: "features.browseV2.roles.subtitle",
+    metadata: "features.browseV2.roles.metadata",
+    artwork: "features.browseV2.roles.artwork",
+    unknown_child: "features.browseV2.roles.other",
+  };
+  const key = map[role];
+  return key ? t(asTextKey(key)) : role;
+}
+
 function confidenceLabel(confidence: string | null): string {
   if (!confidence) {
     return "";
@@ -612,7 +626,7 @@ export function BrowseV2Feature() {
                       <div key={member.member_id} className="browse-v2-member-row" title={member.path || ""}>
                         <span className="browse-v2-member-row__name">{member.name || `#${member.file_id || member.member_id}`}</span>
                         <span className="browse-v2-member-row__meta">
-                          <span className="status-badge status-badge--muted">{member.role}</span>
+                          <span className="status-badge status-badge--muted">{memberRoleLabel(member.role)}</span>
                           {member.file_kind ? <span className="status-badge status-badge--info">{fileKindLabel(member.file_kind)}</span> : null}
                           {member.storage_state ? <span className="status-badge status-badge--secondary">{storageStateLabel(member.storage_state)}</span> : null}
                           {member.missing ? <span className="status-badge status-badge--danger">{t("features.browseV2.overview.missing")}</span> : null}

@@ -185,7 +185,7 @@ export const features = {
     },
     plans: {
       eyebrow: "整理计划",
-      title: "整理计划将在后续阶段启用",
+      title: "整理计划",
       description: "后续这里会显示移动、重命名、创建目录和写入 asset.yaml 的待确认计划。",
       safety: "当前阶段不会生成计划、创建动作或执行真实文件操作。",
     },
@@ -936,10 +936,18 @@ export const features = {
     title: "浏览",
     subtitle: "按内容领域浏览已组织的对象和松散文件。左侧选择领域和分类，右侧查看详情。",
     empty: "当前筛选条件下没有匹配项。",
-    objectPlaceholder: "对象详情将在后续阶段完善。",
+    objectPlaceholder: "选择一个对象查看其详情和成员。",
     noSelection: "选择一个对象或文件查看详情。",
     needsReview: "待确认",
     taxonomyLabel: "浏览分类导航",
+    roles: {
+      primary: "主体",
+      extra: "附加",
+      subtitle: "字幕",
+      metadata: "元数据",
+      artwork: "封面/图",
+      other: "其他",
+    },
     badges: {
       object: "对象",
       file: "散文件",
@@ -1046,7 +1054,7 @@ export const features = {
       membersTitle: "成员列表",
       noMembers: "暂无成员。",
       missing: "缺失",
-      readOnlyNotice: "当前对象详情为只读。添加、移出和合成对象将在后续阶段支持。",
+      readOnlyNotice: "使用上方按钮添加或移除成员。所有变更通过整理计划执行。",
       comingSoon: "完整对象详情和成员列表将在 Phase 8B 完善。",
     },
     compose: {

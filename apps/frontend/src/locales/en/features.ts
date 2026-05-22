@@ -954,10 +954,18 @@ export const features = {
     title: "Browse",
     subtitle: "Browse organized objects and loose files by content domain. Select a domain and category on the left, view details on the right.",
     empty: "No items match the current filters.",
-    objectPlaceholder: "Object detail will be available in a later phase.",
+    objectPlaceholder: "Select an object to view its details and members.",
     noSelection: "Select an object or file to view details.",
     needsReview: "Needs review",
     taxonomyLabel: "Browse taxonomy",
+    roles: {
+      primary: "Primary",
+      extra: "Extra",
+      subtitle: "Subtitle",
+      metadata: "Metadata",
+      artwork: "Artwork",
+      other: "Other",
+    },
     badges: {
       object: "Object",
       file: "File",
@@ -1064,7 +1072,7 @@ export const features = {
       membersTitle: "Members",
       noMembers: "No members found.",
       missing: "Missing",
-      readOnlyNotice: "This object detail view is read-only. Adding, removing, and composing objects will be supported in later phases.",
+      readOnlyNotice: "Use the buttons above to add or remove members. Changes are made through Plans.",
       comingSoon: "Full object detail and member list will be available in Phase 8B.",
     },
     compose: {
