@@ -62,6 +62,13 @@ from app.services.library.organize_template_renderer import (
 from app.services.library.path_safety import is_path_within, path_key
 
 
+class PlanKind:
+    ORGANIZE_INBOX = "organize_inbox"
+    FIX_OBJECT_REVIEW = "fix_object_review"
+    OBJECT_CREATION_MANAGED_COMPOSE = "object_creation_managed_compose"
+    OBJECT_AMENDMENT = "object_amendment"
+
+
 INBOX_NAMES = {"00_inbox", "_to_sort", "inbox"}
 PLAN_TARGET_DIRS = {
     "movie": ("10_Movies_Anime", "Movies"),
@@ -397,7 +404,7 @@ class LibraryOrganizeService:
         plan = OrganizePlan(
             title=self._plan_title(valid_candidates),
             status="draft",
-            plan_kind="organize_inbox" if any(item.source_kind == "file" for item in valid_candidates) else "fix_object_review",
+            plan_kind=PlanKind.ORGANIZE_INBOX if any(item.source_kind == "file" for item in valid_candidates) else PlanKind.FIX_OBJECT_REVIEW,
             summary="Draft organize plan. No filesystem operation has been executed.",
             summary_json=json.dumps({"strategy": strategy or "default", "candidate_ids": candidate_ids}, ensure_ascii=False),
             target_library_root_id=resolved_root_id,
@@ -2190,7 +2197,7 @@ class LibraryOrganizeService:
         plan = OrganizePlan(
             title=plan_title,
             status="draft",
-            plan_kind="object_creation_managed_compose",
+            plan_kind=PlanKind.OBJECT_CREATION_MANAGED_COMPOSE,
             summary=f"Draft object creation plan for {object_name}. No files have been moved.",
             target_library_root_id=target_library_root_id,
             created_at=now,
@@ -2292,7 +2299,7 @@ class LibraryOrganizeService:
 
         Returns (conflict_status, conflict_message) or None if not applicable.
         """
-        if plan is None or plan.plan_kind != "object_creation_managed_compose":
+        if plan is None or plan.plan_kind != PlanKind.OBJECT_CREATION_MANAGED_COMPOSE:
             return None
         if action.action_type != "move":
             return None
@@ -2362,7 +2369,7 @@ class LibraryOrganizeService:
 
         Returns (conflict_status, conflict_message) or None if not applicable.
         """
-        if plan is None or plan.plan_kind != "object_amendment":
+        if plan is None or plan.plan_kind != PlanKind.OBJECT_AMENDMENT:
             return None
         if action.action_type != "move":
             return None
@@ -2522,7 +2529,7 @@ class LibraryOrganizeService:
         plan = self.repository.get_plan(session, plan_id)
         if plan is None:
             return
-        if plan.plan_kind != "object_amendment":
+        if plan.plan_kind != PlanKind.OBJECT_AMENDMENT:
             return
         if failed_count > 0:
             return
@@ -2533,7 +2540,7 @@ class LibraryOrganizeService:
                 summary = json.loads(plan.summary_json)
             except json.JSONDecodeError:
                 return
-        if summary.get("plan_type") != "object_amendment":
+        if summary.get("plan_type") != PlanKind.OBJECT_AMENDMENT:
             return
         if summary.get("finalize_policy") != "all_or_nothing_object_amendment":
             return
@@ -2744,7 +2751,7 @@ class LibraryOrganizeService:
         plan = self.repository.get_plan(session, plan_id)
         if plan is None:
             return
-        if plan.plan_kind != "object_creation_managed_compose":
+        if plan.plan_kind != PlanKind.OBJECT_CREATION_MANAGED_COMPOSE:
             return
         if failed_count > 0:
             # completed_with_errors — do not create partial object
@@ -3033,10 +3040,10 @@ class LibraryOrganizeService:
                 order += 1
 
             plan = OrganizePlan(
-                title=plan_title, status="draft", plan_kind="object_amendment",
+                title=plan_title, status="draft", plan_kind=PlanKind.OBJECT_AMENDMENT,
                 summary="Draft amendment plan to add members. No files have been moved.",
                 summary_json=json.dumps({
-                    "plan_type": "object_amendment", "amendment_type": "add_members",
+                    "plan_type": PlanKind.OBJECT_AMENDMENT, "amendment_type": "add_members",
                     "object_id": object_id, "object_root_path": str(object_root),
                     "add_file_ids": add_file_ids, "remove_member_ids": [],
                     "planned_add_members": add_members_meta,
@@ -3131,10 +3138,10 @@ class LibraryOrganizeService:
                 order += 1
 
             plan = OrganizePlan(
-                title=plan_title, status="draft", plan_kind="object_amendment",
+                title=plan_title, status="draft", plan_kind=PlanKind.OBJECT_AMENDMENT,
                 summary="Draft amendment plan to remove members. No files have been moved.",
                 summary_json=json.dumps({
-                    "plan_type": "object_amendment", "amendment_type": "remove_members",
+                    "plan_type": PlanKind.OBJECT_AMENDMENT, "amendment_type": "remove_members",
                     "object_id": object_id, "object_root_path": str(object_root),
                     "add_file_ids": [], "remove_member_ids": remove_member_ids,
                     "planned_remove_members": remove_members_meta,
