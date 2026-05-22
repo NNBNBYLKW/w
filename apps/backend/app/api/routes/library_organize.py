@@ -141,6 +141,14 @@ def get_plan(
     return organize_service.get_plan_detail(db, plan_id)
 
 
+@router.post("/plans/{plan_id}/refresh-conflicts", response_model=PlanDetailResponse)
+def refresh_plan_conflicts(
+    plan_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+) -> PlanDetailResponse:
+    return organize_service.refresh_plan_conflicts(db, plan_id)
+
+
 @router.post("/plans/{plan_id}/preflight", response_model=PreflightResponse)
 def preflight_plan(
     plan_id: int = Path(..., ge=1),

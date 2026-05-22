@@ -452,9 +452,24 @@ class LibraryOrganizeService:
         plan = self.repository.get_plan(session, plan_id)
         if plan is None:
             raise HTTPException(status_code=404, detail="Organize plan not found.")
-        if plan.status in {"draft", "ready"}:
-            self._refresh_plan_conflicts(session, plan)
-            session.commit()
+        actions = self.repository.list_plan_actions(session, plan.id)
+        candidates = self.repository.list_plan_candidates(session, plan.id)
+        counts = self.repository.action_counts(session, [plan.id]).get(plan.id, {})
+        return PlanDetailResponse(
+            plan=self._plan_item(plan, counts, session),
+            candidates=[self._candidate_item(candidate) for candidate in candidates],
+            actions=[self._action_item(action) for action in actions],
+        )
+
+    def refresh_plan_conflicts(self, session: Session, plan_id: int) -> PlanDetailResponse:
+        """Explicitly refresh conflict state for a draft or ready plan."""
+        plan = self.repository.get_plan(session, plan_id)
+        if plan is None:
+            raise HTTPException(status_code=404, detail="Organize plan not found.")
+        if plan.status not in {"draft", "ready"}:
+            raise HTTPException(status_code=400, detail="Only draft or ready plans can refresh conflicts.")
+        self._refresh_plan_conflicts(session, plan)
+        session.commit()
         actions = self.repository.list_plan_actions(session, plan.id)
         candidates = self.repository.list_plan_candidates(session, plan.id)
         counts = self.repository.action_counts(session, [plan.id]).get(plan.id, {})
