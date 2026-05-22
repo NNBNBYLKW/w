@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useUIStore } from "../../app/providers/uiStore";
@@ -7,6 +8,7 @@ import { composeExternalFiles, composeInboxItems } from "../../services/api/impo
 import { createManagedComposePlan, createObjectAmendmentPlan } from "../../services/api/libraryOrganizeApi";
 import { listLibraryRoots, type LibraryRootVM } from "../../services/api/libraryObjectsApi";
 import { t } from "../../shared/text";
+import { DOMAINS, CATEGORY_TREE, type DomainValue, type CategoryGroup } from "../../shared/browse-taxonomy";
 import { InspectorSection, MetricStrip, WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
 import { ComposeObjectModal } from "./ComposeObjectModal";
 import { LooseFileCard } from "./LooseFileCard";
@@ -15,58 +17,7 @@ import { ObjectCard } from "./ObjectCard";
 
 const PAGE_SIZE = 50;
 
-const DOMAINS = [
-  { value: "media", labelKey: "features.browseV2.domains.media" },
-  { value: "documents", labelKey: "features.browseV2.domains.documents" },
-  { value: "apps", labelKey: "features.browseV2.domains.apps" },
-  { value: "assets", labelKey: "features.browseV2.domains.assets" },
-] as const;
-
-type DomainValue = (typeof DOMAINS)[number]["value"];
 type CategoryItem = { value: string; labelKey: string };
-type CategoryGroup = { groupKey?: string; items: CategoryItem[] };
-
-const CATEGORY_TREE: Record<DomainValue, CategoryGroup[]> = {
-  media: [
-    {
-      groupKey: "features.browseV2.categoryGroups.video",
-      items: [
-        { value: "movie", labelKey: "features.browseV2.categories.movie" },
-        { value: "series_anime", labelKey: "features.browseV2.categories.series_anime" },
-        { value: "course", labelKey: "features.browseV2.categories.course" },
-        { value: "video_collection", labelKey: "features.browseV2.categories.video_collection" },
-        { value: "video_clip", labelKey: "features.browseV2.categories.video_clip" },
-      ],
-    },
-    {
-      groupKey: "features.browseV2.categoryGroups.image",
-      items: [
-        { value: "image_album", labelKey: "features.browseV2.categories.image_album" },
-        { value: "comic", labelKey: "features.browseV2.categories.comic" },
-      ],
-    },
-    {
-      groupKey: "features.browseV2.categoryGroups.audio",
-      items: [
-        { value: "audio", labelKey: "features.browseV2.categories.audio" },
-      ],
-    },
-  ],
-  documents: [
-    { items: [{ value: "docset", labelKey: "features.browseV2.categories.docset" }] },
-  ],
-  apps: [
-    {
-      items: [
-        { value: "software", labelKey: "features.browseV2.categories.software" },
-        { value: "game", labelKey: "features.browseV2.categories.game" },
-      ],
-    },
-  ],
-  assets: [
-    { items: [{ value: "asset_pack", labelKey: "features.browseV2.categories.asset_pack" }] },
-  ],
-};
 
 function asTextKey(key: string): Parameters<typeof t>[0] {
   return key as Parameters<typeof t>[0];
@@ -169,10 +120,11 @@ function isLooseFileCard(card: BrowseV2Card): card is BrowseV2LooseFileCard {
 }
 
 export function BrowseV2Feature() {
-  const [domain, setDomain] = useState<DomainValue>("media");
-  const [category, setCategory] = useState("");
-  const [storageState, setStorageState] = useState("all");
-  const [cardKind, setCardKind] = useState("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const domain = (searchParams.get("domain") as DomainValue) || "media";
+  const category = searchParams.get("category") || "";
+  const storageState = searchParams.get("storage") || "all";
+  const cardKind = searchParams.get("kind") || "all";
   const [page, setPage] = useState(1);
   const [selectedObject, setSelectedObject] = useState<BrowseV2ObjectCard | null>(null);
   const [memberPage, setMemberPage] = useState(1);
@@ -282,8 +234,29 @@ export function BrowseV2Feature() {
   }, [selectedObject?.object_source, selectedObject?.source_id]);
 
   function setScope(nextDomain: DomainValue, nextCategory = "") {
-    setDomain(nextDomain);
-    setCategory(nextCategory);
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set("domain", nextDomain);
+      if (nextCategory) {
+        next.set("category", nextCategory);
+      } else {
+        next.delete("category");
+      }
+      return next;
+    }, { replace: true });
+    setPage(1);
+  }
+
+  function updateFilter(key: string, value: string) {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (value && value !== "all") {
+        next.set(key, value);
+      } else {
+        next.delete(key);
+      }
+      return next;
+    }, { replace: true });
     setPage(1);
   }
 
@@ -395,51 +368,18 @@ export function BrowseV2Feature() {
       />
 
       <div className="browse-v2-layout">
-        <nav className="browse-v2-taxonomy" aria-label={t("features.browseV2.taxonomyLabel")}>
-          {DOMAINS.map((domainItem) => {
-            const isActiveDomain = domain === domainItem.value;
-
-            return (
-              <section className={`browse-v2-taxonomy__domain${isActiveDomain ? " browse-v2-taxonomy__domain--active" : ""}`} key={domainItem.value}>
-                <button
-                  className={`browse-v2-taxonomy__domain-button${isActiveDomain && !category ? " browse-v2-taxonomy__domain-button--active" : ""}`}
-                  type="button"
-                  onClick={() => setScope(domainItem.value)}
-                >
-                  <span>{t(asTextKey(domainItem.labelKey))}</span>
-                  <small>{t("features.browseV2.categories.all")}</small>
-                </button>
-                <div className="browse-v2-taxonomy__groups">
-                  {CATEGORY_TREE[domainItem.value].map((group, groupIndex) => (
-                    <div className="browse-v2-taxonomy__group" key={`${domainItem.value}-${group.groupKey ?? groupIndex}`}>
-                      {group.groupKey ? (
-                        <span className="browse-v2-taxonomy__group-label">
-                          {t(asTextKey(group.groupKey))}
-                        </span>
-                      ) : null}
-                      {group.items.map((item) => {
-                        const isActiveCategory = isActiveDomain && category === item.value;
-
-                        return (
-                          <button
-                            className={`browse-v2-taxonomy__item${isActiveCategory ? " browse-v2-taxonomy__item--active" : ""}`}
-                            type="button"
-                            key={item.value}
-                            onClick={() => setScope(domainItem.value, item.value)}
-                          >
-                            {t(asTextKey(item.labelKey))}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              </section>
-            );
-          })}
-        </nav>
-
         <main className="browse-v2-main" aria-live="polite">
+          <div className="browse-v2-breadcrumb" aria-label={t("features.browseV2.taxonomyLabel")}>
+            <span className="browse-v2-breadcrumb__item">{t("navigation.items.fileLibrary")}</span>
+            <span className="browse-v2-breadcrumb__sep" aria-hidden="true">›</span>
+            <span className="browse-v2-breadcrumb__item">{t(asTextKey(DOMAINS.find(d => d.value === domain)?.labelKey ?? ""))}</span>
+            {category ? (
+              <>
+                <span className="browse-v2-breadcrumb__sep" aria-hidden="true">›</span>
+                <span className="browse-v2-breadcrumb__item browse-v2-breadcrumb__item--current">{getCategoryLabel(domain, category)}</span>
+              </>
+            ) : null}
+          </div>
           <WorkbenchFilterPanel className="browse-v2-filter-panel" label={t("features.browseV2.filters.title")}>
             <WorkbenchToolbar className="browse-v2-toolbar">
               <label className="field-stack browse-v2-toolbar__field">
@@ -448,10 +388,7 @@ export function BrowseV2Feature() {
                   className="select-input"
                   name="browse-v2-storage"
                   value={storageState}
-                  onChange={(event) => {
-                    setStorageState(event.target.value);
-                    setPage(1);
-                  }}
+                  onChange={(event) => updateFilter("storage", event.target.value)}
                 >
                   <option value="all">{t("features.browseV2.filters.storageAll")}</option>
                   <option value="external">{t("features.browseV2.filters.external")}</option>
@@ -465,10 +402,7 @@ export function BrowseV2Feature() {
                   className="select-input"
                   name="browse-v2-card-kind"
                   value={cardKind}
-                  onChange={(event) => {
-                    setCardKind(event.target.value);
-                    setPage(1);
-                  }}
+                  onChange={(event) => updateFilter("kind", event.target.value)}
                 >
                   <option value="all">{t("features.browseV2.filters.cardKindAll")}</option>
                   <option value="object">{t("features.browseV2.filters.objectOnly")}</option>

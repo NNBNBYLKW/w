@@ -22,8 +22,8 @@ export const pages = {
   },
   library: {
     eyebrow: "File library",
-    title: "Library",
-    description: "Library management center: import files, review inbox items, create organize plans, execute operations, and manage roots. To browse organized objects, use Browse.",
+    title: "File Library",
+    description: "Your file management center. Scan folders to index files, add managed roots as organization targets, import files into inbox, and execute organize plans. Use the browse categories in the sidebar to explore organized content.",
   },
   books: {
     eyebrow: "Library subset surface",
@@ -75,6 +75,6 @@ export const pages = {
   browseV2: {
     eyebrow: "Content browse",
     title: "Browse",
-    description: "Browse organized objects and loose files by content domain (Media, Documents, Apps, Assets). Select an object to view member details, add or remove members.",
+    description: "Browse organized objects and loose files by content domain. Categories are available in the sidebar. Select an object to view members, add or remove files.",
   },
 } as const;

@@ -46,11 +46,11 @@ export function AppRouter() {
         <Route path="/search" element={<SearchPage />} />
         <Route path="/library" element={<LibraryPage />} />
         <Route path="/files" element={<Navigate to="/library?tab=path" replace />} />
-        <Route path="/books" element={<BooksPage />} />
-        <Route path="/software" element={<SoftwarePage />} />
-        <Route path="/library/games" element={<GamesPage />} />
+        <Route path="/books" element={<Navigate to="/browse-v2?domain=documents" replace />} />
+        <Route path="/software" element={<Navigate to="/browse-v2?domain=apps&category=software" replace />} />
+        <Route path="/library/games" element={<Navigate to="/browse-v2?domain=apps&category=game" replace />} />
         <Route path="/browse-v2" element={<BrowseV2Page />} />
-        <Route path="/library/media" element={<MediaLibraryPage />} />
+        <Route path="/library/media" element={<Navigate to="/browse-v2?domain=media" replace />} />
         <Route path="/tools" element={<ToolsPage />} />
         <Route path="/recent" element={<RecentImportsPage />} />
         <Route path="/tags" element={<TagsPage />} />

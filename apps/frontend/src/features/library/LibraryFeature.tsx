@@ -11,19 +11,21 @@ import { LibraryPathBrowserPanel } from "./LibraryPathBrowserPanel";
 import { LibraryObjectsPanel } from "./LibraryObjectsPanel";
 import { LibraryPendingPanel } from "./LibraryPendingPanel";
 import { LibraryPlansPanel } from "./LibraryPlansPanel";
+import { SourceManagementFeature } from "../source-management/SourceManagementFeature";
 import { formatSuggestionPayloadSummary, formatBytes, normalizeObjectTypeLabel } from "./shared/helpers";
 
 
-type LibraryTab = "overview" | "roots" | "path" | "pending" | "objects" | "plans" | "inbox";
+type LibraryTab = "overview" | "sources" | "roots" | "path" | "pending" | "objects" | "plans" | "inbox";
 
 const libraryTabs: Array<{ value: LibraryTab; labelKey: Parameters<typeof t>[0] }> = [
   { value: "overview", labelKey: "features.library.tabs.overview" },
+  { value: "sources", labelKey: "features.library.tabs.sources" },
   { value: "roots", labelKey: "features.library.tabs.roots" },
+  { value: "inbox", labelKey: "features.library.tabs.inbox" },
+  { value: "plans", labelKey: "features.library.tabs.plans" },
   { value: "path", labelKey: "features.library.tabs.path" },
   { value: "pending", labelKey: "features.library.tabs.pending" },
   { value: "objects", labelKey: "features.library.tabs.objects" },
-  { value: "plans", labelKey: "features.library.tabs.plans" },
-  { value: "inbox", labelKey: "features.library.tabs.inbox" },
 ];
 
 const objectTypes = ["movie", "anime", "collection", "game", "course", "imgset", "docset", "project", "clip", "unknown_object"];
@@ -84,6 +86,7 @@ export function LibraryFeature() {
 
         <div className="library-tab-panel" role="tabpanel">
           {activeTab === "overview" ? <LibraryOverviewPanel /> : null}
+          {activeTab === "sources" ? <SourceManagementFeature /> : null}
           {activeTab === "roots" ? <LibraryRootsPanel /> : null}
           {activeTab === "path" ? <LibraryPathBrowserPanel /> : null}
           {activeTab === "pending" ? <LibraryPendingPanel /> : null}

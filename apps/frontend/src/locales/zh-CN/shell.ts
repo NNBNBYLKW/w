@@ -7,13 +7,14 @@ export const shell = {
     collapse: "收起侧栏",
     navigationLabel: "工作台导航",
     groups: {
-      operate: "操作",
-      browse: "浏览",
+      main: "资产工作台",
+      fileLibrary: "文件库",
+      manage: "管理",
       refind: "再找回",
       system: "系统",
     },
     footerKicker: "本地优先",
-    footerCopy: "查找 · 检视 · 标记 · 再浏览",
+    footerCopy: "浏览 · 检视 · 整理 · 再找回",
   },
   topbar: {
     eyebrow: "Windows 本地资产工作台",

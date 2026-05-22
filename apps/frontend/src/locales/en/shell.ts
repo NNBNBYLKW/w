@@ -7,13 +7,14 @@ export const shell = {
     collapse: "Collapse sidebar",
     navigationLabel: "Workbench navigation",
     groups: {
-      operate: "Operate",
-      browse: "Browse",
+      main: "Workbench",
+      fileLibrary: "File Library",
+      manage: "Manage",
       refind: "Refind",
       system: "System",
     },
     footerKicker: "local-first",
-    footerCopy: "find · inspect · tag · browse",
+    footerCopy: "browse · inspect · organize · refind",
   },
   topbar: {
     eyebrow: "Windows Local Asset Workbench",

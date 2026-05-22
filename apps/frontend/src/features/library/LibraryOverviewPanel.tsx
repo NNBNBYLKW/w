@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { t } from "../../shared/text";
@@ -16,30 +17,33 @@ async function getStorageSummary() {
   return res.json() as Promise<{ total_count: number; external_count: number; inbox_count: number; managed_count: number }>;
 }
 
-
-function LibraryPlaceholderPanel({
-  eyebrow,
+function StartHereCard({
+  icon,
   title,
-  body,
-  note,
+  description,
+  action,
+  to,
 }: {
-  eyebrow: string;
+  icon: string;
   title: string;
-  body: string;
-  note: string;
+  description: string;
+  action: string;
+  to: string;
 }) {
+  const navigate = useNavigate();
   return (
-    <section className="library-placeholder-panel">
-      <div className="feature-header">
-        <span className="page-header__eyebrow">{eyebrow}</span>
-        <h3>{title}</h3>
-        <p>{body}</p>
+    <button
+      className="library-start-card"
+      type="button"
+      onClick={() => navigate(to)}
+    >
+      <span className="library-start-card__icon" aria-hidden="true">{icon}</span>
+      <div className="library-start-card__body">
+        <strong className="library-start-card__title">{title}</strong>
+        <p className="library-start-card__desc">{description}</p>
       </div>
-      <div className="library-safety-note">
-        <strong>{t("features.library.readOnlyBadge")}</strong>
-        <p>{note}</p>
-      </div>
-    </section>
+      <span className="library-start-card__action">{action}</span>
+    </button>
   );
 }
 
@@ -123,12 +127,48 @@ export function LibraryOverviewPanel() {
   const organizeStats = organizeStatsQuery.data;
   return (
     <section className="library-overview-grid library-design-panel library-design-panel--overview">
-      <LibraryPlaceholderPanel
-        eyebrow={t("features.library.overview.eyebrow")}
-        title={t("features.library.overview.title")}
-        body={t("features.library.overview.description")}
-        note={t("features.library.overview.safety")}
-      />
+      <div className="library-start-here">
+        <span className="page-header__eyebrow">{t("features.library.overview.startHereEyebrow")}</span>
+        <h3>{t("features.library.overview.startHereTitle")}</h3>
+        <div className="library-start-cards">
+          <StartHereCard
+            icon="📂"
+            title={t("features.library.overview.scanCardTitle")}
+            description={t("features.library.overview.scanCardDesc")}
+            action={t("features.library.overview.scanCardAction")}
+            to="/library?tab=sources"
+          />
+          <StartHereCard
+            icon="📁"
+            title={t("features.library.overview.rootsCardTitle")}
+            description={t("features.library.overview.rootsCardDesc")}
+            action={t("features.library.overview.rootsCardAction")}
+            to="/library?tab=roots"
+          />
+          <StartHereCard
+            icon="📥"
+            title={t("features.library.overview.importCardTitle")}
+            description={t("features.library.overview.importCardDesc")}
+            action={t("features.library.overview.importCardAction")}
+            to="/library?tab=inbox"
+          />
+          <StartHereCard
+            icon="🔍"
+            title={t("features.library.overview.browseCardTitle")}
+            description={t("features.library.overview.browseCardDesc")}
+            action={t("features.library.overview.browseCardAction")}
+            to="/browse-v2"
+          />
+          <StartHereCard
+            icon="📋"
+            title={t("features.library.overview.plansCardTitle")}
+            description={t("features.library.overview.plansCardDesc")}
+            action={t("features.library.overview.plansCardAction")}
+            to="/library?tab=plans"
+          />
+        </div>
+      </div>
+
       <div className="library-overview-card">
         <span className="page-header__eyebrow">{t("features.library.overview.statsEyebrow")}</span>
         {overviewQuery.isLoading ? <p>{t("common.states.loading")}</p> : null}

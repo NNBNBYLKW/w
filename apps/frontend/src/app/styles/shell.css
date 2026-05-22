@@ -980,3 +980,187 @@
   background: var(--color-bg-surface);
   box-shadow: none;
 }
+
+/* ── Sidebar expandable items (M2) ── */
+.app-sidebar__link--expandable {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+}
+.app-sidebar__link--expandable:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-card-hover);
+}
+.app-sidebar__link--active-parent {
+  color: var(--color-text-primary);
+  background: var(--color-bg-card);
+}
+
+.app-sidebar__chevron {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  transition: transform 0.15s ease;
+}
+.app-sidebar__chevron--open {
+  transform: rotate(90deg);
+}
+
+.app-sidebar__children {
+  padding-left: 18px;
+  margin-bottom: 2px;
+  border-left: 1px solid var(--color-border-subtle);
+}
+
+.app-sidebar__link--child {
+  display: block;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  text-decoration: none;
+}
+.app-sidebar__link--child:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-card-hover);
+}
+.app-sidebar__link--child.app-sidebar__link--active {
+  color: var(--color-accent-primary);
+  background: var(--color-accent-soft);
+}
+
+/* ── Browse v2 breadcrumb (M2) ── */
+.browse-v2-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0 4px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+.browse-v2-breadcrumb__item {
+  white-space: nowrap;
+}
+.browse-v2-breadcrumb__item--current {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+.browse-v2-breadcrumb__sep {
+  color: var(--color-text-muted);
+  user-select: none;
+}
+
+/* ── Library start-here cards (M2) ── */
+.library-start-here {
+  margin-bottom: 18px;
+}
+.library-start-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+.library-start-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.1s ease, box-shadow 0.1s ease;
+}
+.library-start-card:hover {
+  border-color: var(--color-accent-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.library-start-card__icon {
+  font-size: 22px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.library-start-card__body {
+  flex: 1;
+  min-width: 0;
+}
+.library-start-card__title {
+  display: block;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  margin-bottom: 2px;
+}
+.library-start-card__desc {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+.library-start-card__action {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--color-accent-primary);
+  white-space: nowrap;
+}
+
+.app-shell-icon-button__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  line-height: 1;
+}
+
+.app-shell-icon-button__icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.app-shell--design-pen .app-sidebar__link--active,
+.app-shell--design-pen .app-sidebar__link--active:hover {
+  border-color: var(--color-primary-border);
+  color: var(--color-text-primary);
+  background: var(--color-primary-soft);
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+.app-shell--design-pen .app-sidebar__link--active .app-sidebar__link-label,
+.app-shell--design-pen .app-sidebar__link--active:hover .app-sidebar__link-label {
+  color: var(--color-text-primary);
+}
+
+.app-shell--design-pen .app-sidebar__link--active .app-sidebar__link-icon,
+.app-shell--design-pen .app-sidebar__link--active:hover .app-sidebar__link-icon {
+  color: var(--color-primary-hover);
+}
+
+.app-shell--design-pen .app-sidebar__link--active-parent,
+.app-shell--design-pen .app-sidebar__link--active-parent:hover {
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+  background: var(--color-bg-card);
+}
+
+.app-shell--design-pen .app-sidebar__link--child.app-sidebar__link--active,
+.app-shell--design-pen .app-sidebar__link--child.app-sidebar__link--active:hover {
+  border-color: var(--color-primary-border);
+  color: var(--color-primary-hover);
+  background: var(--color-primary-soft);
+  box-shadow: none;
+}
+
+.app-shell--design-pen .app-sidebar__link--child.app-sidebar__link--active .app-sidebar__link-label,
+.app-shell--design-pen .app-sidebar__link--child.app-sidebar__link--active:hover .app-sidebar__link-label {
+  color: var(--color-primary-hover);
+}
