@@ -152,6 +152,9 @@ export const features = {
       chooseFolder: "选择文件夹",
       browserFallbackInput:
         "浏览器模式无法打开系统目录选择器，请手动输入绝对路径。",
+      nextStepTitle: "受管库已添加",
+      nextStepDesc: "下一步：导入文件到暂存区，开始整理。",
+      nextStepAction: "打开导入",
     },
     path: {
       eyebrow: "路径浏览",

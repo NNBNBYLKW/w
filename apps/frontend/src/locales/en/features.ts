@@ -158,6 +158,9 @@ export const features = {
       chooseFolder: "Choose folder",
       browserFallbackInput:
         "Browser mode cannot open system directory picker. Please enter the absolute path manually.",
+      nextStepTitle: "Managed root added",
+      nextStepDesc: "Next: import files into the Inbox to start organizing them.",
+      nextStepAction: "Open Inbox",
     },
     path: {
       eyebrow: "Path browser",
