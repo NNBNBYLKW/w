@@ -1,61 +1,11 @@
 import type { BrowseV2ObjectCard } from "../../services/api/browseV2Api";
 import { t } from "../../shared/text";
+import { asTextKey, objectSourceLabel, objectTypeLabel, storageStateLabel, confidenceLabel } from "./helpers";
 
-
-function asTextKey(key: string): Parameters<typeof t>[0] {
-  return key as Parameters<typeof t>[0];
-}
-
-function objectSourceLabel(source: string): string {
-  return t(asTextKey(`features.browseV2.objectSource.${source}`)) || source;
-}
-
-function objectTypeLabel(objectType: string | null): string {
-  if (!objectType) {
-    return "";
-  }
-  const keyMap: Record<string, string> = {
-    movie: "features.browseV2.categories.movie",
-    anime: "features.browseV2.categories.series_anime",
-    course: "features.browseV2.categories.course",
-    video_collection: "features.browseV2.categories.video_collection",
-    clip: "features.browseV2.categories.video_clip",
-    clip_set: "features.browseV2.categories.video_clip",
-    movie_collection: "features.browseV2.categories.video_collection",
-    imgset: "features.browseV2.categories.image_album",
-    photo_event: "features.browseV2.categories.image_album",
-    web_image_set: "features.browseV2.categories.image_album",
-    comic: "features.browseV2.categories.comic",
-    audio: "features.browseV2.categories.audio",
-    docset: "features.browseV2.categories.docset",
-    software: "features.browseV2.categories.software",
-    game: "features.browseV2.categories.game",
-    asset_pack: "features.browseV2.categories.asset_pack",
-  };
-  const key = keyMap[objectType] || `features.library.inbox.objectTypes.${objectType}`;
-  return t(asTextKey(key)) || objectType;
-}
-
-function storageStateLabel(storageState: string | null): string {
-  if (!storageState) {
-    return "";
-  }
-  return t(asTextKey(`features.browseV2.storageState.${storageState}`)) || storageState;
-}
-
-function confidenceLabel(confidence: string | null): string {
-  if (!confidence) {
-    return "";
-  }
-  return t(asTextKey(`features.browseV2.confidence.${confidence}`)) || confidence;
-}
 
 function objectMark(objectType: string | null): string {
-  if (!objectType) {
-    return "OBJ";
-  }
-  const normalized = objectType.replace(/_/g, " ");
-  return normalized.slice(0, 3).toUpperCase();
+  if (!objectType) return "OBJ";
+  return objectType.replace(/_/g, " ").slice(0, 3).toUpperCase();
 }
 
 interface Props {

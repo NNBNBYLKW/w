@@ -1,75 +1,21 @@
 import type { BrowseV2LooseFileCard } from "../../services/api/browseV2Api";
 import { t } from "../../shared/text";
+import { asTextKey, fileKindLabel, storageStateLabel, formatBytes } from "./helpers";
 
-
-function asTextKey(key: string): Parameters<typeof t>[0] {
-  return key as Parameters<typeof t>[0];
-}
-
-function fileKindLabel(fileKind: string | null): string {
-  if (!fileKind) {
-    return "";
-  }
-  return t(asTextKey(`features.browseV2.fileKind.${fileKind}`)) || fileKind;
-}
-
-function storageStateLabel(storageState: string | null): string {
-  if (!storageState) {
-    return "";
-  }
-  return t(asTextKey(`features.browseV2.storageState.${storageState}`)) || storageState;
-}
-
-function formatBytes(value: number | null): string {
-  if (value === null) {
-    return "";
-  }
-
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let size = value;
-  let unitIndex = 0;
-
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex += 1;
-  }
-
-  const formatted = new Intl.NumberFormat(undefined, {
-    maximumFractionDigits: size >= 10 || unitIndex === 0 ? 0 : 1,
-  }).format(size);
-
-  return `${formatted} ${units[unitIndex]}`;
-}
 
 function formatDate(value: string | null): string {
-  if (!value) {
-    return "";
-  }
+  if (!value) return "";
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(value));
 }
 
 function fileMark(fileKind: string | null): string {
-  if (!fileKind) {
-    return "FILE";
-  }
-  if (fileKind === "image") {
-    return "IMG";
-  }
-  if (fileKind === "video") {
-    return "VID";
-  }
-  if (fileKind === "audio") {
-    return "AUD";
-  }
-  if (fileKind === "document") {
-    return "DOC";
-  }
-  if (fileKind === "archive") {
-    return "ZIP";
-  }
-  if (fileKind === "executable") {
-    return "EXE";
-  }
+  if (!fileKind) return "FILE";
+  if (fileKind === "image") return "IMG";
+  if (fileKind === "video") return "VID";
+  if (fileKind === "audio") return "AUD";
+  if (fileKind === "document") return "DOC";
+  if (fileKind === "archive") return "ZIP";
+  if (fileKind === "executable") return "EXE";
   return fileKind.slice(0, 4).toUpperCase();
 }
 

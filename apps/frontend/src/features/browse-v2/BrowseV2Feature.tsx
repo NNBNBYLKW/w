@@ -1,129 +1,27 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useUIStore } from "../../app/providers/uiStore";
-import { getBrowseObjectDetail, listBrowseCards, type BrowseV2Card, type BrowseV2LooseFileCard, type BrowseV2ObjectCard, type BrowseV2Response } from "../../services/api/browseV2Api";
+import { listBrowseCards, type BrowseV2Card, type BrowseV2LooseFileCard, type BrowseV2ObjectCard } from "../../services/api/browseV2Api";
 import { composeExternalFiles, composeInboxItems } from "../../services/api/importingApi";
 import { createManagedComposePlan, createObjectAmendmentPlan } from "../../services/api/libraryOrganizeApi";
 import { listLibraryRoots, type LibraryRootVM } from "../../services/api/libraryObjectsApi";
 import { t } from "../../shared/text";
-import { DOMAINS, CATEGORY_TREE, type DomainValue, type CategoryGroup } from "../../shared/browse-taxonomy";
+import { type DomainValue } from "../../shared/browse-taxonomy";
 import { InspectorSection, MetricStrip, WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
 import { ComposeObjectModal } from "./ComposeObjectModal";
 import { LooseFileCard } from "./LooseFileCard";
 import { ObjectCard } from "./ObjectCard";
+import { asTextKey, objectTypeLabel, objectSourceLabel, storageStateLabel, fileKindLabel, memberRoleLabel, confidenceLabel, formatBytes, getCategoryLabel } from "./helpers";
+import { useBrowseV2SearchParams } from "./hooks/useBrowseV2SearchParams";
+import { useBrowseV2Cards } from "./hooks/useBrowseV2Cards";
+import { useBrowseV2ObjectDetail } from "./hooks/useBrowseV2ObjectDetail";
 
 
 const PAGE_SIZE = 50;
 
 type CategoryItem = { value: string; labelKey: string };
-
-function asTextKey(key: string): Parameters<typeof t>[0] {
-  return key as Parameters<typeof t>[0];
-}
-
-function objectTypeLabel(objectType: string | null): string {
-  if (!objectType) {
-    return "";
-  }
-  const map: Record<string, string> = {
-    movie: "features.browseV2.categories.movie",
-    anime: "features.browseV2.categories.series_anime",
-    course: "features.browseV2.categories.course",
-    video_collection: "features.browseV2.categories.video_collection",
-    clip: "features.browseV2.categories.video_clip",
-    clip_set: "features.browseV2.categories.video_clip",
-    movie_collection: "features.browseV2.categories.video_collection",
-    imgset: "features.browseV2.categories.image_album",
-    photo_event: "features.browseV2.categories.image_album",
-    web_image_set: "features.browseV2.categories.image_album",
-    comic: "features.browseV2.categories.comic",
-    audio: "features.browseV2.categories.audio",
-    docset: "features.browseV2.categories.docset",
-    software: "features.browseV2.categories.software",
-    game: "features.browseV2.categories.game",
-    asset_pack: "features.browseV2.categories.asset_pack",
-  };
-  const key = map[objectType] || `features.library.inbox.objectTypes.${objectType}`;
-  return t(asTextKey(key)) || objectType;
-}
-
-function objectSourceLabel(source: string): string {
-  return t(asTextKey(`features.browseV2.objectSource.${source}`)) || source;
-}
-
-function storageStateLabel(storageState: string | null): string {
-  if (!storageState) {
-    return "";
-  }
-  return t(asTextKey(`features.browseV2.storageState.${storageState}`)) || storageState;
-}
-
-function fileKindLabel(fileKind: string | null): string {
-  if (!fileKind) {
-    return "";
-  }
-  return t(asTextKey(`features.browseV2.fileKind.${fileKind}`)) || fileKind;
-}
-
-function memberRoleLabel(role: string | null): string {
-  if (!role) return "";
-  const map: Record<string, string> = {
-    primary: "features.browseV2.roles.primary",
-    extra: "features.browseV2.roles.extra",
-    subtitle: "features.browseV2.roles.subtitle",
-    metadata: "features.browseV2.roles.metadata",
-    artwork: "features.browseV2.roles.artwork",
-    unknown_child: "features.browseV2.roles.other",
-  };
-  const key = map[role];
-  return key ? t(asTextKey(key)) : role;
-}
-
-function confidenceLabel(confidence: string | null): string {
-  if (!confidence) {
-    return "";
-  }
-  return t(asTextKey(`features.browseV2.confidence.${confidence}`)) || confidence;
-}
-
-function formatBytes(value: number | null): string {
-  if (value === null) {
-    return "";
-  }
-
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let size = value;
-  let unitIndex = 0;
-
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex += 1;
-  }
-
-  const formatted = new Intl.NumberFormat(undefined, {
-    maximumFractionDigits: size >= 10 || unitIndex === 0 ? 0 : 1,
-  }).format(size);
-
-  return `${formatted} ${units[unitIndex]}`;
-}
-
-function getCategoryLabel(domain: DomainValue, category: string): string {
-  if (!category) {
-    const domainLabel = DOMAINS.find((item) => item.value === domain)?.labelKey;
-    return domainLabel ? t(asTextKey(domainLabel)) : domain;
-  }
-
-  for (const group of CATEGORY_TREE[domain]) {
-    const item = group.items.find((candidate) => candidate.value === category);
-    if (item) {
-      return t(asTextKey(item.labelKey));
-    }
-  }
-
-  return category;
-}
 
 function isObjectCard(card: BrowseV2Card): card is BrowseV2ObjectCard {
   return card.card_kind === "object";
@@ -134,17 +32,19 @@ function isLooseFileCard(card: BrowseV2Card): card is BrowseV2LooseFileCard {
 }
 
 export function BrowseV2Feature() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { domain, category, storageState, cardKind, page, setPage, setScope, updateFilter } = useBrowseV2SearchParams();
+  const cards = useBrowseV2Cards({ domain, category, storage_state: storageState, card_kind: cardKind, page });
   const navigate = useNavigate();
-  const domain = (searchParams.get("domain") as DomainValue) || "media";
-  const category = searchParams.get("category") || "";
-  const storageState = searchParams.get("storage") || "all";
-  const cardKind = searchParams.get("kind") || "all";
-  const [page, setPage] = useState(1);
   const [selectedObject, setSelectedObject] = useState<BrowseV2ObjectCard | null>(null);
-  const [memberPage, setMemberPage] = useState(1);
+  const detail = useBrowseV2ObjectDetail(selectedObject);
   const selectedItemId = useUIStore((state) => state.selectedItemId);
   const selectItem = useUIStore((state) => state.selectItem);
+
+  const objectCards = cards.items.filter(isObjectCard);
+  const looseFileCards = cards.items.filter(isLooseFileCard);
+  const showObjects = cardKind !== "loose_file";
+  const showLooseFiles = cardKind !== "object";
+  const activeScope = getCategoryLabel(domain, category);
 
   // Phase 8C-2: Compose selection
   const [selectedFileIds, setSelectedFileIds] = useState<Set<number>>(new Set());
@@ -161,7 +61,6 @@ export function BrowseV2Feature() {
   const [amendmentError, setAmendmentError] = useState<string | null>(null);
   const [amendmentSuccess, setAmendmentSuccess] = useState<string | null>(null);
 
-  // Amendment: managed loose file candidates
   const { data: looseCandidates } = useQuery({
     queryKey: ["browse-v2-loose-candidates"],
     queryFn: () => listBrowseCards({ storage_state: "managed", card_kind: "loose_file", page_size: 50 }),
@@ -174,106 +73,35 @@ export function BrowseV2Feature() {
     setAmending(true); setAmendmentError(null); setAmendmentSuccess(null);
     try {
       const result = await createObjectAmendmentPlan(selectedObject.source_id, {
-        add_file_ids: [...selectedAddFileIds],
-        remove_member_ids: [],
-        target_library_root_id: objectDetail?.managed_root_id ?? undefined,
+        add_file_ids: [...selectedAddFileIds], remove_member_ids: [],
+        target_library_root_id: detail.detail.objectDetail?.managed_root_id ?? undefined,
         remove_target_policy: "managed_loose_area",
       });
       setAmendmentSuccess(t("features.browseV2.amendment.addPlanCreated", { planId: String(result.plan_id) }));
-      setShowAddMembersModal(false);
-      setSelectedAddFileIds(new Set());
+      setShowAddMembersModal(false); setSelectedAddFileIds(new Set());
     } catch (err) { setAmendmentError(String(err)); }
     finally { setAmending(false); }
   }
 
   async function handleRemoveMemberConfirm() {
-    if (!selectedObject || !removeTargetMember || !objectDetail) return;
+    if (!selectedObject || !removeTargetMember || !detail.objectDetail) return;
     setAmending(true); setAmendmentError(null); setAmendmentSuccess(null);
     try {
       const result = await createObjectAmendmentPlan(selectedObject.source_id, {
-        add_file_ids: [],
-        remove_member_ids: [removeTargetMember.member_id],
-        target_library_root_id: objectDetail.managed_root_id ?? undefined,
+        add_file_ids: [], remove_member_ids: [removeTargetMember.member_id],
+        target_library_root_id: detail.detail.objectDetail.managed_root_id ?? undefined,
         remove_target_policy: "managed_loose_area",
       });
       setAmendmentSuccess(t("features.browseV2.amendment.removePlanCreated", { planId: String(result.plan_id) }));
-      setShowRemoveMemberModal(false);
-      setRemoveTargetMember(null);
+      setShowRemoveMemberModal(false); setRemoveTargetMember(null);
     } catch (err) { setAmendmentError(String(err)); }
     finally { setAmending(false); }
   }
 
   const { data: roots } = useQuery({
-    queryKey: ["library-roots"],
-    queryFn: listLibraryRoots,
-    staleTime: 60_000,
+    queryKey: ["library-roots"], queryFn: listLibraryRoots, staleTime: 60_000,
   });
-
   const queryClient = useQueryClient();
-
-  const queryParams = useMemo(() => ({
-    domain,
-    category: category || undefined,
-    storage_state: storageState,
-    card_kind: cardKind,
-    page,
-    page_size: PAGE_SIZE,
-  }), [domain, category, storageState, cardKind, page]);
-
-  const { data, isLoading, isError, error } = useQuery<BrowseV2Response>({
-    queryKey: ["browse-v2", queryParams],
-    queryFn: () => listBrowseCards(queryParams),
-  });
-
-  const { data: objectDetail, isLoading: objectDetailLoading, isError: objectDetailError } = useQuery({
-    queryKey: ["browse-v2-obj-detail", selectedObject?.object_source, selectedObject?.source_id, memberPage],
-    queryFn: () => getBrowseObjectDetail({
-      object_source: selectedObject!.object_source,
-      source_id: selectedObject!.source_id,
-      member_page: memberPage,
-      member_page_size: PAGE_SIZE,
-    }),
-    enabled: selectedObject !== null,
-  });
-
-  const items = data?.items ?? [];
-  const objectCards = items.filter(isObjectCard);
-  const looseFileCards = items.filter(isLooseFileCard);
-  const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
-  const showObjects = cardKind !== "loose_file";
-  const showLooseFiles = cardKind !== "object";
-  const activeScope = getCategoryLabel(domain, category);
-
-  useEffect(() => {
-    setMemberPage(1);
-  }, [selectedObject?.object_source, selectedObject?.source_id]);
-
-  function setScope(nextDomain: DomainValue, nextCategory = "") {
-    setSearchParams(prev => {
-      const next = new URLSearchParams(prev);
-      next.set("domain", nextDomain);
-      if (nextCategory) {
-        next.set("category", nextCategory);
-      } else {
-        next.delete("category");
-      }
-      return next;
-    }, { replace: true });
-    setPage(1);
-  }
-
-  function updateFilter(key: string, value: string) {
-    setSearchParams(prev => {
-      const next = new URLSearchParams(prev);
-      if (value && value !== "all") {
-        next.set(key, value);
-      } else {
-        next.delete(key);
-      }
-      return next;
-    }, { replace: true });
-    setPage(1);
-  }
 
   function handleCardClick(card: BrowseV2Card) {
     if (isLooseFileCard(card)) {
@@ -555,48 +383,48 @@ export function BrowseV2Feature() {
               <p className="browse-v2-detail__empty">{t("features.browseV2.noSelection")}</p>
             </InspectorSection>
           ) : null}
-          {selectedObject && objectDetailLoading ? (
+          {selectedObject && detail.objectDetailLoading ? (
             <InspectorSection className="browse-v2-detail__section" title={t("features.browseV2.overview.title")}>
               <p className="browse-v2-detail__empty">{t("common.states.loading")}</p>
             </InspectorSection>
           ) : null}
-          {selectedObject && objectDetailError ? (
+          {selectedObject && detail.objectDetailError ? (
             <InspectorSection className="browse-v2-detail__section" title={t("features.browseV2.overview.title")}>
               <p className="danger-text">{t("features.browseV2.errors.detailFailed")}</p>
             </InspectorSection>
           ) : null}
-          {selectedObject && objectDetail ? (
+          {selectedObject && detail.objectDetail? (
             <>
               <InspectorSection className="browse-v2-detail__section" title={t("features.browseV2.overview.title")}>
                 <div className="browse-v2-detail__identity">
-                  <span className="status-badge status-badge--accent">{objectTypeLabel(objectDetail.object_type)}</span>
-                  <h4>{objectDetail.display_title}</h4>
-                  <p>{objectSourceLabel(objectDetail.object_source)}</p>
+                  <span className="status-badge status-badge--accent">{objectTypeLabel(detail.objectDetail.object_type)}</span>
+                  <h4>{detail.objectDetail.display_title}</h4>
+                  <p>{objectSourceLabel(detail.objectDetail.object_source)}</p>
                 </div>
                 <div className="browse-v2-detail__facts">
                   <div className="key-value-row">
                     <span className="key-value-row__label">{t("features.browseV2.overview.status")}</span>
-                    <span className="key-value-row__value">{storageStateLabel(objectDetail.storage_state)}{objectDetail.needs_review ? ` / ${t("features.browseV2.needsReview")}` : ""}</span>
+                    <span className="key-value-row__value">{storageStateLabel(detail.objectDetail.storage_state)}{detail.objectDetail.needs_review ? ` / ${t("features.browseV2.needsReview")}` : ""}</span>
                   </div>
                   <div className="key-value-row">
-                    <span className="key-value-row__label">{t("features.browseV2.overview.members", { count: String(objectDetail.member_total) })}</span>
-                    <span className="key-value-row__value">{objectDetail.member_total}</span>
+                    <span className="key-value-row__label">{t("features.browseV2.overview.members", { count: String(detail.objectDetail.member_total) })}</span>
+                    <span className="key-value-row__value">{detail.objectDetail.member_total}</span>
                   </div>
-                  {objectDetail.confidence ? (
+                  {detail.objectDetail.confidence ? (
                     <div className="key-value-row">
                       <span className="key-value-row__label">{t("features.browseV2.overview.confidence")}</span>
-                      <span className="key-value-row__value">{confidenceLabel(objectDetail.confidence)}</span>
+                      <span className="key-value-row__value">{confidenceLabel(detail.objectDetail.confidence)}</span>
                     </div>
                   ) : null}
-                  {objectDetail.root_path ? (
+                  {detail.objectDetail.root_path ? (
                     <div className="key-value-row">
                       <span className="key-value-row__label">{t("features.browseV2.overview.rootPath")}</span>
-                      <span className="key-value-row__value browse-v2-detail__path" title={objectDetail.root_path}>
-                        {objectDetail.root_path.replace(/\\/g, "/").split("/").slice(-2).join("/")}
+                      <span className="key-value-row__value browse-v2-detail__path" title={detail.objectDetail.root_path}>
+                        {detail.objectDetail.root_path.replace(/\\/g, "/").split("/").slice(-2).join("/")}
                       </span>
                     </div>
                   ) : null}
-                  {objectDetail.object_source === "library_object" && (
+                  {detail.objectDetail.object_source === "library_object" && (
                     <button className="primary-button" type="button" style={{marginTop:8}} onClick={() => setShowAddMembersModal(true)}>
                       {t("features.browseV2.amendment.addMembers")}
                     </button>
@@ -623,12 +451,12 @@ export function BrowseV2Feature() {
                 </div>
               )}
 
-              <InspectorSection className="browse-v2-detail__section" title={`${t("features.browseV2.overview.membersTitle")} (${objectDetail.member_total})`}>
-                {objectDetail.members.length === 0 ? (
+              <InspectorSection className="browse-v2-detail__section" title={`${t("features.browseV2.overview.membersTitle")} (${detail.objectDetail.member_total})`}>
+                {detail.objectDetail.members.length === 0 ? (
                   <p className="browse-v2-detail__empty">{t("features.browseV2.overview.noMembers")}</p>
                 ) : (
                   <div className="browse-v2-member-list">
-                    {objectDetail.members.map((member) => (
+                    {detail.objectDetail.members.map((member) => (
                       <div key={member.member_id} className="browse-v2-member-row" title={member.path || ""}>
                         <span className="browse-v2-member-row__name">{member.name || `#${member.file_id || member.member_id}`}</span>
                         <span className="browse-v2-member-row__meta">
@@ -638,7 +466,7 @@ export function BrowseV2Feature() {
                           {member.missing ? <span className="status-badge status-badge--danger">{t("features.browseV2.overview.missing")}</span> : null}
                           {member.size_bytes !== null ? <span className="browse-v2-member-row__size">{formatBytes(member.size_bytes)}</span> : null}
                         </span>
-                        {objectDetail.object_source === "library_object" && (
+                        {detail.objectDetail.object_source === "library_object" && (
                           <button
                             className="secondary-button"
                             type="button"
@@ -652,22 +480,22 @@ export function BrowseV2Feature() {
                     ))}
                   </div>
                 )}
-                {objectDetail.member_total > objectDetail.member_page_size ? (
+                {detail.objectDetail.member_total > detail.objectDetail.member_page_size ? (
                   <div className="browse-v2-member-pager">
-                    <button className="secondary-button" type="button" disabled={objectDetail.member_page <= 1} onClick={() => setMemberPage((current) => current - 1)}>
+                    <button className="secondary-button" type="button" disabled={detail.objectDetail.member_page <= 1} onClick={() => detail.setMemberPage((current) => current - 1)}>
                       {t("features.browseV2.pagination.previous")}
                     </button>
                     <span>
                       {t("features.browseV2.pagination.pageInfo", {
-                        page: String(objectDetail.member_page),
-                        total: String(Math.ceil(objectDetail.member_total / objectDetail.member_page_size)),
+                        page: String(detail.objectDetail.member_page),
+                        total: String(Math.ceil(detail.objectDetail.member_total / detail.objectDetail.member_page_size)),
                       })}
                     </span>
                     <button
                       className="secondary-button"
                       type="button"
-                      disabled={objectDetail.member_page * objectDetail.member_page_size >= objectDetail.member_total}
-                      onClick={() => setMemberPage((current) => current + 1)}
+                      disabled={detail.objectDetail.member_page * detail.objectDetail.member_page_size >= detail.objectDetail.member_total}
+                      onClick={() => detail.setMemberPage((current) => current + 1)}
                     >
                       {t("features.browseV2.pagination.next")}
                     </button>
