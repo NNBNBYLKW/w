@@ -20,18 +20,7 @@ router = APIRouter(tags=["library"])
 
 @router.get("/library/storage-summary")
 def storage_summary(db: Session = Depends(get_db)):
-    from sqlalchemy import func, select as sa_select
-    from app.db.models.file import File as FileModel
-    total = db.scalar(sa_select(func.count()).select_from(FileModel)) or 0
-    external = db.scalar(sa_select(func.count()).select_from(FileModel).where(FileModel.storage_state == "external")) or 0
-    inbox = db.scalar(sa_select(func.count()).select_from(FileModel).where(FileModel.storage_state == "inbox")) or 0
-    managed = db.scalar(sa_select(func.count()).select_from(FileModel).where(FileModel.storage_state == "managed")) or 0
-    return {
-        "total_count": total,
-        "external_count": external,
-        "inbox_count": inbox,
-        "managed_count": managed,
-    }
+    return browse_v2_service.get_storage_summary(db)
 books_library_service = BooksLibraryService()
 games_library_service = GamesLibraryService()
 media_library_service = MediaLibraryService()

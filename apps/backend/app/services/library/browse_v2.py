@@ -448,5 +448,18 @@ class BrowseV2Service:
             notes=["Object detail is read-only in Phase 8B."],
         )
 
+    def get_storage_summary(self, session: Session) -> dict:
+        """Return file counts by storage_state."""
+        total = session.query(func.count(File.id)).scalar() or 0
+        external = session.query(func.count(File.id)).filter(File.storage_state == "external").scalar() or 0
+        inbox = session.query(func.count(File.id)).filter(File.storage_state == "inbox").scalar() or 0
+        managed = session.query(func.count(File.id)).filter(File.storage_state == "managed").scalar() or 0
+        return {
+            "total_count": total,
+            "external_count": external,
+            "inbox_count": inbox,
+            "managed_count": managed,
+        }
+
 
 browse_v2_service = BrowseV2Service()
