@@ -424,3 +424,22 @@ export async function composeExternalFiles(
   }
   return res.json() as Promise<ComposeExternalResponse>;
 }
+
+export interface RecentOperation {
+  id: number;
+  operation_id: string;
+  operation_type: string;
+  entity_type: string;
+  entity_id: number;
+  status: string;
+  before_json: string | null;
+  after_json: string | null;
+  created_at: string;
+}
+
+export async function getRecentOperations(limit = 10): Promise<{ items: RecentOperation[]; total: number }> {
+  const base = getApiBaseUrl();
+  const res = await fetch(`${base}/library/import/recent-operations?limit=${limit}`);
+  if (!res.ok) throw new Error("Failed to fetch recent operations");
+  return res.json();
+}

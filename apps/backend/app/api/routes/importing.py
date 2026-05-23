@@ -474,6 +474,33 @@ def list_persisted_findings(
     }
 
 
+@router.get("/recent-operations")
+def list_recent_operations(
+    limit: int = Query(default=10, ge=1, le=50),
+    db: Session = Depends(get_db),
+):
+    from sqlalchemy import text as sa_text
+    rows = db.execute(
+        sa_text(
+            "SELECT id, operation_id, operation_type, entity_type, entity_id, "
+            "status, before_json, after_json, created_at "
+            "FROM operation_journal ORDER BY created_at DESC LIMIT :limit"
+        ),
+        {"limit": limit},
+    ).fetchall()
+    return {
+        "items": [
+            {
+                "id": r[0], "operation_id": r[1], "operation_type": r[2],
+                "entity_type": r[3], "entity_id": r[4], "status": r[5],
+                "before_json": r[6], "after_json": r[7], "created_at": r[8],
+            }
+            for r in rows
+        ],
+        "total": len(rows),
+    }
+
+
 # ── Retry Failed Import ─────────────────────────────────
 
 @router.post("/inbox/items/{item_id}/retry")

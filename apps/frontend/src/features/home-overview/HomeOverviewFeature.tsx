@@ -27,6 +27,40 @@ import { listMediaLibrary } from "../../services/api/mediaLibraryApi";
 import { listSoftware } from "../../services/api/softwareApi";
 import { queryKeys } from "../../services/query/queryKeys";
 import { SystemStatusFeature } from "../system-status/SystemStatusFeature";
+import { getRecentOperations, type RecentOperation } from "../../services/api/importingApi";
+
+
+const OP_LABELS: Record<string, string> = {
+  managed_compose_finalize: "Object created",
+  managed_compose_execute: "Compose executed",
+  add_member_finalize: "Member added",
+  remove_member_finalize: "Member removed",
+  file_import: "File imported",
+  folder_import: "Folder imported",
+  retry_import: "Import retried",
+};
+
+function RecentActivitySection() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["recent-operations"],
+    queryFn: () => getRecentOperations(5),
+    refetchOnWindowFocus: false,
+  });
+  if (isLoading || !data || data.items.length === 0) return null;
+  return (
+    <div className="home-recent-activity" style={{marginBottom:14, padding:12, border:"1px solid var(--color-border-subtle)", borderRadius:"var(--radius-md)", background:"var(--color-bg-card)"}}>
+      <span className="page-header__eyebrow" style={{fontSize:11}}>Recent Activity</span>
+      <div style={{display:"flex",flexDirection:"column",gap:4,marginTop:6}}>
+        {data.items.slice(0, 5).map((op: RecentOperation) => (
+          <div key={op.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:12}}>
+            <span style={{color:"var(--color-text-primary)"}}>{OP_LABELS[op.operation_type] || op.operation_type}</span>
+            <span style={{color:"var(--color-text-muted)",fontSize:11}}>{op.created_at?.replace("T", " ").slice(0, 19)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 
 const HOME_MODULE_PAGE_SIZE = 8;
@@ -423,6 +457,8 @@ export function HomeOverviewFeature() {
           />
         </div>
       </div>
+
+      <RecentActivitySection />
 
       <WorkbenchResultFrame
         className="home-module-frame"
