@@ -19,3 +19,16 @@
 - `docs/archive/`：历史归档文档
 
 不要把 `_wip` 当作长期正式文档目录使用。
+
+## Current _wip inventory (2026-05-23)
+
+**Active (still relevant):**
+- `library-v2/` — M2/M3 规划报告和实现方案
+- `library-organize/` — organize preflight UX 方案（pending）
+
+**Superseded (completed work, kept for reference):**
+- `phase6/` — Phase 6 执行文档（已完成，可归档到 archive/phase6/）
+- `frontend-ui-refactor/` — UI 重构执行记录（已完成）
+- `backend-hardening/` — 后端硬化状态审查（已完成）
+- `code-review/` — 代码审查报告（已完成）
+- `frontend-acceptance/` — 前端验收报告（已完成）

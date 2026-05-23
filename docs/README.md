@@ -47,36 +47,31 @@ Document boundary:
   - `t(key, params?)`、locale 资源、`Settings` 语言切换和 Light / Dark 主题入口说明
   - 后续补文案、补语言和继续接入页面的维护入口
 
-### Phase 6 Beta Stabilization Docs
+### Beta & User Docs
 
-Phase 6 is complete. Beta is ready for testing.
+- [BETA_USER_GUIDE.md](BETA_USER_GUIDE.md) — Core concepts, first run, basic workflow, safety rules, recovery
+- [BETA_TESTER_CHECKLIST.md](BETA_TESTER_CHECKLIST.md) — Step-by-step QA checklist with bug report template
+- [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) — Current constraints: packaging, performance, organize, AI, UI, platform
+- [RECOVERY_GUIDE.md](RECOVERY_GUIDE.md) — Troubleshooting for common scenarios
+- [PHASE6_SUMMARY.md](archive/phase6/PHASE6_SUMMARY.md) (archived) — Phase 6 historical summary
 
-- [PHASE6_SUMMARY.md](archive/phase6/PHASE6_SUMMARY.md) (archived)
-  - Phase 6 historical summary — superseded by Library v2 Phase 7
-- [BETA_USER_GUIDE.md](BETA_USER_GUIDE.md)
-  - Core concepts, first run, basic workflow, safety rules, recovery
-- [BETA_TESTER_CHECKLIST.md](BETA_TESTER_CHECKLIST.md)
-  - Step-by-step QA checklist with bug report template
-- [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md)
-  - Current constraints: packaging, performance, organize, AI, UI, platform
-- [RECOVERY_GUIDE.md](RECOVERY_GUIDE.md)
-  - Troubleshooting for 11 common scenarios
+### Library v2 / Phase 8 Docs (Current)
 
-### Library v2 Docs
-
-Library v2 Phase 7A–7F is complete. Managed library workflow: import, review, organize, execute, storage scope, recovery.
+Library v2 Phase 7-8 + M2/M3 complete. Managed library workflow with file-library-centered navigation.
 
 - [Library v2 Overview](library-v2/README.md) — What Library v2 is and how it works
-- [Phase 7 Completion Report](library-v2/PHASE7_COMPLETION_REPORT.md) — Per-phase summary and test results
 - [Architecture](library-v2/ARCHITECTURE.md) — Data flow, storage states, service layers, AI boundary
 - [API Reference](library-v2/API_REFERENCE.md) — All Library v2 endpoints
 - [Manual Acceptance Guide](library-v2/MANUAL_ACCEPTANCE_GUIDE.md) — Step-by-step smoke tests
 - [Known Limitations](library-v2/KNOWN_LIMITATIONS.md) — Current constraints and future backlog
 - [Beta Testing Checklist](library-v2/BETA_TESTING_CHECKLIST.md) — QA checklist for testers
+- [Phase 7 Completion Report](library-v2/PHASE7_COMPLETION_REPORT.md) — Per-phase summary and test results
+- [Phase 8 Beta Readiness Review](library-v2/PHASE8_BETA_READINESS_REVIEW.md) — Beta readiness decision
+- [Phase 8 Final Acceptance](library-v2/PHASE8_FINAL_ACCEPTANCE_CHECKLIST.md) — Acceptance checklist
 
 ### Library Historical Docs (Archived)
 
-Superseded by [Library v2](library-v2/README.md) (Phase 7A–7G).
+Superseded by [Library v2](library-v2/README.md) (Phase 7-8).
 
 - [Archive: Library Phase 1-5 plans](archive/library-v2-prephase7/) — Historical phase planning documents
 - [Archive: Library specification drafts](archive/library-v2-prephase7/library_ai_revised_v2_1.md) — Historical structure/naming specs
