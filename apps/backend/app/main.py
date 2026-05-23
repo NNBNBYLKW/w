@@ -1,3 +1,8 @@
+import logging
+import shutil
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -20,7 +25,38 @@ from app.core.errors.handlers import register_exception_handlers
 from app.db.session.engine import initialize_database
 from app.db.session.session import SessionLocal
 
+
+def _setup_logging() -> None:
+    log_path = settings.data_dir / "backend.log"
+    handler = RotatingFileHandler(
+        str(log_path), maxBytes=5 * 1024 * 1024, backupCount=5, encoding="utf-8"
+    )
+    handler.setFormatter(logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    ))
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    root.addHandler(handler)
+
+
+def _backup_database() -> None:
+    db_path = Path(settings.database_path)
+    if not db_path.exists():
+        return
+    backup_dir = settings.data_dir / "backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    backups = sorted(backup_dir.glob("workbench_*.db"), key=lambda p: p.stat().st_mtime)
+    while len(backups) >= 3:
+        backups.pop(0).unlink(missing_ok=True)
+    from datetime import UTC, datetime
+    ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    shutil.copy2(str(db_path), str(backup_dir / f"workbench_{ts}.db"))
+
+
 def create_app() -> FastAPI:
+    _setup_logging()
+    _backup_database()
     initialize_database()
     with SessionLocal() as startup_session:
         tools_service.mark_stale_runs_failed(startup_session)
