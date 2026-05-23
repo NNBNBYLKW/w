@@ -436,6 +436,44 @@ def list_recovery_findings(
     }
 
 
+@router.get("/recovery/findings/persisted")
+def list_persisted_findings(
+    severity: str | None = Query(default=None),
+    scan_id: str | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    from sqlalchemy import text as sa_text
+    where = []
+    params: dict = {}
+    if severity:
+        where.append("severity = :severity")
+        params["severity"] = severity
+    if scan_id:
+        where.append("scan_id = :scan_id")
+        params["scan_id"] = scan_id
+    where_clause = (" AND " + " AND ".join(where)) if where else ""
+    total_row = db.execute(
+        sa_text(f"SELECT COUNT(*) FROM recovery_findings{where_clause}"), params
+    ).fetchone()
+    total = total_row[0] if total_row else 0
+    offset = (page - 1) * page_size
+    rows = db.execute(
+        sa_text(
+            f"SELECT scan_id, scanned_at, finding_type, severity, entity_type, entity_id, path, message, suggested_action "
+            f"FROM recovery_findings{where_clause} ORDER BY scanned_at DESC LIMIT :limit OFFSET :offset"
+        ),
+        {**params, "limit": page_size, "offset": offset},
+    ).fetchall()
+    return {
+        "items": [dict(r._mapping) for r in rows],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
+
+
 # ── Retry Failed Import ─────────────────────────────────
 
 @router.post("/inbox/items/{item_id}/retry")

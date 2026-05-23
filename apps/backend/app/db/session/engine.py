@@ -28,6 +28,7 @@ def initialize_database() -> None:
         _backfill_file_classification(connection)
         _ensure_library_v2_tables(connection)
         _ensure_library_v2_source(connection)
+        _ensure_recovery_findings_table(connection)
         _ensure_schema_version(connection)
         connection.commit()
     finally:
@@ -428,7 +429,7 @@ def _ensure_library_v2_tables(connection: sqlite3.Connection) -> None:
         )
 
 
-CURRENT_SCHEMA_VERSION = 2
+CURRENT_SCHEMA_VERSION = 3
 
 
 def _ensure_schema_version(connection: sqlite3.Connection) -> None:
@@ -447,6 +448,25 @@ def _ensure_schema_version(connection: sqlite3.Connection) -> None:
             "INSERT INTO schema_version (version) VALUES (?)",
             (CURRENT_SCHEMA_VERSION,),
         )
+
+
+def _ensure_recovery_findings_table(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS recovery_findings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            scan_id TEXT NOT NULL,
+            scanned_at TEXT NOT NULL DEFAULT (datetime('now')),
+            finding_type TEXT NOT NULL,
+            severity TEXT NOT NULL DEFAULT 'info',
+            entity_type TEXT,
+            entity_id INTEGER,
+            path TEXT,
+            message TEXT NOT NULL,
+            suggested_action TEXT
+        )
+        """
+    )
 
 
 def _ensure_library_v2_source(connection: sqlite3.Connection) -> None:

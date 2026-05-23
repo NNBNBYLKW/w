@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.db.models.file import File
@@ -18,6 +19,7 @@ from app.db.models.importing import (
     InboxItem,
     OperationJournal,
 )
+from app.db.models.library_object import LibraryObjectMember as LOM
 from app.db.models.library_root import LibraryRoot
 
 
@@ -52,6 +54,7 @@ class ImportRecoveryService:
     def scan(self, session: Session) -> RecoverySummary:
         summary = RecoverySummary()
         findings: list[RecoveryFinding] = []
+        scan_id = str(uuid.uuid4())
 
         findings.extend(self._detect_orphan_inbox_files(session))
         findings.extend(self._detect_missing_inbox_copies(session))
@@ -59,6 +62,7 @@ class ImportRecoveryService:
         findings.extend(self._detect_failed_imports(session))
         findings.extend(self._detect_incomplete_batches(session))
         findings.extend(self._detect_incomplete_journals(session))
+        findings.extend(self._detect_member_object_mismatches(session))
 
         for f in findings:
             if f.finding_type == "orphan_inbox_file":
@@ -93,6 +97,27 @@ class ImportRecoveryService:
             }
             for f in findings
         ]
+
+        # Persist findings for later retrieval
+        for f in findings:
+            session.execute(
+                text(
+                    "INSERT INTO recovery_findings (scan_id, finding_type, severity, entity_type, entity_id, path, message, suggested_action) "
+                    "VALUES (:scan_id, :finding_type, :severity, :entity_type, :entity_id, :path, :message, :suggested_action)"
+                ),
+                {
+                    "scan_id": scan_id,
+                    "finding_type": f.finding_type,
+                    "severity": f.severity,
+                    "entity_type": f.entity_type,
+                    "entity_id": f.entity_id,
+                    "path": f.path,
+                    "message": f.message,
+                    "suggested_action": f.suggested_action,
+                },
+            )
+        session.commit()
+
         return summary
 
     # ── detectors ───────────────────────────────────────
@@ -242,6 +267,67 @@ class ImportRecoveryService:
                 message=f"Incomplete journal: {entry.operation_type} on {entry.entity_type}#{entry.entity_id}",
                 suggested_action="Investigate the operation. May indicate an interrupted import or execute.",
             ))
+        return findings
+
+    def _detect_member_object_mismatches(self, session: Session) -> list[RecoveryFinding]:
+        """Check active members for path/object-root mismatches."""
+        findings: list[RecoveryFinding] = []
+        active_members = session.query(LOM).filter(LOM.member_status == "active").all()
+        from app.db.models.library_object import LibraryObject
+
+        for lom in active_members:
+            lo = session.query(LibraryObject).filter(LibraryObject.id == lom.object_id).first()
+            if lo is None:
+                findings.append(RecoveryFinding(
+                    finding_type="member_orphan_object",
+                    severity="high",
+                    entity_type="library_object_member",
+                    entity_id=lom.id,
+                    path=lom.absolute_path,
+                    message=f"Member #{lom.id} references missing object #{lom.object_id}",
+                    suggested_action="Remove the orphaned member record.",
+                ))
+                continue
+
+            if lom.absolute_path and lo.root_path:
+                obj_root = Path(lo.root_path)
+                member_path = Path(lom.absolute_path)
+                try:
+                    member_path.resolve().relative_to(obj_root.resolve())
+                except ValueError:
+                    findings.append(RecoveryFinding(
+                        finding_type="member_outside_object_root",
+                        severity="warning",
+                        entity_type="library_object_member",
+                        entity_id=lom.id,
+                        path=lom.absolute_path,
+                        message=f"Member #{lom.id} path is outside object #{lo.id} root",
+                        suggested_action="Re-run amendment or manually move the file.",
+                    ))
+
+            if lom.file_id:
+                f = session.query(File).filter(File.id == lom.file_id).first()
+                if f is None:
+                    findings.append(RecoveryFinding(
+                        finding_type="member_missing_file_record",
+                        severity="warning",
+                        entity_type="library_object_member",
+                        entity_id=lom.id,
+                        path=lom.absolute_path,
+                        message=f"Member #{lom.id} references missing file #{lom.file_id}",
+                        suggested_action="Remove the member if the file no longer exists.",
+                    ))
+                elif f.storage_state != "managed":
+                    findings.append(RecoveryFinding(
+                        finding_type="member_file_not_managed",
+                        severity="warning",
+                        entity_type="library_object_member",
+                        entity_id=lom.id,
+                        path=f.path,
+                        message=f"Member #{lom.id} file has storage_state={f.storage_state}, expected managed",
+                        suggested_action="Verify the file was properly organized.",
+                    ))
+
         return findings
 
 
