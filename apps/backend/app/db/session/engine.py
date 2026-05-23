@@ -28,6 +28,7 @@ def initialize_database() -> None:
         _backfill_file_classification(connection)
         _ensure_library_v2_tables(connection)
         _ensure_library_v2_source(connection)
+        _ensure_schema_version(connection)
         connection.commit()
     finally:
         connection.close()
@@ -424,6 +425,27 @@ def _ensure_library_v2_tables(connection: sqlite3.Connection) -> None:
     if "import_object_candidate_id" not in action_columns:
         connection.execute(
             "ALTER TABLE organize_actions ADD COLUMN import_object_candidate_id INTEGER REFERENCES import_object_candidates(id) ON DELETE SET NULL"
+        )
+
+
+CURRENT_SCHEMA_VERSION = 2
+
+
+def _ensure_schema_version(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS schema_version (
+            version INTEGER NOT NULL,
+            applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+        """
+    )
+    row = connection.execute("SELECT MAX(version) FROM schema_version").fetchone()
+    current = row[0] if row and row[0] is not None else 0
+    if current < CURRENT_SCHEMA_VERSION:
+        connection.execute(
+            "INSERT INTO schema_version (version) VALUES (?)",
+            (CURRENT_SCHEMA_VERSION,),
         )
 
 
