@@ -66,6 +66,34 @@ export async function removeTagFromFile(fileId: number, tagId: number): Promise<
 }
 
 
+export async function renameTag(tagId: number, name: string): Promise<TagResponseVM> {
+  const response = await fetch(`${getApiBaseUrl()}/tags/${tagId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  return p<TagResponseVM>(response);
+}
+
+
+export async function deleteTagApi(tagId: number): Promise<void> {
+  const response = await fetch(`${getApiBaseUrl()}/tags/${tagId}`, {
+    method: "DELETE",
+  });
+  await parseResponse<{ message: string }>(response);
+}
+
+
+export async function mergeTags(sourceId: number, targetId: number): Promise<TagResponseVM> {
+  const response = await fetch(`${getApiBaseUrl()}/tags/merge`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ source_id: sourceId, target_id: targetId }),
+  });
+  return p<TagResponseVM>(response);
+}
+
+
 export async function listFilesForTag(tagId: number, params: Omit<TagFilesQueryInput, "tagId">): Promise<TagFilesListResponseVM> {
   const searchParams = new URLSearchParams({
     page: String(params.page),

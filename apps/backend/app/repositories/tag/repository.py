@@ -46,6 +46,14 @@ class TagRepository:
         session.flush()
         return True
 
+    def delete(self, session: Session, tag_id: int) -> bool:
+        tag = self.get_by_id(session, tag_id)
+        if tag is None:
+            return False
+        session.delete(tag)
+        session.flush()
+        return True
+
     def add(self, session: Session, tag: Tag) -> None:
         session.add(tag)
         session.flush()

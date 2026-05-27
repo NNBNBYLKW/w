@@ -157,6 +157,47 @@ class TagsService:
         session.commit()
         return self._build_file_tag_list(session, file_id)
 
+    def rename(self, session: Session, tag_id: int, name: str) -> TagResponse:
+        tag = self.tag_repository.get_by_id(session, tag_id)
+        if tag is None:
+            raise NotFoundError("TAG_NOT_FOUND", "Tag not found.")
+
+        cleaned_name, normalized_name = self._normalize_tag_name(name)
+        duplicate = self.tag_repository.get_by_normalized_name(session, normalized_name)
+        if duplicate is not None and duplicate.id != tag_id:
+            raise BadRequestError("TAG_NAME_EXISTS", "A tag with this name already exists.")
+
+        tag.name = cleaned_name
+        tag.normalized_name = normalized_name
+        self.tag_repository.add(session, tag)
+        session.commit()
+        return TagResponse(item=self._to_tag_item(tag))
+
+    def delete(self, session: Session, tag_id: int) -> None:
+        tag = self.tag_repository.get_by_id(session, tag_id)
+        if tag is None:
+            raise NotFoundError("TAG_NOT_FOUND", "Tag not found.")
+
+        self.tag_repository.delete(session, tag_id)
+        session.commit()
+
+    def merge(self, session: Session, source_id: int, target_id: int) -> TagResponse:
+        if source_id == target_id:
+            raise BadRequestError("TAG_MERGE_SAME", "Cannot merge a tag into itself.")
+
+        source = self.tag_repository.get_by_id(session, source_id)
+        if source is None:
+            raise NotFoundError("SOURCE_TAG_NOT_FOUND", "Source tag not found.")
+
+        target = self.tag_repository.get_by_id(session, target_id)
+        if target is None:
+            raise NotFoundError("TARGET_TAG_NOT_FOUND", "Target tag not found.")
+
+        self.file_tag_repository.reassign_tag(session, source_id, target_id)
+        self.tag_repository.delete(session, source_id)
+        session.commit()
+        return TagResponse(item=self._to_tag_item(target))
+
     def _build_file_tag_list(self, session: Session, file_id: int) -> TagListResponse:
         tags = self.file_tag_repository.list_tags_for_file(session, file_id)
         return TagListResponse(items=[self._to_tag_item(tag) for tag in tags])

@@ -11,6 +11,15 @@ class TagCreateRequest(BaseModel):
     name: str
 
 
+class TagRenameRequest(BaseModel):
+    name: str
+
+
+class TagMergeRequest(BaseModel):
+    source_id: int = Field(..., ge=1)
+    target_id: int = Field(..., ge=1)
+
+
 class TagItemResponse(BaseModel):
     id: int
     name: str

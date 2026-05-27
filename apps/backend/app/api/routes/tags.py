@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, Path, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.schemas.file import FileListResponse, FileListSortBy, SortOrder
-from app.api.schemas.tag import TagCreateRequest, TagFileListQueryParams, TagListResponse, TagResponse
+from app.api.schemas.common import MessageResponse
+from app.api.schemas.tag import TagCreateRequest, TagFileListQueryParams, TagListResponse, TagMergeRequest, TagRenameRequest, TagResponse
 from app.db.session.session import get_db
 from app.services.tags.service import TagsService
 
@@ -43,3 +44,29 @@ def list_tag_files(
         sort_order=sort_order,
     )
     return tags_service.list_files_for_tag(db, tag_id, params)
+
+
+@router.patch("/tags/{tag_id}", response_model=TagResponse)
+def rename_tag(
+    payload: TagRenameRequest,
+    tag_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+) -> TagResponse:
+    return tags_service.rename(db, tag_id, payload.name)
+
+
+@router.delete("/tags/{tag_id}", response_model=MessageResponse)
+def delete_tag(
+    tag_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    tags_service.delete(db, tag_id)
+    return MessageResponse(message="Tag deleted.")
+
+
+@router.post("/tags/merge", response_model=TagResponse)
+def merge_tags(
+    payload: TagMergeRequest,
+    db: Session = Depends(get_db),
+) -> TagResponse:
+    return tags_service.merge(db, payload.source_id, payload.target_id)
