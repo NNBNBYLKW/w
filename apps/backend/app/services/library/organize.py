@@ -8,6 +8,7 @@ import threading
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
+from enum import StrEnum
 from pathlib import Path
 
 from app.core.time import utcnow
@@ -68,7 +69,7 @@ from app.services.library.organize_template_renderer import (
 from app.services.library.path_safety import is_path_within, path_key
 
 
-class PlanKind:
+class PlanKind(StrEnum):
     ORGANIZE_INBOX = "organize_inbox"
     FIX_OBJECT_REVIEW = "fix_object_review"
     OBJECT_CREATION_MANAGED_COMPOSE = "object_creation_managed_compose"
