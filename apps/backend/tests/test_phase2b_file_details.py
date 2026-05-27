@@ -55,6 +55,7 @@ class Phase2BFileDetailsTestCase(unittest.TestCase):
                 "status": None,
                 "is_favorite": False,
                 "rating": None,
+                "notes": None,
                 "metadata": None,
                 "storage_state": "external",
                 "original_path": None,
@@ -123,9 +124,9 @@ class Phase2BFileDetailsTestCase(unittest.TestCase):
         self.assertEqual(200, response.status_code)
         self.assertEqual(
             [
-                {"id": tag_ids[1], "name": "Alpha"},
-                {"id": tag_ids[0], "name": "beta"},
-                {"id": tag_ids[2], "name": "Gamma"},
+                {"id": tag_ids[1], "name": "Alpha", "color": None},
+                {"id": tag_ids[0], "name": "beta", "color": None},
+                {"id": tag_ids[2], "name": "Gamma", "color": None},
             ],
             response.json()["item"]["tags"],
         )
