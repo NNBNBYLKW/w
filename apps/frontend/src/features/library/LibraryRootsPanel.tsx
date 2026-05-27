@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { t } from "../../shared/text";
+import { LoadingState } from "../../shared/ui/components/LoadingState";
 import { queryKeys } from "../../services/query/queryKeys";
 import { invalidateLibraryRootSurfaces } from "../../services/query/invalidation";
 import type { LibraryRootVM, OrganizeCandidateItemVM, OrganizePlanListQueryInput, OrganizeTemplateItemVM, OrganizeSuggestionItemVM, ReconcilePlanResponseVM } from "../../entities/library/types";
@@ -80,7 +81,7 @@ export function LibraryRootsPanel() {
       </div>
 
       {isLoading ? (
-        <p className="library-muted-line">{t("common.states.loading")}</p>
+        <LoadingState />
       ) : managedRoots.length === 0 ? (
         <p className="library-muted-line">{t("features.library.roots.empty")}</p>
       ) : (
@@ -140,7 +141,7 @@ export function LibraryRootsPanel() {
                   type="text"
                   value={addPath}
                   onChange={(e) => setAddPath(e.target.value)}
-                  placeholder="G:\Library"
+                  placeholder="D:\Library"
                   readOnly
                 />
               </label>
@@ -157,7 +158,7 @@ export function LibraryRootsPanel() {
                   type="text"
                   value={addPath}
                   onChange={(e) => setAddPath(e.target.value)}
-                  placeholder="G:\Library"
+                  placeholder="D:\Library"
                 />
               </label>
             </>
@@ -202,9 +203,9 @@ export function LibraryRootsPanel() {
         </div>
       ) : null}
       {rootCreated && (
-        <div className="library-next-step" style={{marginTop:12, padding:12, border:"1px solid var(--color-accent-soft-strong)", borderRadius:"var(--radius-md)", background:"var(--color-accent-soft)"}}>
+        <div className="library-next-step">
           <strong>{t("features.library.roots.nextStepTitle")}</strong>
-          <p style={{margin:"4px 0 8px", fontSize:13}}>{t("features.library.roots.nextStepDesc")}</p>
+          <p>{t("features.library.roots.nextStepDesc")}</p>
           <button className="primary-button" type="button" onClick={() => { setRootCreated(false); navigate("/library?tab=inbox"); }}>
             {t("features.library.roots.nextStepAction")}
           </button>
@@ -213,4 +214,3 @@ export function LibraryRootsPanel() {
     </section>
   );
 }
-
