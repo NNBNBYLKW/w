@@ -2313,6 +2313,92 @@
   grid-template-columns: 220px minmax(0, 1fr);
 }
 
+/* ── Domain-specific object card variants ──────────────── */
+
+.browse-v2-card--video,
+.browse-v2-card--game,
+.browse-v2-card--book {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0;
+  overflow: hidden;
+}
+
+.browse-v2-card--video:hover,
+.browse-v2-card--game:hover,
+.browse-v2-card--book:hover {
+  transform: translateY(-2px);
+}
+
+.browse-v2-card__poster {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.browse-v2-card__poster--video {
+  aspect-ratio: 2 / 3;
+  background:
+    radial-gradient(ellipse at 50% 20%, rgba(56, 139, 253, 0.18), transparent 55%),
+    linear-gradient(180deg, rgba(240, 247, 255, 0.98), rgba(222, 236, 250, 0.96));
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.browse-v2-card__poster--game {
+  aspect-ratio: 16 / 9;
+  background:
+    radial-gradient(circle at top right, rgba(99, 102, 241, 0.14), transparent 48%),
+    linear-gradient(180deg, rgba(241, 244, 255, 0.98), rgba(229, 235, 252, 0.96));
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.browse-v2-card__poster--book {
+  aspect-ratio: 4 / 5;
+  background:
+    radial-gradient(circle at top right, rgba(191, 155, 89, 0.12), transparent 48%),
+    linear-gradient(180deg, rgba(249, 244, 237, 0.98), rgba(240, 232, 221, 0.96));
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.browse-v2-card__poster-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--color-text-primary);
+}
+
+.browse-v2-card--video .browse-v2-card__body,
+.browse-v2-card--game .browse-v2-card__body,
+.browse-v2-card--book .browse-v2-card__body {
+  padding: var(--space-2) var(--space-3) var(--space-3);
+}
+
+.browse-v2-card__format-badge {
+  display: inline-flex;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-card);
+  color: var(--color-text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .app-shell__content--details-open .browse-v2-detail {
   grid-column: 1 / -1;
   position: static;
