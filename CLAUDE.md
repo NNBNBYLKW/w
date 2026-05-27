@@ -29,7 +29,7 @@ The frontend dev server runs at `http://127.0.0.1:5173`, the backend at `http://
 
 ```powershell
 # Backend tests
-cd apps/backend && ..\..\.venv\Scripts\python.exe -m pytest tests/ -v
+cd apps\backend && ..\..\.venv\Scripts\python.exe -m pytest tests\ -v
 
 # Frontend tests
 cd apps/frontend && npm test
