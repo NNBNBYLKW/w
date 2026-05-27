@@ -415,3 +415,33 @@ export function useThumbnailWarmup(fileIds: ReadonlyArray<unknown> | null | unde
     markLoaded,
   };
 }
+
+export function useInView(options?: IntersectionObserverInit) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setInView(true);
+        observer.disconnect();
+      }
+    }, options);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return { ref, inView };
+}
+
+export function LazyThumbnail({ thumbnailUrl, alt, className }: { thumbnailUrl?: string; alt?: string; className?: string }) {
+  const { ref, inView } = useInView({ rootMargin: "200px" });
+  if (!inView) {
+    return <div ref={ref} className={className ?? "thumbnail-placeholder"} />;
+  }
+  return (
+    <div ref={ref} className={className}>
+      <img src={thumbnailUrl} loading="lazy" alt={alt ?? ""} />
+    </div>
+  );
+}
