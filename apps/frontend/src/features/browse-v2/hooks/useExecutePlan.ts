@@ -36,6 +36,7 @@ export function useExecutePlan() {
 
   const execute = async () => {
     if (!s.preflight?.can_execute || s.planId === null) return;
+    if (pollRef.current !== null) return;
     setS(prev => ({ ...prev, loading: true }));
     try {
       const planId = s.planId;
