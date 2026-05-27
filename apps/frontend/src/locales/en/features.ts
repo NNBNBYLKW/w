@@ -100,7 +100,7 @@ export const features = {
     description:
       "Use Library to manage roots, path browsing, pending files, object recognition, and organize plans.",
     tabsAriaLabel: "Library sections",
-    phaseOneBadge: "Phase 1 is read-only",
+    phaseOneBadge: "Read-only",
     readOnlyBadge: "Read-only scan",
     tabs: {
       overview: "Management Overview",
@@ -139,12 +139,12 @@ export const features = {
     },
     roots: {
       eyebrow: "Managed roots",
-      title: "Managed library roots are planned",
+      title: "Managed library roots",
       description:
-        "This area will manage library root directories in a later phase. For now, Workbench still reuses existing Sources as indexing roots.",
-      descriptionNew:
         "Managed library roots are where organized files land. Sources are for indexing input; roots are targets for organize output.",
-      safety: "No source behavior, scanning rules, or real directories are changed in Phase 1.",
+      descriptionNew:
+        "Add managed destinations for organized assets. Sources stay as indexed inputs; roots are controlled output areas.",
+      safety: "Roots are configuration targets only — no source behavior or scanning rules are affected.",
       empty: "No managed library roots yet. Add one to enable cross-source organization.",
       setDefault: "Set Default",
       disable: "Disable",
@@ -172,7 +172,7 @@ export const features = {
       title: "Objects that need review",
       description: "Review ambiguous, unknown, or invalid object scan results before later organize phases.",
       empty: "No objects need review",
-      safety: "This phase is read-only and does not execute real moves.",
+      safety: "This tab is read-only and does not execute real moves.",
       selectHint: "Select items to organize",
       selectCurrentPage: "Select current page",
       clearSelection: "Clear selection",
@@ -182,7 +182,7 @@ export const features = {
       eyebrow: "Objects",
       title: "Recognized object roots",
       description: "Show read-only [TYPE] object roots, asset.yaml cache state, members, and review status.",
-      safety: "Phase 2 scans object roots but never mutates their folders or asset.yaml files.",
+      safety: "Object scanning never mutates folders or asset.yaml files.",
       empty: "No objects found",
       searchPlaceholder: "Search title or root path",
       allTypes: "All object types",
@@ -195,10 +195,10 @@ export const features = {
     },
     plans: {
       eyebrow: "Organize plans",
-      title: "Organize plans are planned",
+      title: "Organize plans",
       description:
-        "This area will later show proposed moves, renames, directory creation, and asset.yaml write plans for user confirmation.",
-      safety: "Phase 1 does not generate plans, create actions, or execute real file operations.",
+        "Review, preflight, and execute organize plans. Plans are created when you compose objects or add/remove members in Browse.",
+      safety: "Plans require mark-ready, preflight, and explicit confirmation before any files are moved.",
     },
     scan: {
       title: "Scan objects",
@@ -250,6 +250,7 @@ export const features = {
       selectCurrentPage: "Select current page",
       clearSelection: "Clear selection",
       selectedCount: "Selected {count} items",
+      phase3Safety: "Draft plans stay local and inert until you mark them ready, run preflight, and explicitly execute.",
       selectHint: "Select items to organize",
       statusPending: "Pending",
       statusAdded: "Added to plan",
@@ -1076,7 +1077,7 @@ export const features = {
       noMembers: "No members found.",
       missing: "Missing",
       readOnlyNotice: "Use the buttons above to add or remove members. Changes are made through Plans.",
-      comingSoon: "Full object detail and member list will be available in Phase 8B.",
+      comingSoon: "",
     },
     compose: {
       title: "Compose object",
@@ -1095,6 +1096,7 @@ export const features = {
       confirm: "Create object candidate",
       success: "Object candidate created.",
       planCreated: "Draft plan created. Files have not been moved yet; preflight and execute are still required.",
+      error: "Compose failed",
     },
     amendment: {
       addMembers: "Add members",
@@ -1115,6 +1117,18 @@ export const features = {
       noManagedLooseCandidates: "No managed loose files available to add.",
       failed: "Amendment failed",
       error: "Compose failed",
+    },
+    executePanel: {
+      title: "Review & Execute Plan",
+      preparing: "Checking plan...",
+      ready: "Ready to execute",
+      blocked: "Cannot execute — blocked actions found",
+      blockedHint: "Fix the underlying file conflicts and try again.",
+      execute: "Execute plan",
+      executing: "Executing...",
+      completed: "Plan executed",
+      failed: "Execution failed",
+      close: "Close",
     },
     errors: {
       loadFailed: "Failed to load browse data",
