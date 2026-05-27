@@ -287,6 +287,8 @@ class BrowseV2Service:
             total=total,
             page=page,
             page_size=page_size,
+            object_count=sum(1 for c in items if c.card_kind == "object"),
+            loose_file_count=sum(1 for c in items if c.card_kind == "loose_file"),
         )
 
     # ── Phase 8B: Object Detail ─────────────────────────────

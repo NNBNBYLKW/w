@@ -54,6 +54,8 @@ class BrowseV2Response(BaseModel):
     total: int = 0
     page: int = 1
     page_size: int = 50
+    object_count: int = 0
+    loose_file_count: int = 0
 
 
 # ── Phase 8B: Object Detail ────────────────────────────

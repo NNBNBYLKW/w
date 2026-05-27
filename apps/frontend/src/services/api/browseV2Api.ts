@@ -47,6 +47,8 @@ export interface BrowseV2Response {
   total: number;
   page: number;
   page_size: number;
+  object_count: number;
+  loose_file_count: number;
 }
 
 export async function listBrowseCards(params: {
