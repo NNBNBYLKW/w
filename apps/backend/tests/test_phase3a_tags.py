@@ -95,7 +95,7 @@ class Phase3ATagsTestCase(unittest.TestCase):
 
         self.assertEqual(200, first_attach.status_code)
         self.assertEqual(first_attach.json(), second_attach.json())
-        self.assertEqual([{"id": first_attach.json()["items"][0]["id"], "name": "Reference"}], first_attach.json()["items"])
+        self.assertEqual([{"id": first_attach.json()["items"][0]["id"], "name": "Reference", "color": None}], first_attach.json()["items"])
 
         with SessionLocal() as session:
             relation_count = session.scalar(select(func.count()).select_from(FileTag))
@@ -114,7 +114,7 @@ class Phase3ATagsTestCase(unittest.TestCase):
             response = client.delete(f"/files/{file_id}/tags/{alpha_id}")
 
         self.assertEqual(200, response.status_code)
-        self.assertEqual([{"id": beta_id, "name": "beta"}], response.json()["items"])
+        self.assertEqual([{"id": beta_id, "name": "beta", "color": None}], response.json()["items"])
 
         engine.dispose()
 
