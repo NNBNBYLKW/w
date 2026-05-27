@@ -15,46 +15,37 @@ import WavIcon from "../../assets/icons/navigation/wav.svg?react";
 import WordIcon from "../../assets/icons/navigation/Word.svg?react";
 import ZipIcon from "../../assets/icons/navigation/zip.svg?react";
 import { t } from "../../shared/text";
-import { MetricStrip, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame } from "../../shared/ui/components";
+import { LoadingState, MetricStrip, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame } from "../../shared/ui/components";
 import { SidebarIcon, type NavigationIconName } from "../../shared/ui/icons";
 import type { BookListItemVM } from "../../entities/book/types";
 import type { GameListItemVM } from "../../entities/game/types";
 import type { MediaListItemVM } from "../../entities/media/types";
+import type { RecentListItemVM } from "../../entities/recent/types";
 import type { SoftwareListItemVM } from "../../entities/software/types";
 import { listBooks } from "../../services/api/booksApi";
 import { listGames } from "../../services/api/gamesApi";
 import { listMediaLibrary } from "../../services/api/mediaLibraryApi";
+import { listRecentImports } from "../../services/api/recentApi";
 import { listSoftware } from "../../services/api/softwareApi";
 import { queryKeys } from "../../services/query/queryKeys";
 import { SystemStatusFeature } from "../system-status/SystemStatusFeature";
-import { getRecentOperations, type RecentOperation } from "../../services/api/importingApi";
-
-
-const OP_LABELS: Record<string, string> = {
-  managed_compose_finalize: "Object created",
-  managed_compose_execute: "Compose executed",
-  add_member_finalize: "Member added",
-  remove_member_finalize: "Member removed",
-  file_import: "File imported",
-  folder_import: "Folder imported",
-  retry_import: "Import retried",
-};
 
 function RecentActivitySection() {
+  const params = { range: "7d", page: 1, page_size: 5, sort_order: "desc" } as const;
   const { data, isLoading } = useQuery({
-    queryKey: ["recent-operations"],
-    queryFn: () => getRecentOperations(5),
+    queryKey: queryKeys.recent(params),
+    queryFn: () => listRecentImports(params),
     refetchOnWindowFocus: false,
   });
   if (isLoading || !data || data.items.length === 0) return null;
   return (
-    <div className="home-recent-activity" style={{marginBottom:14, padding:12, border:"1px solid var(--color-border-subtle)", borderRadius:"var(--radius-md)", background:"var(--color-bg-card)"}}>
-      <span className="page-header__eyebrow" style={{fontSize:11}}>Recent Activity</span>
-      <div style={{display:"flex",flexDirection:"column",gap:4,marginTop:6}}>
-        {data.items.slice(0, 5).map((op: RecentOperation) => (
-          <div key={op.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:12}}>
-            <span style={{color:"var(--color-text-primary)"}}>{OP_LABELS[op.operation_type] || op.operation_type}</span>
-            <span style={{color:"var(--color-text-muted)",fontSize:11}}>{op.created_at?.replace("T", " ").slice(0, 19)}</span>
+    <div className="home-recent-activity">
+      <span className="page-header__eyebrow">Recent Activity</span>
+      <div className="home-recent-activity__list">
+        {data.items.slice(0, 5).map((item: RecentListItemVM) => (
+          <div className="home-recent-activity__row" key={item.id} title={item.path}>
+            <span>{item.name}</span>
+            <time>{item.discovered_at?.replace("T", " ").slice(0, 19)}</time>
           </div>
         ))}
       </div>
@@ -272,7 +263,7 @@ function HomeDashboardModule({
         </Link>
       </div>
 
-      {isLoading ? <p className="home-dashboard-card__state">{t("features.homeOverview.dashboard.loading")}</p> : null}
+      {isLoading ? <LoadingState /> : null}
 
       {error ? (
         <div className="home-dashboard-card__state home-dashboard-card__state--error">
@@ -428,7 +419,7 @@ export function HomeOverviewFeature() {
                 descriptionKey: "features.homeOverview.workflow.steps.tag.description" as const,
               },
               {
-                to: "/library/media",
+                to: "/browse-v2?domain=media",
                 icon: "media" as const,
                 titleKey: "features.homeOverview.workflow.steps.browse.title" as const,
                 descriptionKey: "features.homeOverview.workflow.steps.browse.description" as const,
@@ -473,7 +464,7 @@ export function HomeOverviewFeature() {
             isLoading={booksQuery.isLoading}
             items={(booksQuery.data?.items ?? []).map(mapBookItem)}
             title={t("features.homeOverview.dashboard.modules.documents.title")}
-            viewAllTo="/books"
+            viewAllTo="/browse-v2?domain=documents"
           />
           <HomeDashboardModule
             emptyLabel={t("features.homeOverview.dashboard.modules.software.empty")}
@@ -482,7 +473,7 @@ export function HomeOverviewFeature() {
             isLoading={softwareQuery.isLoading}
             items={(softwareQuery.data?.items ?? []).map(mapSoftwareItem)}
             title={t("features.homeOverview.dashboard.modules.software.title")}
-            viewAllTo="/software"
+            viewAllTo="/browse-v2?domain=apps&category=software"
           />
           <HomeDashboardModule
             emptyLabel={t("features.homeOverview.dashboard.modules.media.empty")}
@@ -491,7 +482,7 @@ export function HomeOverviewFeature() {
             isLoading={mediaQuery.isLoading}
             items={(mediaQuery.data?.items ?? []).map(mapMediaItem)}
             title={t("features.homeOverview.dashboard.modules.media.title")}
-            viewAllTo="/library/media"
+            viewAllTo="/browse-v2?domain=media"
           />
           <HomeDashboardModule
             emptyLabel={t("features.homeOverview.dashboard.modules.games.empty")}
@@ -500,7 +491,7 @@ export function HomeOverviewFeature() {
             isLoading={gamesQuery.isLoading}
             items={(gamesQuery.data?.items ?? []).map(mapGameItem)}
             title={t("features.homeOverview.dashboard.modules.games.title")}
-            viewAllTo="/library/games"
+            viewAllTo="/browse-v2?domain=apps&category=game"
           />
         </div>
       </WorkbenchResultFrame>

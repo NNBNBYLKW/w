@@ -124,7 +124,7 @@ function CandidateDetail({
             {t("features.library.organize.acceptedTemplateSuggestion")}: <strong>{formatSuggestionPayloadSummary(acceptedTemplate)}</strong>. {t("features.library.organize.selectSuggestedTemplateBeforeGenerate")}
           </p>
         ) : null}
-        {suggestionsQuery.isLoading ? <p className="library-muted-line">{t("common.states.loading")}</p> : null}
+        {suggestionsQuery.isLoading ? <LoadingState /> : null}
         {!suggestionsQuery.isLoading && suggestions.length === 0 ? <p className="library-muted-line">{t("features.library.organize.noSuggestions")}</p> : null}
         {suggestions.map((suggestion) => (
           <div className="library-suggestion-card" key={suggestion.id}>

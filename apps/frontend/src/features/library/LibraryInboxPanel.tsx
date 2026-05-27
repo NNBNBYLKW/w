@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePolling } from "../../shared/hooks/usePolling";
 
 import { t } from "../../shared/text";
+import { LoadingState } from "../../shared/ui/components";
 import { hasDesktopFilePicker, selectImportFiles, selectImportFolder } from "../../services/desktop/filePicker";
 import {
   confirmInboxItem, confirmObjectCandidate, createCandidateFromInboxItem,
@@ -571,7 +572,7 @@ export function LibraryInboxPanel() {
         </div>
       )}
 
-      {loading && <div className="library-inbox-loading" aria-live="polite">Loading...</div>}
+      {loading && <LoadingState />}
       {!loading && batches.length === 0 && objectCandidates.length === 0 && items.length === 0 && (
         <div className="library-inbox-empty"><p>{t("features.library.inbox.empty")}</p></div>
       )}

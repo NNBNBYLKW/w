@@ -7,6 +7,7 @@ import type { LibraryObjectListItemVM, LibraryObjectListQueryInput } from "../..
 import { listLibraryObjects, scanLibraryObjects, getLibraryObject } from "../../services/api/libraryObjectsApi";
 import { normalizeObjectTypeLabel, formatTimestamp, formatBytes } from "./shared/helpers";
 import { objectTypes } from "./LibraryFeature";
+import { LoadingState } from "../../shared/ui/components";
 
 
 function ObjectList({
@@ -55,7 +56,7 @@ function ObjectDetail({ objectId }: { objectId: number | null }) {
     return <aside className="library-object-detail library-empty-state">{t("features.library.objects.selectObject")}</aside>;
   }
   if (detailQuery.isLoading) {
-    return <aside className="library-object-detail">{t("common.states.loading")}</aside>;
+    return <LoadingState />;
   }
   if (detailQuery.isError || !detailQuery.data) {
     return <aside className="library-object-detail">{t("features.library.scan.unableToLoad")}</aside>;
@@ -187,7 +188,7 @@ export function LibraryObjectsPanel() {
       {scanMutation.isError ? <p className="danger-text">{(scanMutation.error as Error).message}</p> : null}
       <div className="library-objects-layout">
         <div className="library-object-list-panel">
-          {objectsQuery.isLoading ? <p>{t("common.states.loading")}</p> : null}
+          {objectsQuery.isLoading ? <LoadingState /> : null}
           {objectsQuery.isError ? <p>{t("features.library.scan.unableToLoad")}</p> : null}
           {objectsQuery.data && objectsQuery.data.items.length === 0 ? (
             <p className="library-empty-state">{t("features.library.objects.empty")}</p>
