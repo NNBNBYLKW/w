@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { t } from "../../../shared/text";
 import { KeyValueRow } from "../../../shared/ui/components";
 import { formatBytes, formatTimestamp } from "../shared/detailsHelpers";
@@ -13,6 +14,7 @@ export interface DetailsFactListSectionProps {
   discoveredAt: string;
   lastSeenAt: string;
   isDeleted: boolean;
+  pathAction?: ReactNode;
 }
 
 export function DetailsFactListSection({
@@ -26,10 +28,11 @@ export function DetailsFactListSection({
   discoveredAt,
   lastSeenAt,
   isDeleted,
+  pathAction,
 }: DetailsFactListSectionProps) {
   return (
     <div className="kv-list details-panel__fact-list">
-      <KeyValueRow label={t("details.fields.path")} value={path} mono />
+      <KeyValueRow label={t("details.fields.path")} value={path} mono action={pathAction} />
       <KeyValueRow label={t("details.fields.type")} value={fileType} />
       <KeyValueRow label={t("details.fields.size")} value={formatBytes(sizeBytes)} />
       <KeyValueRow label={t("details.fields.id")} value={String(id)} mono />

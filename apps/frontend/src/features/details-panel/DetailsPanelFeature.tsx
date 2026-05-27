@@ -89,6 +89,16 @@ export function DetailsPanelFeature() {
     | { kind: "placement"; message: string }
     | null
   >(null);
+  const [copied, setCopied] = useState(false);
+  const handleCopyPath = async (filePath: string) => {
+    try {
+      await navigator.clipboard.writeText(filePath);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard not available
+    }
+  };
   const parsedFileId = selectedItemId !== null ? Number(selectedItemId) : null;
   const hasInvalidSelectedId =
     selectedItemId !== null && (!Number.isInteger(parsedFileId) || parsedFileId === null || parsedFileId <= 0);
@@ -102,6 +112,7 @@ export function DetailsPanelFeature() {
     setSinglePreviewLoaded(false);
     setVideoPreviewFrameIndex(0);
     setVideoPreviewPlaybackFailed(false);
+    setCopied(false);
   }, [selectedItemId]);
 
 
@@ -464,6 +475,16 @@ export function DetailsPanelFeature() {
             discoveredAt={item.discovered_at}
             lastSeenAt={item.last_seen_at}
             isDeleted={item.is_deleted}
+            pathAction={
+              <button
+                className="secondary-button"
+                onClick={() => handleCopyPath(item.path)}
+                style={{ fontSize: 12, padding: "2px 8px" }}
+                type="button"
+              >
+                {copied ? "Copied!" : "Copy"}
+              </button>
+            }
           />
         </div>
         {item.storage_state && (
