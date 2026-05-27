@@ -1,3 +1,5 @@
+import { getApiBaseUrl, parseResponse } from "./client";
+
 type SystemStatus = {
   app: string;
   database: string;
@@ -6,17 +8,19 @@ type SystemStatus = {
   files_count: number;
 };
 
-
-function getApiBaseUrl() {
-  const desktopApi = (
-    window as typeof window & {
-      assetWorkbench?: {
-        getBackendBaseUrl?: () => string;
-      };
-    }
-  ).assetWorkbench;
-  return desktopApi?.getBackendBaseUrl?.() ?? import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
-}
+export type RuntimeDiagnostics = {
+  process_id: number;
+  process_start_time: number;
+  sys_executable: string;
+  cwd: string;
+  data_dir: string;
+  database_path: string;
+  database_url: string;
+  pypdfium2_import: string;
+  pypdfium2_version: string | null;
+  pypdfium2_error: string | null;
+  packaged_backend: boolean;
+};
 
 
 export async function getSystemStatus(): Promise<SystemStatus> {
@@ -25,4 +29,16 @@ export async function getSystemStatus(): Promise<SystemStatus> {
     throw new Error("Failed to fetch system status.");
   }
   return response.json() as Promise<SystemStatus>;
+}
+
+export async function getRuntimeDiagnostics(): Promise<RuntimeDiagnostics> {
+  const response = await fetch(`${getApiBaseUrl()}/debug/runtime`);
+  return parseResponse<RuntimeDiagnostics>(response);
+}
+
+export async function clearThumbnailCache(): Promise<{ message: string }> {
+  const response = await fetch(`${getApiBaseUrl()}/debug/thumbnails/clear-cache`, {
+    method: "POST",
+  });
+  return parseResponse<{ message: string }>(response);
 }

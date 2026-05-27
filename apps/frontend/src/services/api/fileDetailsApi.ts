@@ -1,3 +1,4 @@
+import { getApiBaseUrl, parseResponse } from "./client";
 import type { FileDetailResponseVM } from "../../entities/file/types";
 
 
@@ -19,34 +20,12 @@ export type ThumbnailWarmupResponseVM = {
 };
 
 
-function getApiBaseUrl() {
-  const desktopApi = (
-    window as typeof window & {
-      assetWorkbench?: {
-        getBackendBaseUrl?: () => string;
-      };
-    }
-  ).assetWorkbench;
-  return desktopApi?.getBackendBaseUrl?.() ?? import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
-}
-
 export function getFileThumbnailUrl(fileId: number): string {
   return `${getApiBaseUrl()}/files/${fileId}/thumbnail`;
 }
 
 export function getFileVideoPreviewFrameUrl(fileId: number, frameIndex: number): string {
   return `${getApiBaseUrl()}/files/${fileId}/video-preview/frames/${frameIndex}`;
-}
-
-
-async function parseResponse<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as
-      | { error?: { message?: string } }
-      | null;
-    throw new Error(payload?.error?.message ?? "Request failed.");
-  }
-  return response.json() as Promise<T>;
 }
 
 

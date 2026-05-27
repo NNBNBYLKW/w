@@ -1,22 +1,4 @@
-function getApiBaseUrl() {
-  const desktopApi = (
-    window as typeof window & {
-      assetWorkbench?: { getBackendBaseUrl?: () => string };
-    }
-  ).assetWorkbench;
-  return desktopApi?.getBackendBaseUrl?.() ?? import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
-}
-
-async function parseResponse<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { detail?: unknown } | null;
-    if (payload && "detail" in payload) {
-      throw new Error(typeof payload.detail === "string" ? payload.detail : "Request failed.");
-    }
-    throw new Error("Request failed.");
-  }
-  return response.json() as Promise<T>;
-}
+import { getApiBaseUrl, parseResponse } from "./client";
 
 const BASE = () => `${getApiBaseUrl()}/library/browse`;
 

@@ -1,27 +1,5 @@
+import { getApiBaseUrl, parseResponse } from "./client";
 import type { MediaListQueryInput, MediaListResponseVM } from "../../entities/media/types";
-
-
-function getApiBaseUrl() {
-  const desktopApi = (
-    window as typeof window & {
-      assetWorkbench?: {
-        getBackendBaseUrl?: () => string;
-      };
-    }
-  ).assetWorkbench;
-  return desktopApi?.getBackendBaseUrl?.() ?? import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
-}
-
-
-async function parseResponse<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as
-      | { error?: { message?: string } }
-      | null;
-    throw new Error(payload?.error?.message ?? "Request failed.");
-  }
-  return response.json() as Promise<T>;
-}
 
 
 export async function listMediaLibrary(input: MediaListQueryInput): Promise<MediaListResponseVM> {

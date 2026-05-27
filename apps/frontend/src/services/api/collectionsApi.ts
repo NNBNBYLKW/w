@@ -1,3 +1,4 @@
+import { getApiBaseUrl, parseResponse } from "./client";
 import type {
   CollectionFilesListResponseVM,
   CollectionFilesQueryInput,
@@ -16,29 +17,6 @@ export class CollectionsApiError extends Error {
     this.name = "CollectionsApiError";
     this.code = code;
   }
-}
-
-
-function getApiBaseUrl() {
-  const desktopApi = (
-    window as typeof window & {
-      assetWorkbench?: {
-        getBackendBaseUrl?: () => string;
-      };
-    }
-  ).assetWorkbench;
-  return desktopApi?.getBackendBaseUrl?.() ?? import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
-}
-
-
-async function parseResponse<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as
-      | { error?: { code?: string; message?: string } }
-      | null;
-    throw new CollectionsApiError(payload?.error?.message ?? "Request failed.", payload?.error?.code ?? null);
-  }
-  return response.json() as Promise<T>;
 }
 
 

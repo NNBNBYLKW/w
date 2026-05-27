@@ -1,30 +1,6 @@
-function getApiBaseUrl() {
-  const desktopApi = (
-    window as typeof window & {
-      assetWorkbench?: { getBackendBaseUrl?: () => string };
-    }
-  ).assetWorkbench;
-  return desktopApi?.getBackendBaseUrl?.() ?? import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
-}
+import { getApiBaseUrl, parseResponse } from "./client";
 
 const BASE = () => `${getApiBaseUrl()}/library/organize`;
-
-async function parseResponse<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as
-      | { error?: { message?: string } }
-      | { detail?: unknown }
-      | null;
-    if (payload && "error" in payload) {
-      throw new Error(payload.error?.message ?? "Request failed.");
-    }
-    if (payload && "detail" in payload) {
-      throw new Error(typeof payload.detail === "string" ? payload.detail : "Request failed.");
-    }
-    throw new Error("Request failed.");
-  }
-  return response.json() as Promise<T>;
-}
 
 export interface ManagedComposePlanMember {
   file_id: number;
