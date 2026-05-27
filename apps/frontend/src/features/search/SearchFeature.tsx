@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
@@ -64,7 +64,24 @@ function getSearchTypeLabel(fileType: FileType): string {
 }
 
 
+const RECENT_KEY = "workbench_recent_searches";
+function useSearchHistory() {
+  const [recent, setRecent] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]"); } catch { return []; }
+  });
+  const addSearch = (q: string) => {
+    if (!q.trim()) return;
+    const next = [q, ...recent.filter(s => s !== q)].slice(0, 10);
+    setRecent(next);
+    localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+  };
+  return { recent, addSearch };
+}
+
 export function SearchFeature() {
+  const { recent, addSearch } = useSearchHistory();
+  const [showHistory, setShowHistory] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const selectedItemId = useUIStore((state) => state.selectedItemId);
   const selectItem = useUIStore((state) => state.selectItem);
   const navigate = useNavigate();
@@ -153,8 +170,12 @@ export function SearchFeature() {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setAppliedQuery(inputQuery.trim());
+    const q = inputQuery.trim();
+    if (!q) return;
+    addSearch(q);
+    setAppliedQuery(q);
     setPage(1);
+    setShowHistory(false);
   };
 
   const resultMeta = (
@@ -176,16 +197,53 @@ export function SearchFeature() {
 
       <form className="search-workbench-form" onSubmit={handleSubmit}>
         <div className="search-command-row">
-          <input
-            className="text-input search-command-row__input"
-            type="search"
-            name="search"
-            autoComplete="off"
-            value={inputQuery}
-            onChange={(event) => setInputQuery(event.target.value)}
-            placeholder={t("features.search.placeholder")}
-            aria-label={t("features.search.placeholder")}
-          />
+          <div style={{ position: "relative", flex: 1 }}>
+            <input
+              ref={inputRef}
+              className="text-input search-command-row__input"
+              type="search"
+              name="search"
+              autoComplete="off"
+              value={inputQuery}
+              onChange={(event) => setInputQuery(event.target.value)}
+              onFocus={() => setShowHistory(true)}
+              onBlur={() => setTimeout(() => setShowHistory(false), 200)}
+              placeholder={t("features.search.placeholder")}
+              aria-label={t("features.search.placeholder")}
+            />
+            {showHistory && !inputQuery.trim() && recent.length > 0 ? (
+              <div
+                style={{
+                  position: "absolute", top: "100%", left: 0, right: 0,
+                  background: "var(--color-surface, #fff)", border: "1px solid var(--color-border, #ddd)",
+                  borderRadius: 8, zIndex: 100, boxShadow: "0 4px 12px rgba(0,0,0,0.1)", marginTop: 4,
+                }}
+              >
+                {recent.map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    style={{
+                      display: "block", width: "100%", textAlign: "left", padding: "8px 12px",
+                      border: "none", background: "none", cursor: "pointer", fontSize: 14,
+                    }}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setInputQuery(q);
+                      addSearch(q);
+                      setAppliedQuery(q);
+                      setPage(1);
+                      setShowHistory(false);
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--color-hover, #f5f5f5)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = ""; }}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
           <button className="primary-button" type="submit">
             {t("common.actions.search")}
           </button>
