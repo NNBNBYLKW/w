@@ -9,9 +9,11 @@ import { DesktopTitleBar } from "./DesktopTitleBar";
 import { PageContentHeader } from "./PageContentHeader";
 import { RightPanelContainer } from "./RightPanelContainer";
 import { ToastContainer } from "./ToastContainer";
+import { useKeyboardShortcuts } from "../../shared/hooks/useKeyboardShortcuts";
 
 
 export function AppShell() {
+  useKeyboardShortcuts();
   const location = useLocation();
   const { locale } = useLocale();
   const isDetailsPanelOpen = useUIStore((state) => state.isDetailsPanelOpen);

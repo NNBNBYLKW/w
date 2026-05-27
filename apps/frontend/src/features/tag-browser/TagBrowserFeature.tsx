@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t } from "../../shared/text";
-import { EmptyState, LoadingState, WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
+import { EmptyState, LoadingState, Pagination, WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
 import type { FileListSortBy, FileListSortOrder } from "../../entities/file/types";
 import { listFilesForTag, listTags, TagsApiError } from "../../services/api/tagsApi";
 import { queryKeys } from "../../services/query/queryKeys";
@@ -267,7 +267,7 @@ export function TagBrowserFeature() {
             ) : null}
 
             {tagFilesQuery.data && tagFilesQuery.data.items.length === 0 ? (
-              <div className="future-frame">{t("features.tags.noMatches")}</div>
+              <EmptyState title={t("features.tags.noMatches")} />
             ) : null}
 
             {tagFilesQuery.data && tagFilesQuery.data.items.length > 0 ? (
@@ -292,25 +292,7 @@ export function TagBrowserFeature() {
                     </button>
                   ))}
                 </div>
-                <div className="files-pager">
-                  <button
-                    className="secondary-button"
-                    type="button"
-                    onClick={() => setPage((current) => Math.max(1, current - 1))}
-                    disabled={page <= 1}
-                  >
-                    {t("common.actions.previous")}
-                  </button>
-                  <span>{t("common.labels.page", { page, total: totalPages })}</span>
-                  <button
-                    className="secondary-button"
-                    type="button"
-                    onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-                    disabled={page >= totalPages}
-                  >
-                    {t("common.actions.next")}
-                  </button>
-                </div>
+                <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
               </>
             ) : null}
             </WorkbenchResultFrame>

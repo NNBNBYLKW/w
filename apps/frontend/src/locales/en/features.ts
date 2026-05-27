@@ -417,6 +417,8 @@ export const features = {
         loadFailed: "Failed to load import data.",
         batchCreateFailed: "Failed to create import batch.",
       },
+      rejectConfirmTitle: "Reject item",
+      rejectConfirmMessage: "Are you sure you want to reject this imported item? It will be removed from the inbox.",
       disabledNoRoot: "No enabled managed library root. Configure one in Library > Roots to enable import.",
       review: {
         title: "Review",
@@ -920,6 +922,8 @@ export const features = {
     resultsUnavailableTitle: "Collection results unavailable",
     resultsEmpty: "No active indexed files currently match this saved retrieval.",
     emptyFallback: "Select or create a collection to see reusable file retrieval results here.",
+    deleteConfirmTitle: "Delete collection",
+    deleteConfirmMessage: "Are you sure you want to delete this collection? This action cannot be undone.",
     saveFrom: {
       media: "Use this form to save the current media filters as a reusable collection.",
       books: "Use this form to save the current document filters as a reusable collection.",

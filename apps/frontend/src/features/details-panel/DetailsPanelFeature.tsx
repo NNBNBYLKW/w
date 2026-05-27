@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t, useLocale } from "../../shared/text";
-import { EmptyState, InspectorSection, LoadingState } from "../../shared/ui/components";
+import { ConfirmDialog, EmptyState, InspectorSection, LoadingState } from "../../shared/ui/components";
 import { DetailsIdentitySection } from "./sections/DetailsIdentitySection";
 import { DetailsPlacementSection } from "./sections/DetailsPlacementSection";
 import { DetailsRatingSection } from "./sections/DetailsRatingSection";
@@ -81,6 +81,7 @@ export function DetailsPanelFeature() {
   const [singlePreviewLoaded, setSinglePreviewLoaded] = useState(false);
   const [videoPreviewFrameIndex, setVideoPreviewFrameIndex] = useState(0);
   const [videoPreviewPlaybackFailed, setVideoPreviewPlaybackFailed] = useState(false);
+  const [confirmRemoveTag, setConfirmRemoveTag] = useState<{ id: number; name: string } | null>(null);
   const [retrievalHint, setRetrievalHint] = useState<
     | { kind: "tag"; message: string }
     | { kind: "color"; message: string }
@@ -587,7 +588,10 @@ export function DetailsPanelFeature() {
               event.preventDefault();
               addTagMutation.mutate(tagInput);
             }}
-            onRemoveTag={(tagId) => removeTagMutation.mutate(tagId)}
+            onRemoveTag={(tagId) => {
+              const tag = item.tags.find((t) => t.id === tagId);
+              setConfirmRemoveTag(tag ? { id: tagId, name: tag.name } : { id: tagId, name: String(tagId) });
+            }}
           />
         </div>
         {isMediaFile && (firstTag || item.color_tag || (retrievalHint !== null && retrievalHint.kind !== "status")) ? (
@@ -656,5 +660,22 @@ export function DetailsPanelFeature() {
     );
   }
 
-  return <section className="panel-card details-panel-card">{content}</section>;
+  return (
+    <section className="panel-card details-panel-card">
+      {content}
+      {confirmRemoveTag !== null ? (
+        <ConfirmDialog
+          open={confirmRemoveTag !== null}
+          title={t("details.tags.removeConfirmTitle")}
+          message={t("details.tags.removeConfirmMessage", { tag: confirmRemoveTag.name })}
+          confirmLabel={t("details.actions.remove")}
+          onConfirm={() => {
+            removeTagMutation.mutate(confirmRemoveTag.id);
+            setConfirmRemoveTag(null);
+          }}
+          onCancel={() => setConfirmRemoveTag(null)}
+        />
+      ) : null}
+    </section>
+  );
 }

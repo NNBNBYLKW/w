@@ -104,6 +104,10 @@ export const details = {
     notMarked: "未标记",
     none: "无",
   },
+  tags: {
+    removeConfirmTitle: "移除标签",
+    removeConfirmMessage: "确定要从这个文件中移除标签 \"{tag}\" 吗？",
+  },
   actions: {
     removeFavorite: "取消收藏",
     markFavorite: "标记收藏",

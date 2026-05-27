@@ -409,6 +409,8 @@ export const features = {
         loadFailed: "加载导入数据失败。",
         batchCreateFailed: "创建导入批次失败。",
       },
+      rejectConfirmTitle: "拒绝导入项",
+      rejectConfirmMessage: "确定要拒绝这个导入项吗？它将从导入暂存区中移除。",
       disabledNoRoot: "没有启用的受管库根目录。请在「文件库 > 受管库」中配置以启用导入。",
       review: {
         title: "审核",
@@ -902,6 +904,8 @@ export const features = {
     resultsUnavailableTitle: "集合结果不可用",
     resultsEmpty: "当前没有活跃已索引文件匹配这个已保存检索。",
     emptyFallback: "选择或创建一个集合，以在这里查看可复用的文件检索结果。",
+    deleteConfirmTitle: "删除集合",
+    deleteConfirmMessage: "确定要删除这个集合吗？此操作不可撤销。",
     saveFrom: {
       media: "使用这个表单把当前媒体筛选保存为可复用集合。",
       books: "使用这个表单把当前文档筛选保存为可复用集合。",

@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t } from "../../shared/text";
-import { EmptyState, WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
+import { EmptyState, Pagination, WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
 import { AssetIconGrid, ViewModeToggle, useViewMode, type AssetIconCardItem } from "../../shared/ui/view-mode";
 import { useThumbnailWarmup } from "../../shared/ui/thumbnail";
 import type {
@@ -403,25 +403,7 @@ export function SearchFeature() {
               ))}
             </div>
           )}
-          <div className="search-pager">
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
-              disabled={page <= 1}
-            >
-              {t("common.actions.previous")}
-            </button>
-            <span>{t("common.labels.page", { page, total: totalPages })}</span>
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-              disabled={page >= totalPages}
-            >
-              {t("common.actions.next")}
-            </button>
-          </div>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
           </>
         ) : null}
       </WorkbenchResultFrame>

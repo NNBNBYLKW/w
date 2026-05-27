@@ -1,6 +1,7 @@
 export { StatusBadge } from "./StatusBadge";
 export type { StatusBadgeVariant } from "./StatusBadge";
 export { EmptyState } from "./EmptyState";
+export { ErrorState } from "./ErrorState";
 export { LoadingState } from "./LoadingState";
 export { SectionCard } from "./SectionCard";
 export { PlanStatusPill } from "./PlanStatusPill";
@@ -18,5 +19,6 @@ export {
   WorkbenchResultFrame,
   WorkbenchToolbar,
 } from "./WorkbenchLayout";
+export { ConfirmDialog } from "./ConfirmDialog";
 export { Pagination } from "./Pagination";
 export { ProgressBar } from "./ProgressBar";

@@ -9,6 +9,7 @@ import { getFileThumbnailUrl } from "../../services/api/fileDetailsApi";
 import { listIndexedFiles } from "../../services/api/filesApi";
 import { getSources } from "../../services/api/sourcesApi";
 import { listTags } from "../../services/api/tagsApi";
+import { EmptyState, LoadingState, Pagination } from "../../shared/ui/components";
 import { queryKeys } from "../../services/query/queryKeys";
 import { setWorkbenchFileDragData } from "../../services/tools/videoMergeDrag";
 
@@ -238,17 +239,13 @@ export function FileBrowserFeature() {
   let emptyState: JSX.Element | null = null;
   if (filesQuery.data && filesQuery.data.items.length === 0) {
     if (selectedSourceRoot !== null) {
-      emptyState = (
-        <div className="future-frame">
-          {isAtSourceRoot ? (
-            <p>{t("features.files.exactDirectoryRootEmpty")}</p>
-          ) : (
-            <p>{t("features.files.exactDirectoryEmpty")}</p>
-          )}
-        </div>
+      emptyState = isAtSourceRoot ? (
+        <EmptyState title={t("features.files.exactDirectoryRootEmpty")} />
+      ) : (
+        <EmptyState title={t("features.files.exactDirectoryEmpty")} />
       );
     } else {
-      emptyState = <div className="future-frame">{t("features.files.empty")}</div>;
+      emptyState = <EmptyState title={t("features.files.empty")} />;
     }
   }
 
@@ -408,7 +405,7 @@ export function FileBrowserFeature() {
         {filesQuery.data ? <span>{t("common.labels.indexedFiles", { count: filesQuery.data.total })}</span> : null}
       </div>
 
-      {filesQuery.isLoading ? <p>{t("features.files.loading")}</p> : null}
+      {filesQuery.isLoading ? <LoadingState /> : null}
 
       {sourcesQuery.error instanceof Error ? (
         <div className="status-block page-card">
@@ -474,25 +471,7 @@ export function FileBrowserFeature() {
               </button>
             ))}
           </div>
-          <div className="files-pager">
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
-              disabled={page <= 1}
-            >
-              {t("common.actions.previous")}
-            </button>
-            <span>{t("common.labels.page", { page, total: totalPages })}</span>
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-              disabled={page >= totalPages}
-            >
-              {t("common.actions.next")}
-            </button>
-          </div>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       ) : null}
     </section>

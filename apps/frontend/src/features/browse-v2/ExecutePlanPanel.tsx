@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { t } from "../../shared/text";
 import { LoadingState } from "../../shared/ui/components/LoadingState";
+import { ProgressBar } from "../../shared/ui/components/ProgressBar";
 import { useExecutePlan } from "./hooks/useExecutePlan";
 
 interface Props { planId: number; onClose: () => void; }
@@ -46,9 +47,7 @@ export function ExecutePlanPanel({ planId, onClose }: Props) {
                 <div style={{fontSize:13,color:"var(--color-text-muted)",marginBottom:4}}>
                   Executing action {progress.done}/{progress.total}...
                 </div>
-                <div className="progress-bar">
-                  <div className="progress-bar__fill" style={{width:`${Math.round(progress.total > 0 ? (progress.done/progress.total)*100 : 0)}%`}} />
-                </div>
+                <ProgressBar done={progress.done} total={progress.total} showLabel />
               </div>
             )}
           </>

@@ -3,7 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePolling } from "../../shared/hooks/usePolling";
 
 import { t } from "../../shared/text";
-import { LoadingState } from "../../shared/ui/components";
+import { ConfirmDialog, LoadingState } from "../../shared/ui/components";
+import { ProgressBar } from "../../shared/ui/components/ProgressBar";
 import { hasDesktopFilePicker, selectImportFiles, selectImportFolder } from "../../services/desktop/filePicker";
 import {
   confirmInboxItem, confirmObjectCandidate, createCandidateFromInboxItem,
@@ -120,7 +121,6 @@ function ImportProgressBanner({ batchId, onDone }: { batchId: number; onDone: ()
   );
   if (!data) return null;
   const done = data.status !== "created" && data.status !== "running";
-  const pct = data.file_count > 0 ? Math.round((data.completed_count / data.file_count) * 100) : 0;
   return (
     <div className={`browse-v2-inline-alert ${done ? (data.status === "completed" ? "browse-v2-inline-alert--success" : "browse-v2-inline-alert--error") : ""}`} role="status" style={{marginBottom:12}}>
       {done
@@ -128,9 +128,7 @@ function ImportProgressBanner({ batchId, onDone }: { batchId: number; onDone: ()
         : `Importing ${data.completed_count ?? 0}/${data.file_count ?? 0} files...`
       }
       {!done && data.file_count > 0 && (
-        <div className="progress-bar" style={{marginTop:8}}>
-          <div className="progress-bar__fill" style={{width:`${pct}%`}} />
-        </div>
+        <ProgressBar done={data.completed_count} total={data.file_count} />
       )}
       {done && <button className="ghost-button" type="button" onClick={onDone} style={{marginLeft:12}}>Dismiss</button>}
     </div>
@@ -162,6 +160,7 @@ export function LibraryInboxPanel() {
   const [collectionType, setCollectionType] = useState("");
   const [collectionTargetRoot, setCollectionTargetRoot] = useState<number | null>(null);
   const [expandedCandidate, setExpandedCandidate] = useState<ObjectCandidateDetailVM | null>(null);
+  const [confirmRejectItemId, setConfirmRejectItemId] = useState<number | null>(null);
   const [roots, setRoots] = useState<LibraryRootVM[]>([]);
 
   // review form state (per-card)
@@ -746,7 +745,7 @@ export function LibraryInboxPanel() {
                           {enabledRootOptions.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                         </select>
                         <button className="secondary-button" type="button" disabled={!canConfirm || rs.busy} onClick={() => handleConfirmInboxItem(item.id)} style={{fontSize:11}}>{t("features.library.inbox.review.confirm")}</button>
-                        <button className="secondary-button" type="button" disabled={rs.busy} onClick={() => handleRejectInboxItem(item.id)} style={{fontSize:11}}>{t("features.library.inbox.review.reject")}</button>
+                        <button className="secondary-button" type="button" disabled={rs.busy} onClick={() => setConfirmRejectItemId(item.id)} style={{fontSize:11}}>{t("features.library.inbox.review.reject")}</button>
                         <button className="secondary-button" type="button" disabled={!canCreateCandidate || rs.busy} onClick={() => handleCreateCandidateFromItem(item.id)} style={{fontSize:11}}>{t("features.library.inbox.review.createCandidate")}</button>
                         <button className="secondary-button" type="button" disabled={!canGeneratePlan || rs.busy} onClick={() => handleGeneratePlanFromItem(item.id)} style={{fontSize:11}}>{t("features.library.inbox.review.generatePlan")}</button>
                       </div>
@@ -765,6 +764,20 @@ export function LibraryInboxPanel() {
           )}
         </div>
       )}
+
+      {confirmRejectItemId !== null ? (
+        <ConfirmDialog
+          open={confirmRejectItemId !== null}
+          title={t("features.library.inbox.rejectConfirmTitle")}
+          message={t("features.library.inbox.rejectConfirmMessage")}
+          confirmLabel={t("features.library.inbox.review.reject")}
+          onConfirm={() => {
+            handleRejectInboxItem(confirmRejectItemId);
+            setConfirmRejectItemId(null);
+          }}
+          onCancel={() => setConfirmRejectItemId(null)}
+        />
+      ) : null}
     </div>
   );
 }

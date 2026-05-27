@@ -10,7 +10,7 @@ import { listLibraryRoots } from "../../services/api/libraryObjectsApi";
 import type { LibraryRootVM } from "../../entities/library/types";
 import { t } from "../../shared/text";
 import { DOMAINS } from "../../shared/browse-taxonomy";
-import { InspectorSection, MetricStrip, WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
+import { InspectorSection, MetricStrip, Pagination, WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
 import { LoadingState } from "../../shared/ui/components/LoadingState";
 import { EmptyState } from "../../shared/ui/components/EmptyState";
 import { ComposeObjectModal } from "./ComposeObjectModal";
@@ -379,15 +379,7 @@ export function BrowseV2Feature() {
           </WorkbenchResultFrame>
 
           {data && data.total > PAGE_SIZE ? (
-            <div className="files-pager browse-v2-pager">
-              <button className="secondary-button" type="button" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>
-                {t("features.browseV2.pagination.previous")}
-              </button>
-              <span>{t("features.browseV2.pagination.pageInfo", { page: String(page), total: String(totalPages) })}</span>
-              <button className="secondary-button" type="button" disabled={page * PAGE_SIZE >= data.total} onClick={() => setPage((current) => current + 1)}>
-                {t("features.browseV2.pagination.next")}
-              </button>
-            </div>
+            <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
           ) : null}
         </main>
 

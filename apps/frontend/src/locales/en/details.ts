@@ -104,6 +104,10 @@ export const details = {
     notMarked: "Not marked",
     none: "None",
   },
+  tags: {
+    removeConfirmTitle: "Remove tag",
+    removeConfirmMessage: "Remove tag \"{tag}\" from this file?",
+  },
   actions: {
     removeFavorite: "Remove favorite",
     markFavorite: "Mark favorite",

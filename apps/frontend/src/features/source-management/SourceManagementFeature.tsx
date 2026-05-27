@@ -5,6 +5,7 @@ import { usePolling } from "../../shared/hooks/usePolling";
 
 import { t } from "../../shared/text";
 import { createSource, getSource, getSources, SourcesApiError, triggerSourceScan } from "../../services/api/sourcesApi";
+import { LoadingState } from "../../shared/ui/components";
 import { queryKeys } from "../../services/query/queryKeys";
 import { invalidateSourceSurfaces } from "../../services/query/invalidation";
 
@@ -246,7 +247,7 @@ export function SourceManagementFeature() {
           <span className="page-header__eyebrow">{t("settings.sourceManagement.savedSources.eyebrow")}</span>
           <h3>{t("settings.sourceManagement.savedSources.title")}</h3>
         </div>
-        {sourcesQuery.isLoading ? <p>{t("settings.sourceManagement.savedSources.loading")}</p> : null}
+        {sourcesQuery.isLoading ? <LoadingState /> : null}
         {sourcesQuery.data?.length === 0 ? (
           <p>{t("settings.sourceManagement.savedSources.empty")}</p>
         ) : null}

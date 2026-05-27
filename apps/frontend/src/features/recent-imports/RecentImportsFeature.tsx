@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t } from "../../shared/text";
-import { EmptyState, WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
+import { EmptyState, Pagination, WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
 import type { FileListSortOrder } from "../../entities/file/types";
 import type { RecentActivityListItemVM, RecentFamilyKind, RecentRangeValue } from "../../entities/recent/types";
 import { BatchActionBar } from "../batch-organize/BatchActionBar";
@@ -375,25 +375,7 @@ export function RecentImportsFeature() {
               );
             })}
                 </div>
-                <div className="recent-pager">
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
-              disabled={page <= 1}
-            >
-              {t("common.actions.previous")}
-            </button>
-            <span>{t("common.labels.page", { page, total: totalPages })}</span>
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-              disabled={page >= totalPages}
-            >
-              {t("common.actions.next")}
-            </button>
-                </div>
+                <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
               </>
             ) : null}
           </WorkbenchResultFrame>

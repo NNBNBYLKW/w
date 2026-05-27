@@ -19,7 +19,7 @@ import { getSources } from "../../services/api/sourcesApi";
 import { listTags } from "../../services/api/tagsApi";
 import { queryKeys } from "../../services/query/queryKeys";
 import { invalidateCollectionSurfaces } from "../../services/query/invalidation";
-import { EmptyState, LoadingState } from "../../shared/ui/components";
+import { ConfirmDialog, EmptyState, LoadingState, Pagination } from "../../shared/ui/components";
 
 function formatBytes(value: number | null): string {
   return value === null ? t("common.states.sizeUnavailable") : `${value.toLocaleString()} bytes`;
@@ -175,6 +175,7 @@ export function CollectionsFeature() {
   const [colorTag, setColorTag] = useState<ColorTagValue | "">("");
   const [sourceId, setSourceId] = useState<string>("");
   const [parentPath, setParentPath] = useState("");
+  const [confirmDeleteCollectionId, setConfirmDeleteCollectionId] = useState<number | null>(null);
 
   const collectionsQuery = useQuery({
     queryKey: queryKeys.collections,
@@ -708,9 +709,7 @@ export function CollectionsFeature() {
                       <button
                         className="secondary-button"
                         type="button"
-                        onClick={() => {
-                          deleteCollectionMutation.mutate(collection.id);
-                        }}
+                        onClick={() => setConfirmDeleteCollectionId(collection.id)}
                         disabled={deleteCollectionMutation.isPending}
                       >
                         {t("common.actions.delete")}
@@ -722,6 +721,20 @@ export function CollectionsFeature() {
             ) : null}
           </div>
         </aside>
+
+      {confirmDeleteCollectionId !== null ? (
+        <ConfirmDialog
+          open={confirmDeleteCollectionId !== null}
+          title={t("features.collections.deleteConfirmTitle")}
+          message={t("features.collections.deleteConfirmMessage")}
+          confirmLabel={t("common.actions.delete")}
+          onConfirm={() => {
+            deleteCollectionMutation.mutate(confirmDeleteCollectionId);
+            setConfirmDeleteCollectionId(null);
+          }}
+          onCancel={() => setConfirmDeleteCollectionId(null)}
+        />
+      ) : null}
 
         <div className="collections-results">
           <div className="collections-results__header">
@@ -857,25 +870,7 @@ export function CollectionsFeature() {
                     ))}
                   </div>
 
-                  <div className="files-pager">
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      onClick={() => setPage((current) => Math.max(1, current - 1))}
-                      disabled={page <= 1}
-                    >
-                      {t("common.actions.previous")}
-                    </button>
-                    <span>{t("common.labels.page", { page, total: totalPages })}</span>
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-                      disabled={page >= totalPages}
-                    >
-                      {t("common.actions.next")}
-                    </button>
-                  </div>
+                  <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
                 </>
               ) : null}
             </>
