@@ -16,5 +16,6 @@ class Source(Base):
     scan_mode: Mapped[str] = mapped_column(String, nullable=False, default="manual_plus_basic_incremental")
     last_scan_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_scan_status: Mapped[str | None] = mapped_column(String, nullable=True)
+    discovered_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)

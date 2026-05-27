@@ -49,6 +49,7 @@ class ScanningService:
             finished_at = _utcnow()
             self.task_service.mark_succeeded(task, finished_at)
             source.last_scan_status = "succeeded"
+            source.discovered_count = len(records)
             source.last_scan_at = scanned_at
             source.updated_at = finished_at
             session.commit()

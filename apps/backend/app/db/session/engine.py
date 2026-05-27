@@ -28,6 +28,7 @@ def initialize_database() -> None:
         _backfill_file_classification(connection)
         _ensure_library_v2_tables(connection)
         _ensure_library_v2_source(connection)
+        _ensure_source_discovered_count(connection)
         _ensure_recovery_findings_table(connection)
         _ensure_schema_version(connection)
         connection.commit()
@@ -467,6 +468,12 @@ def _ensure_recovery_findings_table(connection: sqlite3.Connection) -> None:
         )
         """
     )
+
+
+def _ensure_source_discovered_count(connection: sqlite3.Connection) -> None:
+    columns = _table_columns(connection, "sources")
+    if "discovered_count" not in columns:
+        connection.execute("ALTER TABLE sources ADD COLUMN discovered_count INTEGER")
 
 
 def _ensure_library_v2_source(connection: sqlite3.Connection) -> None:
