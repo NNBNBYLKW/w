@@ -149,6 +149,15 @@ def refresh_plan_conflicts(
     return organize_service.refresh_plan_conflicts(db, plan_id)
 
 
+@router.post("/plans/{plan_id}/prepare", response_model=PreflightResponse)
+def prepare_plan(
+    plan_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+) -> PreflightResponse:
+    """Atomically mark-ready + preflight. Does NOT execute."""
+    return organize_service.prepare_plan(db, plan_id)
+
+
 @router.post("/plans/{plan_id}/preflight", response_model=PreflightResponse)
 def preflight_plan(
     plan_id: int = Path(..., ge=1),

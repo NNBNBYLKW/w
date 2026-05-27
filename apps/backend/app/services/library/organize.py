@@ -48,7 +48,12 @@ from app.schemas.library_organize import (
     ReconcileActionItem,
     ReconcilePlanResponse,
 )
-from app.services.library.object_parser import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, SUPPORTED_OBJECT_TYPES, VIDEO_EXTENSIONS
+from app.core.classification import (
+    DOCUMENT_EXTENSIONS_DOTTED as DOCUMENT_EXTENSIONS,
+    IMAGE_EXTENSIONS_DOTTED as IMAGE_EXTENSIONS,
+    VIDEO_EXTENSIONS_DOTTED as VIDEO_EXTENSIONS,
+)
+from app.services.library.object_parser import SUPPORTED_OBJECT_TYPES
 from app.services.library.organize_template_renderer import (
     OBJECT_PREFIX,
     _safe_title,
@@ -487,6 +492,18 @@ class LibraryOrganizeService:
             candidates=[self._candidate_item(candidate) for candidate in candidates],
             actions=[self._action_item(action) for action in actions],
         )
+
+    def prepare_plan(self, session: Session, plan_id: int) -> PreflightResponse:
+        """Atomically mark-ready + preflight. Does NOT execute."""
+        plan = self.repository.get_plan(session, plan_id)
+        if plan is None:
+            raise HTTPException(status_code=404, detail="Organize plan not found.")
+        if plan.status not in {"draft", "ready"}:
+            raise HTTPException(status_code=400, detail="Only draft or ready plans can be prepared.")
+        self._refresh_plan_conflicts(session, plan)
+        if plan.status == "draft":
+            self.mark_ready(session, plan_id)
+        return self.preflight_plan(session, plan_id)
 
     def preflight_plan(self, session: Session, plan_id: int) -> PreflightResponse:
         plan = self.repository.get_plan(session, plan_id)
