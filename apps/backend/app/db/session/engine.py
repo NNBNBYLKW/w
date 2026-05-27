@@ -43,6 +43,8 @@ def initialize_database() -> None:
         if current < 4:
             _ensure_source_discovered_count(connection)
             _ensure_recovery_findings_table(connection)
+        if current < 5:
+            _ensure_performance_indexes(connection)
         _ensure_schema_version(connection)
         connection.commit()
     finally:
@@ -451,7 +453,26 @@ def _ensure_library_v2_tables(connection: sqlite3.Connection) -> None:
         )
 
 
-CURRENT_SCHEMA_VERSION = 4
+def _ensure_performance_indexes(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_files_del_disc "
+        "ON files(is_deleted, discovered_at)"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_files_del_name "
+        "ON files(is_deleted, name)"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_files_del_mod "
+        "ON files(is_deleted, modified_at_fs)"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_files_del_src "
+        "ON files(is_deleted, source_id)"
+    )
+
+
+CURRENT_SCHEMA_VERSION = 5
 
 
 def _get_schema_version(connection: sqlite3.Connection) -> int:
