@@ -1,6 +1,7 @@
 import sqlite3
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
+from sqlalchemy.pool import StaticPool
 
 from app.core.classification import classify_file
 from app.core.config.settings import settings
@@ -11,7 +12,13 @@ settings.data_dir.mkdir(parents=True, exist_ok=True)
 engine = create_engine(
     settings.database_url,
     connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
 )
+
+
+@event.listens_for(engine, "connect")
+def _set_wal(dbapi_connection, _connection_record):
+    dbapi_connection.execute("PRAGMA journal_mode=WAL")
 
 
 def initialize_database() -> None:
@@ -19,17 +26,23 @@ def initialize_database() -> None:
     sql = settings.baseline_sql_path.read_text(encoding="utf-8")
     connection = sqlite3.connect(settings.database_path)
     try:
+        connection.execute("PRAGMA journal_mode=WAL")
         connection.executescript(sql)
-        _ensure_classification_columns(connection)
-        _ensure_tool_runs_table(connection)
-        _ensure_library_object_tables(connection)
-        _ensure_library_organize_tables(connection)
-        _ensure_library_roots_table(connection)
-        _backfill_file_classification(connection)
-        _ensure_library_v2_tables(connection)
-        _ensure_library_v2_source(connection)
-        _ensure_source_discovered_count(connection)
-        _ensure_recovery_findings_table(connection)
+        current = _get_schema_version(connection)
+        if current < 1:
+            _ensure_classification_columns(connection)
+            _backfill_file_classification(connection)
+        if current < 2:
+            _ensure_tool_runs_table(connection)
+            _ensure_library_object_tables(connection)
+            _ensure_library_organize_tables(connection)
+            _ensure_library_roots_table(connection)
+        if current < 3:
+            _ensure_library_v2_tables(connection)
+            _ensure_library_v2_source(connection)
+        if current < 4:
+            _ensure_source_discovered_count(connection)
+            _ensure_recovery_findings_table(connection)
         _ensure_schema_version(connection)
         connection.commit()
     finally:
@@ -438,7 +451,18 @@ def _ensure_library_v2_tables(connection: sqlite3.Connection) -> None:
         )
 
 
-CURRENT_SCHEMA_VERSION = 3
+CURRENT_SCHEMA_VERSION = 4
+
+
+def _get_schema_version(connection: sqlite3.Connection) -> int:
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS schema_version ("
+        "  version INTEGER NOT NULL,"
+        "  applied_at TEXT NOT NULL DEFAULT (datetime('now'))"
+        ")"
+    )
+    row = connection.execute("SELECT MAX(version) FROM schema_version").fetchone()
+    return row[0] if row and row[0] is not None else 0
 
 
 def _ensure_schema_version(connection: sqlite3.Connection) -> None:
