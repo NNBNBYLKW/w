@@ -6,8 +6,6 @@ import { useUIStore } from "../../app/providers/uiStore";
 import { t } from "../../shared/text";
 import type { CollectionVM, CreateCollectionInput, UpdateCollectionInput } from "../../entities/collection/types";
 import type { ColorTagValue, FileListSortBy, FileListSortOrder, FileType } from "../../entities/file/types";
-import type { SourceVM } from "../../entities/source/types";
-import type { TagItemVM } from "../../entities/tag/types";
 import {
   createCollection,
   deleteCollection,
@@ -19,108 +17,11 @@ import { getSources } from "../../services/api/sourcesApi";
 import { listTags } from "../../services/api/tagsApi";
 import { queryKeys } from "../../services/query/queryKeys";
 import { invalidateCollectionSurfaces } from "../../services/query/invalidation";
-import { ConfirmDialog, EmptyState, LoadingState, Pagination } from "../../shared/ui/components";
-
-function formatBytes(value: number | null): string {
-  return value === null ? t("common.states.sizeUnavailable") : `${value.toLocaleString()} bytes`;
-}
-
-function getTagLabel(tagId: number | null, tags: TagItemVM[] | undefined): string | null {
-  if (tagId === null) {
-    return null;
-  }
-  const match = tags?.find((tag) => tag.id === tagId);
-  return match?.name ?? t("common.labels.tagId", { id: tagId });
-}
-
-function getSourceLabel(sourceId: number | null, sources: SourceVM[] | undefined): string | null {
-  if (sourceId === null) {
-    return null;
-  }
-
-  const match = sources?.find((source) => source.id === sourceId);
-  if (!match) {
-    return `${t("common.labels.source")} #${sourceId}`;
-  }
-
-  return match.display_name?.trim() || match.path;
-}
-
-function getFileTypeLabel(fileType: FileType): string {
-  if (fileType === "image") {
-    return t("common.fileTypes.image");
-  }
-  if (fileType === "video") {
-    return t("common.fileTypes.video");
-  }
-  if (fileType === "document") {
-    return t("common.fileTypes.document");
-  }
-  if (fileType === "archive") {
-    return t("common.fileTypes.archive");
-  }
-  return t("common.fileTypes.other");
-}
-
-function getColorTagLabel(colorTag: ColorTagValue): string {
-  if (colorTag === "red") {
-    return t("common.colors.red");
-  }
-  if (colorTag === "yellow") {
-    return t("common.colors.yellow");
-  }
-  if (colorTag === "green") {
-    return t("common.colors.green");
-  }
-  if (colorTag === "blue") {
-    return t("common.colors.blue");
-  }
-  return t("common.colors.purple");
-}
-
-function buildCollectionSummary(collection: CollectionVM, tags: TagItemVM[] | undefined, sources: SourceVM[] | undefined): string {
-  const parts: string[] = [];
-
-  if (collection.file_type) {
-    parts.push(t("features.collections.summary.type", { value: getFileTypeLabel(collection.file_type) }));
-  }
-
-  const tagLabel = getTagLabel(collection.tag_id, tags);
-  if (tagLabel) {
-    parts.push(t("features.collections.summary.tag", { value: tagLabel }));
-  }
-
-  if (collection.color_tag) {
-    parts.push(t("features.collections.summary.color", { value: getColorTagLabel(collection.color_tag) }));
-  }
-
-  const sourceLabel = getSourceLabel(collection.source_id, sources);
-  if (sourceLabel) {
-    parts.push(t("features.collections.summary.source", { value: sourceLabel }));
-  }
-
-  if (collection.parent_path) {
-    parts.push(t("features.collections.summary.path", { value: collection.parent_path }));
-  }
-
-  return parts.length > 0 ? parts.join(" | ") : t("features.collections.summary.all");
-}
-
-function getEntryNote(entry: string | null): string | null {
-  if (entry === "media") {
-    return t("features.collections.saveFrom.media");
-  }
-  if (entry === "books") {
-    return t("features.collections.saveFrom.books");
-  }
-  if (entry === "software") {
-    return t("features.collections.saveFrom.software");
-  }
-  if (entry === "games") {
-    return t("features.collections.saveFrom.games");
-  }
-  return null;
-}
+import { ConfirmDialog } from "../../shared/ui/components";
+import { CollectionForm } from "./CollectionForm";
+import { CollectionList } from "./CollectionList";
+import { CollectionResults } from "./CollectionResults";
+import { buildCollectionNavLinks, getEntryNote } from "./collectionsHelpers";
 
 function applyCollectionFormValues(
   collection: Pick<CollectionVM, "name" | "file_type" | "tag_id" | "color_tag" | "source_id" | "parent_path">,
@@ -294,153 +195,25 @@ export function CollectionsFeature() {
 
   const canChooseTags = !(tagsQuery.error instanceof Error);
   const canChooseSources = !(sourcesQuery.error instanceof Error);
-  const mediaCompatibleCollection = useMemo(() => {
-    if (!selectedCollection) {
-      return null;
-    }
-
-    if (selectedCollection.source_id !== null || selectedCollection.parent_path !== null) {
-      return null;
-    }
-
-    if (
-      selectedCollection.file_type !== null &&
-      selectedCollection.file_type !== "image" &&
-      selectedCollection.file_type !== "video"
-    ) {
-      return null;
-    }
-
-    const params = new URLSearchParams({
-      entry: "collections",
-    });
-
-    if (selectedCollection.file_type === "image" || selectedCollection.file_type === "video") {
-      params.set("view_scope", selectedCollection.file_type);
-    }
-    if (selectedCollection.tag_id !== null) {
-      params.set("tag_id", String(selectedCollection.tag_id));
-    }
-    if (selectedCollection.color_tag !== null) {
-      params.set("color_tag", selectedCollection.color_tag);
-    }
-
-    return `/browse-v2?domain=media&${params.toString()}`;
-  }, [selectedCollection]);
-  const booksCompatibleCollection = useMemo(() => {
-    if (!selectedCollection) {
-      return null;
-    }
-
-    if (selectedCollection.source_id !== null || selectedCollection.parent_path !== null) {
-      return null;
-    }
-
-    if (selectedCollection.file_type !== null && selectedCollection.file_type !== "document") {
-      return null;
-    }
-
-    const params = new URLSearchParams({
-      entry: "collections",
-    });
-
-    if (selectedCollection.tag_id !== null) {
-      params.set("tag_id", String(selectedCollection.tag_id));
-    }
-    if (selectedCollection.color_tag !== null) {
-      params.set("color_tag", selectedCollection.color_tag);
-    }
-
-    return `/browse-v2?domain=documents&${params.toString()}`;
-  }, [selectedCollection]);
-  const softwareCompatibleCollection = useMemo(() => {
-    if (!selectedCollection) {
-      return null;
-    }
-
-    if (
-      selectedCollection.file_type !== null ||
-      selectedCollection.source_id !== null ||
-      selectedCollection.parent_path !== null
-    ) {
-      return null;
-    }
-
-    const params = new URLSearchParams({
-      entry: "collections",
-    });
-
-    if (selectedCollection.tag_id !== null) {
-      params.set("tag_id", String(selectedCollection.tag_id));
-    }
-    if (selectedCollection.color_tag !== null) {
-      params.set("color_tag", selectedCollection.color_tag);
-    }
-
-    return `/browse-v2?domain=apps&category=software&${params.toString()}`;
-  }, [selectedCollection]);
-  const gamesCompatibleCollection = useMemo(() => {
-    if (!selectedCollection) {
-      return null;
-    }
-
-    if (
-      selectedCollection.file_type !== null ||
-      selectedCollection.source_id !== null ||
-      selectedCollection.parent_path !== null
-    ) {
-      return null;
-    }
-
-    const params = new URLSearchParams({
-      entry: "collections",
-    });
-
-    if (selectedCollection.tag_id !== null) {
-      params.set("tag_id", String(selectedCollection.tag_id));
-    }
-    if (selectedCollection.color_tag !== null) {
-      params.set("color_tag", selectedCollection.color_tag);
-    }
-
-    return `/browse-v2?domain=apps&category=game&${params.toString()}`;
-  }, [selectedCollection]);
+  const {
+    mediaLink: mediaCompatibleCollection,
+    booksLink: booksCompatibleCollection,
+    softwareLink: softwareCompatibleCollection,
+    gamesLink: gamesCompatibleCollection,
+  } = useMemo(() => buildCollectionNavLinks(selectedCollection), [selectedCollection]);
 
   useEffect(() => {
-    if (hasAppliedPrefillRef.current) {
-      return;
-    }
+    if (hasAppliedPrefillRef.current) return;
 
-    const prefillName = searchParams.get("prefill_name");
-    const prefillFileType = searchParams.get("prefill_file_type");
-    const prefillTagId = searchParams.get("prefill_tag_id");
-    const prefillColorTag = searchParams.get("prefill_color_tag");
+    const name = searchParams.get("prefill_name");
+    const fileType = searchParams.get("prefill_file_type");
+    const tagId = searchParams.get("prefill_tag_id");
+    const colorTag = searchParams.get("prefill_color_tag");
 
-    if (prefillName !== null) {
-      setName(prefillName);
-    }
-    if (
-      prefillFileType === "image" ||
-      prefillFileType === "video" ||
-      prefillFileType === "document" ||
-      prefillFileType === "archive" ||
-      prefillFileType === "other"
-    ) {
-      setFileType(prefillFileType);
-    }
-    if (prefillTagId !== null) {
-      setTagId(prefillTagId);
-    }
-    if (
-      prefillColorTag === "red" ||
-      prefillColorTag === "yellow" ||
-      prefillColorTag === "green" ||
-      prefillColorTag === "blue" ||
-      prefillColorTag === "purple"
-    ) {
-      setColorTag(prefillColorTag);
-    }
-
+    if (name !== null) setName(name);
+    if (["image", "video", "document", "archive", "other"].includes(fileType ?? "")) setFileType(fileType as FileType);
+    if (tagId !== null) setTagId(tagId);
+    if (["red", "yellow", "green", "blue", "purple"].includes(colorTag ?? "")) setColorTag(colorTag as ColorTagValue);
     hasAppliedPrefillRef.current = true;
   }, [searchParams]);
 
@@ -490,6 +263,16 @@ export function CollectionsFeature() {
         : null;
   const isFormPending = createCollectionMutation.isPending || updateCollectionMutation.isPending;
 
+  const handleCancelEdit = () => {
+    setIsEditingSelected(false);
+    setName("");
+    setFileType("");
+    setTagId("");
+    setColorTag("");
+    setSourceId("");
+    setParentPath("");
+  };
+
   return (
     <section className="feature-shell refind-surface refind-surface--collections">
       <div className="feature-header refind-surface__header">
@@ -500,384 +283,101 @@ export function CollectionsFeature() {
 
       <div className="collections-layout">
         <aside className="collections-sidebar">
-          <form className="form-grid collections-form" onSubmit={handleSubmit}>
-            <div className="collections-form__header">
-              <span className="page-header__eyebrow">
-                {isEditingSelected ? t("features.collections.editCollection") : t("features.collections.createCollection")}
-              </span>
-              <p>
-                {isEditingSelected
-                  ? t("features.collections.editDescription")
-                  : t("features.collections.createDescription")}
-              </p>
-            </div>
-            {entryNote ? <div className="context-flow-note">{entryNote}</div> : null}
+          <CollectionForm
+            isEditingSelected={isEditingSelected}
+            entryNote={entryNote}
+            name={name}
+            fileType={fileType}
+            tagId={tagId}
+            colorTag={colorTag}
+            sourceId={sourceId}
+            parentPath={parentPath}
+            tagsQuery={tagsQuery}
+            sourcesQuery={sourcesQuery}
+            colorTagOptions={colorTagOptions}
+            fileTypeOptions={fileTypeOptions}
+            canChooseTags={canChooseTags}
+            canChooseSources={canChooseSources}
+            formError={formError}
+            isFormPending={isFormPending}
+            onNameChange={setName}
+            onFileTypeChange={setFileType}
+            onTagIdChange={setTagId}
+            onColorTagChange={setColorTag}
+            onSourceIdChange={setSourceId}
+            onParentPathChange={setParentPath}
+            onSubmit={handleSubmit}
+            onCancelEdit={handleCancelEdit}
+          />
 
-            <label className="field-stack">
-              <span>{t("features.collections.name")}</span>
-              <input
-                className="text-input"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder={t("features.collections.namePlaceholder")}
-              />
-            </label>
-
-            <label className="field-stack">
-              <span>{t("common.labels.fileType")}</span>
-              <select className="select-input" value={fileType} onChange={(event) => setFileType(event.target.value as FileType | "")}>
-                <option value="">{t("features.collections.anyType")}</option>
-                {fileTypeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="field-stack">
-              <span>{t("common.labels.tag")}</span>
-              <select
-                className="select-input"
-                value={tagId}
-                onChange={(event) => setTagId(event.target.value)}
-                disabled={tagsQuery.isLoading || !canChooseTags}
-              >
-                <option value="">{t("features.collections.anyTag")}</option>
-                {tagsQuery.data?.items.map((tag) => (
-                  <option key={tag.id} value={String(tag.id)}>
-                    {tag.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {tagsQuery.error instanceof Error ? (
-              <p className="collections-form__note">{t("features.collections.tagsUnavailableNote")}</p>
-            ) : null}
-
-            <label className="field-stack">
-              <span>{t("common.labels.color")}</span>
-              <select
-                className="select-input"
-                value={colorTag}
-                onChange={(event) => setColorTag(event.target.value as ColorTagValue | "")}
-              >
-                <option value="">{t("common.colors.any")}</option>
-                {colorTagOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="field-stack">
-              <span>{t("common.labels.source")}</span>
-              <select
-                className="select-input"
-                value={sourceId}
-                onChange={(event) => {
-                  const nextSourceId = event.target.value;
-                  setSourceId(nextSourceId);
-                  if (!nextSourceId) {
-                    setParentPath("");
-                  }
-                }}
-                disabled={sourcesQuery.isLoading || !canChooseSources}
-              >
-                <option value="">{t("features.collections.anySource")}</option>
-                {sourcesQuery.data?.map((source) => (
-                  <option key={source.id} value={String(source.id)}>
-                    {source.display_name?.trim() || source.path}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {sourcesQuery.error instanceof Error ? (
-              <p className="collections-form__note">{t("features.collections.sourcesUnavailableNote")}</p>
-            ) : null}
-
-            <label className="field-stack">
-              <span>{t("common.labels.parentPath")}</span>
-              <input
-                className="text-input"
-                value={parentPath}
-                onChange={(event) => setParentPath(event.target.value)}
-                placeholder={t("features.collections.parentPathPlaceholder")}
-                disabled={!sourceId}
-              />
-            </label>
-
-            {formError ? <p className="collections-form__error">{formError}</p> : null}
-
-            <div className="collections-form__actions">
-              <button className="primary-button" type="submit" disabled={isFormPending}>
-                {isFormPending
-                  ? t("common.actions.saving")
-                  : isEditingSelected
-                    ? t("common.actions.updateCollection")
-                    : t("common.actions.createCollection")}
-              </button>
-              {isEditingSelected ? (
-                <button
-                  className="secondary-button"
-                  type="button"
-                  onClick={() => {
-                    setIsEditingSelected(false);
-                    setName("");
-                    setFileType("");
-                    setTagId("");
-                    setColorTag("");
-                    setSourceId("");
-                    setParentPath("");
-                  }}
-                >
-                  {t("common.actions.switchToCreate")}
-                </button>
-              ) : null}
-            </div>
-          </form>
-
-          <div className="collections-list-shell">
-            <div className="collections-list-shell__header">
-              <span className="page-header__eyebrow">{t("features.collections.listEyebrow")}</span>
-              {collectionsQuery.data ? (
-                <p>{t("common.labels.collections", { count: collectionsQuery.data.items.length })}</p>
-              ) : (
-                <p>{t("features.collections.listFallback")}</p>
-              )}
-            </div>
-
-            {collectionsQuery.isLoading ? <LoadingState /> : null}
-
-            {collectionsQuery.error instanceof Error ? (
-              <div className="status-block page-card">
-                <strong>{t("features.collections.listUnavailableTitle")}</strong>
-                <p>{collectionsQuery.error.message}</p>
-              </div>
-            ) : null}
-
-            {collectionsQuery.data && collectionsQuery.data.items.length === 0 ? (
-              <EmptyState title={t("features.collections.listEmpty")} description={t("features.collections.emptyGuide")}
-                action={{ label: t("features.homeOverview.browseCardAction"), onClick: () => navigate("/browse-v2") }} />
-            ) : null}
-
-            {collectionsQuery.data && collectionsQuery.data.items.length > 0 ? (
-              <div className="collections-list">
-                {collectionsQuery.data.items.map((collection) => (
-                  <div
-                    key={collection.id}
-                    className={`collections-list__item${selectedCollectionId === collection.id ? " collections-list__item--selected" : ""}`}
-                  >
-                    <button
-                      className="collections-list__select"
-                      type="button"
-                      onClick={() => {
-                        setSelectedCollectionId(collection.id);
-                        setPage(1);
-                      }}
-                    >
-                      <div className="collections-list__meta">
-                        <strong title={collection.name}>{collection.name}</strong>
-                        <p title={buildCollectionSummary(collection, tagsQuery.data?.items, sourcesQuery.data)}>
-                          {buildCollectionSummary(collection, tagsQuery.data?.items, sourcesQuery.data)}
-                        </p>
-                      </div>
-                    </button>
-                    <div className="collections-list__actions">
-                      <button
-                        className="secondary-button"
-                        type="button"
-                        onClick={() => {
-                          setSelectedCollectionId(collection.id);
-                          setPage(1);
-                          setIsEditingSelected(true);
-                          applyCollectionFormValues(collection, {
-                            setName,
-                            setFileType,
-                            setTagId,
-                            setColorTag,
-                            setSourceId,
-                            setParentPath,
-                          });
-                        }}
-                      >
-                        {t("common.actions.edit")}
-                      </button>
-                      <button
-                        className="secondary-button"
-                        type="button"
-                        onClick={() => setConfirmDeleteCollectionId(collection.id)}
-                        disabled={deleteCollectionMutation.isPending}
-                      >
-                        {t("common.actions.delete")}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </div>
+          <CollectionList
+            collectionsQuery={collectionsQuery}
+            selectedCollectionId={selectedCollectionId}
+            tagsData={tagsQuery.data?.items}
+            sourcesData={sourcesQuery.data}
+            deleteCollectionPending={deleteCollectionMutation.isPending}
+            onSelectCollection={(id) => {
+              setSelectedCollectionId(id);
+              setPage(1);
+            }}
+            onEditCollection={(collection) => {
+              setSelectedCollectionId(collection.id);
+              setPage(1);
+              setIsEditingSelected(true);
+              applyCollectionFormValues(collection, {
+                setName,
+                setFileType,
+                setTagId,
+                setColorTag,
+                setSourceId,
+                setParentPath,
+              });
+            }}
+            onDeleteCollection={(id) => setConfirmDeleteCollectionId(id)}
+            onNavigateBrowse={() => navigate("/browse-v2")}
+          />
         </aside>
 
-      {confirmDeleteCollectionId !== null ? (
-        <ConfirmDialog
-          open={confirmDeleteCollectionId !== null}
-          title={t("features.collections.deleteConfirmTitle")}
-          message={t("features.collections.deleteConfirmMessage")}
-          confirmLabel={t("common.actions.delete")}
-          onConfirm={() => {
-            deleteCollectionMutation.mutate(confirmDeleteCollectionId);
-            setConfirmDeleteCollectionId(null);
+        {confirmDeleteCollectionId !== null ? (
+          <ConfirmDialog
+            open={confirmDeleteCollectionId !== null}
+            title={t("features.collections.deleteConfirmTitle")}
+            message={t("features.collections.deleteConfirmMessage")}
+            confirmLabel={t("common.actions.delete")}
+            onConfirm={() => {
+              deleteCollectionMutation.mutate(confirmDeleteCollectionId);
+              setConfirmDeleteCollectionId(null);
+            }}
+            onCancel={() => setConfirmDeleteCollectionId(null)}
+          />
+        ) : null}
+
+        <CollectionResults
+          selectedCollection={selectedCollection}
+          collectionFilesQuery={collectionFilesQuery}
+          page={page}
+          totalPages={totalPages}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          selectedItemId={selectedItemId}
+          tagsData={tagsQuery.data?.items}
+          sourcesData={sourcesQuery.data}
+          mediaLink={mediaCompatibleCollection}
+          booksLink={booksCompatibleCollection}
+          gamesLink={gamesCompatibleCollection}
+          softwareLink={softwareCompatibleCollection}
+          onPageChange={setPage}
+          onSortByChange={(value) => {
+            setSortBy(value);
+            setPage(1);
           }}
-          onCancel={() => setConfirmDeleteCollectionId(null)}
+          onSortOrderChange={(value) => {
+            setSortOrder(value);
+            setPage(1);
+          }}
+          onSelectItem={selectItem}
+          onNavigate={navigate}
         />
-      ) : null}
-
-        <div className="collections-results">
-          <div className="collections-results__header">
-            <div className="feature-header">
-              <span className="page-header__eyebrow">{t("features.collections.resultsEyebrow")}</span>
-              <h3>{selectedCollection?.name ?? t("features.collections.chooseCollection")}</h3>
-              <p>
-                {selectedCollection
-                  ? buildCollectionSummary(selectedCollection, tagsQuery.data?.items, sourcesQuery.data)
-                  : t("features.collections.chooseCollectionDescription")}
-              </p>
-            </div>
-            <div className="files-meta-row__actions">
-              {mediaCompatibleCollection ? (
-                <button
-                  className="ghost-button"
-                  type="button"
-                  onClick={() => {
-                    navigate(mediaCompatibleCollection);
-                  }}
-                >
-                  {t("common.actions.openMatchingMedia")}
-                </button>
-              ) : null}
-              {booksCompatibleCollection ? (
-                <button
-                  className="ghost-button"
-                  type="button"
-                  onClick={() => {
-                    navigate(booksCompatibleCollection);
-                  }}
-                >
-                  {t("common.actions.openMatchingBooks")}
-                </button>
-              ) : null}
-              {gamesCompatibleCollection ? (
-                <button
-                  className="ghost-button"
-                  type="button"
-                  onClick={() => {
-                    navigate(gamesCompatibleCollection);
-                  }}
-                >
-                  {t("common.actions.openMatchingGames")}
-                </button>
-              ) : null}
-              {softwareCompatibleCollection ? (
-                <button
-                  className="ghost-button"
-                  type="button"
-                  onClick={() => {
-                    navigate(softwareCompatibleCollection);
-                  }}
-                >
-                  {t("common.actions.openMatchingSoftware")}
-                </button>
-              ) : null}
-            </div>
-          </div>
-
-          {selectedCollection ? (
-            <>
-              <div className="files-toolbar">
-                <label className="field-stack files-toolbar__field">
-                  <span>{t("common.labels.sortBy")}</span>
-                  <select
-                    className="select-input"
-                    value={sortBy}
-                    onChange={(event) => {
-                      setSortBy(event.target.value as FileListSortBy);
-                      setPage(1);
-                    }}
-                  >
-                    <option value="modified_at">{t("common.sortBy.modified")}</option>
-                    <option value="name">{t("common.sortBy.name")}</option>
-                    <option value="discovered_at">{t("common.sortBy.discovered")}</option>
-                  </select>
-                </label>
-                <label className="field-stack files-toolbar__field">
-                  <span>{t("common.labels.order")}</span>
-                  <select
-                    className="select-input"
-                    value={sortOrder}
-                    onChange={(event) => {
-                      setSortOrder(event.target.value as FileListSortOrder);
-                      setPage(1);
-                    }}
-                  >
-                    <option value="desc">{t("common.sortOrder.descending")}</option>
-                    <option value="asc">{t("common.sortOrder.ascending")}</option>
-                  </select>
-                </label>
-              </div>
-
-              <div className="files-meta-row">
-                <p>{t("features.collections.resultsMeta")}</p>
-                {collectionFilesQuery.data ? <span>{t("common.labels.files", { count: collectionFilesQuery.data.total })}</span> : null}
-              </div>
-
-              {collectionFilesQuery.isLoading ? <LoadingState /> : null}
-
-              {collectionFilesQuery.error instanceof Error ? (
-                <div className="status-block page-card">
-                  <strong>{t("features.collections.resultsUnavailableTitle")}</strong>
-                  <p>{collectionFilesQuery.error.message}</p>
-                </div>
-              ) : null}
-
-              {collectionFilesQuery.data && collectionFilesQuery.data.items.length === 0 ? (
-                <div className="future-frame">{t("features.collections.resultsEmpty")}</div>
-              ) : null}
-
-              {collectionFilesQuery.data && collectionFilesQuery.data.items.length > 0 ? (
-                <>
-                  <div className="files-list">
-                    {collectionFilesQuery.data.items.map((item) => (
-                      <button
-                        key={item.id}
-                        className={`files-list-row${selectedItemId === String(item.id) ? " files-list-row--selected" : ""}`}
-                        type="button"
-                        onClick={() => selectItem(String(item.id))}
-                      >
-                        <div className="files-list-row__meta">
-                          <strong title={item.name}>{item.name}</strong>
-                          <p title={item.path}>{item.path}</p>
-                        </div>
-                        <div className="files-list-row__badges">
-                          <span className="status-pill">{item.file_type}</span>
-                          <span className="status-pill">{new Date(item.modified_at).toLocaleString()}</span>
-                          <span className="status-pill">{formatBytes(item.size_bytes)}</span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-
-                  <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
-                </>
-              ) : null}
-            </>
-          ) : (
-            <div className="future-frame">{t("features.collections.emptyFallback")}</div>
-          )}
-        </div>
       </div>
     </section>
   );
