@@ -382,7 +382,15 @@ def _ensure_library_roots_table(connection: sqlite3.Connection) -> None:
 
 
 def _table_columns(connection: sqlite3.Connection, table_name: str) -> set[str]:
-    return {str(row[1]) for row in connection.execute(f"PRAGMA table_info({table_name})").fetchall()}
+    row = connection.execute(
+        "SELECT name FROM sqlite_master WHERE type = ? AND name = ?",
+        ("table", table_name),
+    ).fetchone()
+    if row is None:
+        return set()
+    return {str(col[1]) for col in connection.execute(
+        "SELECT * FROM pragma_table_info(?)", (table_name,)
+    ).fetchall()}
 
 
 def _ensure_library_v2_tables(connection: sqlite3.Connection) -> None:
