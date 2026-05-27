@@ -25,6 +25,7 @@ class SystemStatusResponse(BaseModel):
     tasks_count: int
     files_count: int
     library_v2_status: str = "data_foundation"
+    last_backup_at: str | None = None
 
 
 class RuntimeDiagnosticsResponse(BaseModel):

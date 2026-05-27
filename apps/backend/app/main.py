@@ -29,7 +29,7 @@ from app.db.session.session import SessionLocal
 def _setup_logging() -> None:
     log_path = settings.data_dir / "backend.log"
     handler = RotatingFileHandler(
-        str(log_path), maxBytes=5 * 1024 * 1024, backupCount=5, encoding="utf-8"
+        str(log_path), maxBytes=5 * 1024 * 1024, backupCount=10, encoding="utf-8"
     )
     handler.setFormatter(logging.Formatter(
         "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
