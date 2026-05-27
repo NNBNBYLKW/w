@@ -6,7 +6,7 @@ Pure read-only — no DB writes, no file operations, no schema changes.
 from __future__ import annotations
 
 from pathlib import Path
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models.file import File
@@ -111,28 +111,21 @@ class BrowseV2Service:
 
         # ── Object cards from library_objects ────────────────
         if include_objects and type_filter:
-            lo_query = session.query(LibraryObject).filter(
+            member_count_subq = (
+                select(func.count(LibraryObjectMember.id))
+                .where(
+                    LibraryObjectMember.object_id == LibraryObject.id,
+                    LibraryObjectMember.member_status == "active",
+                )
+                .correlate(LibraryObject.__table__)
+                .scalar_subquery()
+            )
+            lo_query = session.query(LibraryObject, member_count_subq).filter(
                 LibraryObject.object_type.in_(type_filter),
             )
             lo_rows = lo_query.all()
-            lo_ids = [lo.id for lo in lo_rows]
-            active_member_counts: dict[int, int] = {}
-            if lo_ids:
-                count_rows = (
-                    session.query(
-                        LibraryObjectMember.object_id,
-                        func.count(LibraryObjectMember.id),
-                    )
-                    .filter(
-                        LibraryObjectMember.object_id.in_(lo_ids),
-                        LibraryObjectMember.member_status == "active",
-                    )
-                    .group_by(LibraryObjectMember.object_id)
-                    .all()
-                )
-                active_member_counts = {object_id: count for object_id, count in count_rows}
 
-            for lo in lo_rows:
+            for lo, member_count in lo_rows:
                 if storage_state != "all":
                     # library_objects don't have storage_state yet; skip if filtering
                     # but keep for "managed" since these ARE managed objects
@@ -145,7 +138,7 @@ class BrowseV2Service:
                     source_id=lo.id,
                     object_type=lo.object_type,
                     display_title=lo.title or lo.root_name or lo.root_path,
-                    member_count=active_member_counts.get(lo.id, 0),
+                    member_count=member_count,
                     storage_state="managed",
                     root_path=lo.root_path,
                     needs_review=bool(lo.needs_review),
