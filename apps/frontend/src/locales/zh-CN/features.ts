@@ -1029,6 +1029,7 @@ export const features = {
       managed: "已入库",
       inbox: "导入暂存",
       externalLoose: "外部文件",
+      total: "合计",
     },
     sections: {
       readModelNote: "只读混合浏览模型",
@@ -1102,14 +1103,16 @@ export const features = {
     },
     executePanel: {
       title: "审核并执行计划",
-      preparing: "正在检查计划...",
       ready: "可以执行",
       blocked: "无法执行 — 存在阻塞动作",
       blockedHint: "请修复相关文件冲突后重试。",
       execute: "执行计划",
       executing: "正在执行...",
-      completed: "计划已执行",
+      completed: "计划已执行成功",
       failed: "执行失败",
+      statusLabel: "状态：{status}",
+      objectNameLabel: "对象",
+      membersLabel: "成员",
       close: "关闭",
     },
     errors: {

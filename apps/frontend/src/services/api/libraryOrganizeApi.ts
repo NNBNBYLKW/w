@@ -147,3 +147,15 @@ export async function executePlan(planId: number): Promise<ExecutePlanResponse> 
   const res = await fetch(`${base}/library/organize/plans/${planId}/execute?confirm=true`, { method: "POST" });
   return parseResponse(res);
 }
+
+export interface GetOrganizePlanResponse {
+  plan: { id: number; title: string; status: string; plan_kind: string; summary_json?: string; summary?: string };
+  actions: unknown[];
+  candidates: unknown[];
+}
+
+export async function getOrganizePlan(planId: number): Promise<GetOrganizePlanResponse> {
+  const base = getApiBaseUrl();
+  const res = await fetch(`${base}/library/organize/plans/${planId}`);
+  return parseResponse(res);
+}

@@ -287,6 +287,17 @@ export function BrowseV2Feature() {
             </div>
           )}
 
+          {data ? (
+            <MetricStrip
+              className="browse-v2-summary-strip"
+              items={[
+                { label: t("features.browseV2.metrics.objects"), value: String(data.object_count ?? objectCards.length) },
+                { label: t("features.browseV2.metrics.looseFiles"), value: String(data.loose_file_count ?? looseFileCards.length) },
+                { label: t("features.browseV2.metrics.total"), value: String(data.total) },
+              ]}
+            />
+          ) : null}
+
           <WorkbenchResultFrame
             className="browse-v2-result-frame"
             title={t("features.browseV2.sections.results")}

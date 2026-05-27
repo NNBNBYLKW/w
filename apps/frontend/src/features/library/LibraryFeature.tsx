@@ -63,6 +63,10 @@ export function LibraryFeature() {
         description={t("features.library.description")}
       />
 
+      <div className="library-breadcrumb" style={{padding: "0 0 8px", fontSize: 13, color: "var(--color-text-muted)"}}>
+        {t("navigation.items.fileLibOverview")} &rsaquo; {t(libraryTabs.find(tab => tab.value === activeTab)?.labelKey ?? "features.library.tabs.overview")}
+      </div>
+
       <div className="library-workspace">
         <aside className="library-tab-rail" aria-label={t("features.library.tabsAriaLabel")}>
           <div className="library-tab-rail__header">

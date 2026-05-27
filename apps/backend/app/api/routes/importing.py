@@ -94,7 +94,7 @@ def import_files_to_batch(
     db: Session = Depends(get_db),
 ) -> ImportFilesResponse:
     if not body.paths:
-        raise HTTPException(status_code=400, detail="At least one file path is required.")
+        raise HTTPException(status_code=400, detail="At least one file path is required. Use 'Choose files to import' or enter paths manually.")
     try:
         result = import_service.import_files_to_batch(
             db, batch_id=batch_id, paths=body.paths
@@ -148,7 +148,7 @@ def import_folder_to_batch(
     db: Session = Depends(get_db),
 ) -> dict:
     if not body.paths:
-        raise HTTPException(status_code=400, detail="At least one folder path is required.")
+        raise HTTPException(status_code=400, detail="At least one folder path is required. Select a folder to import as object or loose files.")
     if body.mode not in {"object", "loose_files"}:
         raise HTTPException(
             status_code=400,
@@ -520,11 +520,11 @@ def retry_failed_import(item_id: int, db: Session = Depends(get_db)):
     if item is None:
         raise HTTPException(status_code=404, detail="Inbox item not found.")
     if item.status != "failed":
-        raise HTTPException(status_code=400, detail="Only failed imports can be retried.")
+        raise HTTPException(status_code=400, detail="Only failed imports can be retried. Check the item status in the Inbox tab.")
 
     source = item.source_path
     if not source or not __import__("pathlib").Path(source).exists():
-        raise HTTPException(status_code=400, detail="Source file no longer exists. Cannot retry import.")
+        raise HTTPException(status_code=400, detail="Source file no longer exists. Cannot retry import. Suggested: Verify the original file path and restore the file if needed, or reject this inbox item.")
 
     try:
         target_root = import_service._resolve_inbox_root(db)

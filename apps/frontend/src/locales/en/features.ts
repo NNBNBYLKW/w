@@ -1047,6 +1047,7 @@ export const features = {
       managed: "Managed",
       inbox: "Inbox",
       externalLoose: "External files",
+      total: "Total",
     },
     sections: {
       readModelNote: "Read-only mixed browse model",
@@ -1120,14 +1121,16 @@ export const features = {
     },
     executePanel: {
       title: "Review & Execute Plan",
-      preparing: "Checking plan...",
       ready: "Ready to execute",
       blocked: "Cannot execute — blocked actions found",
       blockedHint: "Fix the underlying file conflicts and try again.",
       execute: "Execute plan",
       executing: "Executing...",
-      completed: "Plan executed",
+      completed: "Plan executed successfully",
       failed: "Execution failed",
+      statusLabel: "Status: {status}",
+      objectNameLabel: "Object",
+      membersLabel: "Members",
       close: "Close",
     },
     errors: {

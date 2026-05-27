@@ -6,7 +6,9 @@ import { useExecutePlan } from "./hooks/useExecutePlan";
 interface Props { planId: number; onClose: () => void; }
 
 export function ExecutePlanPanel({ planId, onClose }: Props) {
-  const { loading, preflight, error, executed, start, execute, reset } = useExecutePlan();
+  const { loading, preflight, error, executed, executionStatus, summary, start, execute, reset } = useExecutePlan();
+  const memberCount = summary ? (summary.finalized_member_count ?? summary.finalized_add_count ?? summary.finalized_remove_count) : null;
+  const objectName = summary ? (summary.object_name as string) : null;
 
   useEffect(() => { start(planId); }, [planId]); // eslint-disable-line
 
@@ -43,7 +45,17 @@ export function ExecutePlanPanel({ planId, onClose }: Props) {
         )}
         {executed && (
           <div className="browse-v2-inline-alert browse-v2-inline-alert--success">
-            {t("features.browseV2.executePanel.completed")}
+            <strong>{t("features.browseV2.executePanel.completed")}</strong>
+            {executionStatus ? <p style={{margin: "8px 0"}}>{executionStatus}</p> : null}
+            {summary ? (
+              <div className="execute-plan-panel__summary" style={{fontSize: 13, lineHeight: 1.8, marginTop: 8}}>
+                {objectName ? <div>{t("features.browseV2.executePanel.objectNameLabel")}: {objectName}</div> : null}
+                {memberCount != null ? <div>{t("features.browseV2.executePanel.membersLabel")}: {memberCount}</div> : null}
+              </div>
+            ) : null}
+            <button className="primary-button" type="button" onClick={close} style={{marginTop: 12}}>
+              {t("features.browseV2.executePanel.close")}
+            </button>
           </div>
         )}
       </div>
