@@ -21,5 +21,7 @@ export {
 } from "./WorkbenchLayout";
 export { ConfirmDialog } from "./ConfirmDialog";
 export { CardSkeleton } from "./CardSkeleton";
+export { Modal } from "./Modal";
+export { Lightbox } from "./Lightbox";
 export { Pagination } from "./Pagination";
 export { ProgressBar } from "./ProgressBar";

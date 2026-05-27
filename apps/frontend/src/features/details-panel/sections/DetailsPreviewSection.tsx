@@ -1,5 +1,7 @@
 import type React from "react";
+import { useState } from "react";
 import { t } from "../../../shared/text";
+import { Lightbox } from "../../../shared/ui/components";
 
 export interface DetailsPreviewSectionProps {
   isImageFile: boolean;
@@ -28,6 +30,7 @@ export function DetailsPreviewSection({
   onImageError,
   onImageLoad,
 }: DetailsPreviewSectionProps) {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   return (
     <section className="details-preview-section">
       <div className="details-preview-section__header">
@@ -46,6 +49,8 @@ export function DetailsPreviewSection({
             alt={t("details.previewAlt", { name })}
             width={320}
             height={180}
+            onClick={() => setLightboxOpen(true)}
+            style={{ cursor: "zoom-in" }}
             onError={onImageError}
             onLoad={onImageLoad}
           />
@@ -63,6 +68,14 @@ export function DetailsPreviewSection({
           </p>
         </div>
       )}
+      {previewImageSrc && !isVideoPreviewActive ? (
+        <Lightbox
+          open={lightboxOpen}
+          src={previewImageSrc}
+          alt={t("details.previewAlt", { name })}
+          onClose={() => setLightboxOpen(false)}
+        />
+      ) : null}
     </section>
   );
 }
