@@ -6,6 +6,8 @@ import { ActionButton } from "../src/shared/ui/components";
 import { t } from "../src/shared/text";
 import { LocaleProvider } from "../src/shared/text/LocaleProvider";
 import { AppSidebar } from "../src/app/shell/AppSidebar";
+import { initializeStoredTheme, ThemeProvider, useTheme } from "../src/shared/theme";
+import { ErrorBoundary } from "../src/shared/ui/ErrorBoundary";
 
 function renderWithProviders(ui: React.ReactElement, { route = "/" } = {}) {
   return render(
@@ -88,5 +90,73 @@ describe("AppSidebar", () => {
     // Parent is expanded because child is active
     const mediaBtn = screen.getByRole("button", { name: t("navigation.items.browseMedia") });
     expect(mediaBtn.getAttribute("aria-expanded")).toBe("true");
+  });
+});
+
+function ThemeProbe() {
+  const { theme, setTheme } = useTheme();
+
+  return (
+    <button type="button" onClick={() => setTheme("light")}>
+      {theme}
+    </button>
+  );
+}
+
+describe("ThemeProvider", () => {
+  it("defaults to the Gallery Lab dark theme when no preference is stored", () => {
+    window.localStorage.clear();
+
+    initializeStoredTheme();
+    render(
+      <ThemeProvider>
+        <ThemeProbe />
+      </ThemeProvider>
+    );
+
+    expect(screen.getByRole("button", { name: "dark" })).toBeInTheDocument();
+    expect(document.documentElement.dataset.theme).toBe("dark");
+  });
+
+  it("keeps a stored light theme and can switch back to light", async () => {
+    window.localStorage.setItem("WORKBENCH_THEME", "light");
+
+    initializeStoredTheme();
+    render(
+      <ThemeProvider>
+        <ThemeProbe />
+      </ThemeProvider>
+    );
+
+    const button = screen.getByRole("button", { name: "light" });
+    expect(button).toBeInTheDocument();
+    expect(document.documentElement.dataset.theme).toBe("light");
+  });
+});
+
+function BrokenComponent(): JSX.Element {
+  throw new Error("test crash");
+}
+
+describe("ErrorBoundary", () => {
+  it("renders fallback UI when child throws", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    render(
+      <ErrorBoundary>
+        <BrokenComponent />
+      </ErrorBoundary>
+    );
+    expect(screen.getByText("Something went wrong")).toBeInTheDocument();
+    expect(screen.getByText("test crash")).toBeInTheDocument();
+    (console.error as unknown as vi.Mock).mockRestore();
+  });
+
+  it("renders children normally when no error", () => {
+    render(
+      <ErrorBoundary>
+        <p>all good</p>
+      </ErrorBoundary>
+    );
+    expect(screen.getByText("all good")).toBeInTheDocument();
   });
 });
