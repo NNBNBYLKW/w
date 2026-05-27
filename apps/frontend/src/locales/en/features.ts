@@ -926,6 +926,7 @@ export const features = {
     chooseCollection: "Choose a collection",
     chooseCollectionDescription: "Select or create a collection to see real-time indexed file results.",
     resultsMeta: "Showing real-time active indexed files for the selected collection.",
+    statsFiles: "{count} files",
     resultsLoading: "Loading matching files...",
     resultsUnavailableTitle: "Collection results unavailable",
     resultsEmpty: "No active indexed files currently match this saved retrieval.",

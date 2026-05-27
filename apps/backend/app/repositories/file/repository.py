@@ -166,6 +166,98 @@ class FileRepository:
         session.flush()
         return int(result.rowcount or 0)
 
+    def count_indexed_files(
+        self,
+        session: Session,
+        *,
+        file_type: str | None = None,
+        file_kind: str | None,
+        source_id: int | None,
+        parent_path: str | None,
+        storage_state: str | None = None,
+        tag_id: int | None,
+        color_tag: str | None,
+    ) -> int:
+        filters = [File.is_deleted.is_(False)]
+        if storage_state is not None:
+            filters.append(File.storage_state == storage_state)
+        if file_type is not None:
+            filters.append(File.file_type == file_type)
+        if file_kind is not None:
+            filters.append(File.file_kind == file_kind)
+        if source_id is not None:
+            filters.append(File.source_id == source_id)
+        if parent_path is not None:
+            filters.append(func.lower(File.parent_path) == parent_path.lower())
+        if tag_id is not None:
+            filters.append(
+                select(1)
+                .select_from(FileTag)
+                .where(FileTag.file_id == File.id, FileTag.tag_id == tag_id)
+                .exists()
+            )
+        if color_tag is not None:
+            filters.append(
+                select(1)
+                .select_from(FileUserMeta)
+                .where(
+                    FileUserMeta.file_id == File.id,
+                    FileUserMeta.color_tag == color_tag,
+                )
+                .exists()
+            )
+        total_statement = select(func.count()).select_from(File).where(*filters)
+        return int(session.scalar(total_statement) or 0)
+
+    def aggregate_indexed_files(
+        self,
+        session: Session,
+        *,
+        file_type: str | None = None,
+        file_kind: str | None,
+        source_id: int | None,
+        parent_path: str | None,
+        storage_state: str | None = None,
+        tag_id: int | None,
+        color_tag: str | None,
+    ) -> dict:
+        filters = [File.is_deleted.is_(False)]
+        if storage_state is not None:
+            filters.append(File.storage_state == storage_state)
+        if file_type is not None:
+            filters.append(File.file_type == file_type)
+        if file_kind is not None:
+            filters.append(File.file_kind == file_kind)
+        if source_id is not None:
+            filters.append(File.source_id == source_id)
+        if parent_path is not None:
+            filters.append(func.lower(File.parent_path) == parent_path.lower())
+        if tag_id is not None:
+            filters.append(
+                select(1)
+                .select_from(FileTag)
+                .where(FileTag.file_id == File.id, FileTag.tag_id == tag_id)
+                .exists()
+            )
+        if color_tag is not None:
+            filters.append(
+                select(1)
+                .select_from(FileUserMeta)
+                .where(
+                    FileUserMeta.file_id == File.id,
+                    FileUserMeta.color_tag == color_tag,
+                )
+                .exists()
+            )
+        stmt = select(
+            func.count().label("total_files"),
+            func.sum(File.size_bytes).label("total_size_bytes"),
+            func.min(File.modified_at_fs).label("oldest_file_at"),
+            func.max(File.modified_at_fs).label("newest_file_at"),
+        ).where(*filters)
+        row = session.execute(stmt).one()
+        return dict(row._mapping)
+
     def list_indexed_files(
         self,
         session: Session,

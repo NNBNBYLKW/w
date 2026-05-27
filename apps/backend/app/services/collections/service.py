@@ -144,6 +144,27 @@ class CollectionsService:
         ]
         return FileListResponse(items=items, page=params.page, page_size=params.page_size, total=total)
 
+    def get_stats(self, session: Session, collection_id: int) -> dict:
+        collection = self.collection_repository.get_by_id(session, collection_id)
+        if collection is None:
+            raise NotFoundError("COLLECTION_NOT_FOUND", "Collection not found.")
+
+        if collection.source_id is not None and self.source_repository.get_by_id(session, collection.source_id) is None:
+            return {"total_files": 0, "total_size_bytes": 0, "oldest_file_at": None, "newest_file_at": None}
+
+        if collection.tag_id is not None and self.tag_repository.get_by_id(session, collection.tag_id) is None:
+            return {"total_files": 0, "total_size_bytes": 0, "oldest_file_at": None, "newest_file_at": None}
+
+        return self.file_repository.aggregate_indexed_files(
+            session,
+            source_id=collection.source_id,
+            parent_path=collection.parent_path,
+            tag_id=collection.tag_id,
+            color_tag=collection.color_tag,
+            file_type=collection.file_type,
+            file_kind=None,
+        )
+
     def _to_list_item(self, session: Session, file) -> FileListItemResponse:
         file_user_meta = self.file_user_meta_repository.get_by_file_id(session, file.id)
         manual_placement = file_user_meta.manual_placement if file_user_meta is not None else None

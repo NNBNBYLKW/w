@@ -1,13 +1,14 @@
 import type { FileListSortBy, FileListSortOrder } from "../../entities/file/types";
 import type { SourceVM } from "../../entities/source/types";
 import type { TagItemVM } from "../../entities/tag/types";
-import type { CollectionVM } from "../../entities/collection/types";
+import type { CollectionStatsVM, CollectionVM } from "../../entities/collection/types";
 import { t } from "../../shared/text";
 import { LoadingState, Pagination } from "../../shared/ui/components";
 import { buildCollectionSummary, formatBytes } from "./collectionsHelpers";
 
 export interface CollectionResultsProps {
   selectedCollection: CollectionVM | null;
+  collectionStats: CollectionStatsVM | null;
   collectionFilesQuery: {
     isLoading: boolean;
     error: unknown;
@@ -46,6 +47,7 @@ export interface CollectionResultsProps {
 
 export function CollectionResults({
   selectedCollection,
+  collectionStats,
   collectionFilesQuery,
   page,
   totalPages,
@@ -99,6 +101,21 @@ export function CollectionResults({
           ) : null}
         </div>
       </div>
+
+      {selectedCollection && collectionStats ? (
+        <div className="files-meta-row" style={{ marginBottom: 8 }}>
+          <span className="status-pill">{t("features.collections.statsFiles", { count: collectionStats.total_files })}</span>
+          {collectionStats.total_size_bytes !== null ? (
+            <span className="status-pill">{formatBytes(collectionStats.total_size_bytes)}</span>
+          ) : null}
+          {collectionStats.oldest_file_at ? (
+            <span className="status-pill">
+              {new Date(collectionStats.oldest_file_at).toLocaleDateString()} &ndash;{" "}
+              {collectionStats.newest_file_at ? new Date(collectionStats.newest_file_at).toLocaleDateString() : ""}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
       {selectedCollection ? (
         <>

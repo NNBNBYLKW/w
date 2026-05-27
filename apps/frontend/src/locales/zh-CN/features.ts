@@ -908,6 +908,7 @@ export const features = {
     chooseCollection: "选择一个集合",
     chooseCollectionDescription: "选择或创建一个集合，以便在这里查看实时的已索引文件结果。",
     resultsMeta: "正在显示所选集合对应的实时活跃已索引文件。",
+    statsFiles: "{count} 个文件",
     resultsLoading: "正在加载匹配文件...",
     resultsUnavailableTitle: "集合结果不可用",
     resultsEmpty: "当前没有活跃已索引文件匹配这个已保存检索。",

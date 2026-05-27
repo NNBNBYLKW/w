@@ -3,6 +3,7 @@ import type {
   CollectionFilesListResponseVM,
   CollectionFilesQueryInput,
   CollectionListResponseVM,
+  CollectionStatsResponseVM,
   CollectionVM,
   CreateCollectionInput,
   UpdateCollectionInput,
@@ -63,4 +64,10 @@ export async function listCollectionFiles(input: CollectionFilesQueryInput): Pro
   });
   const response = await fetch(`${getApiBaseUrl()}/collections/${input.collectionId}/files?${params.toString()}`);
   return parseResponse<CollectionFilesListResponseVM>(response);
+}
+
+
+export async function getCollectionStats(collectionId: number): Promise<CollectionStatsResponseVM> {
+  const response = await fetch(`${getApiBaseUrl()}/collections/${collectionId}/stats`);
+  return parseResponse<CollectionStatsResponseVM>(response);
 }

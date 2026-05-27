@@ -9,6 +9,7 @@ import type { ColorTagValue, FileListSortBy, FileListSortOrder, FileType } from 
 import {
   createCollection,
   deleteCollection,
+  getCollectionStats,
   listCollectionFiles,
   listCollections,
   updateCollection,
@@ -145,6 +146,12 @@ export function CollectionsFeature() {
           sort_by: sortBy,
           sort_order: sortOrder,
         };
+
+  const collectionStatsQuery = useQuery({
+    queryKey: queryKeys.collectionStats(selectedCollectionId ?? 0),
+    queryFn: () => getCollectionStats(selectedCollectionId as number),
+    enabled: selectedCollectionId !== null && !(collectionsQuery.error instanceof Error),
+  });
 
   const collectionFilesQuery = useQuery({
     queryKey: collectionFilesQueryParams ? queryKeys.collectionFiles(collectionFilesQueryParams) : ["collection-files", "idle"],
@@ -354,6 +361,7 @@ export function CollectionsFeature() {
 
         <CollectionResults
           selectedCollection={selectedCollection}
+          collectionStats={collectionStatsQuery.data?.item ?? null}
           collectionFilesQuery={collectionFilesQuery}
           page={page}
           totalPages={totalPages}

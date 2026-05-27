@@ -61,3 +61,12 @@ def list_collection_files(
         sort_order=sort_order,
     )
     return collections_service.list_collection_files(db, collection_id, params)
+
+
+@router.get("/{collection_id}/stats")
+def get_collection_stats(
+    collection_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+) -> dict:
+    stats = collections_service.get_stats(db, collection_id)
+    return {"item": stats}

@@ -45,3 +45,14 @@ export type CollectionFilesQueryInput = {
 
 export type CollectionFilesListItemVM = FilesListItemVM;
 export type CollectionFilesListResponseVM = FilesListResponseVM;
+
+export type CollectionStatsVM = {
+  total_files: number;
+  total_size_bytes: number | null;
+  oldest_file_at: string | null;
+  newest_file_at: string | null;
+};
+
+export type CollectionStatsResponseVM = {
+  item: CollectionStatsVM;
+};
