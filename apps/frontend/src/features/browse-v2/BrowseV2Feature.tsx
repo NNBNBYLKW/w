@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -21,6 +21,7 @@ import { useBrowseV2SearchParams } from "./hooks/useBrowseV2SearchParams";
 import { useBrowseV2Cards } from "./hooks/useBrowseV2Cards";
 import { useBrowseV2ObjectDetail } from "./hooks/useBrowseV2ObjectDetail";
 import { ExecutePlanPanel } from "./ExecutePlanPanel";
+import { useVirtualList } from "../../shared/hooks/useVirtualList";
 
 
 const PAGE_SIZE = 50;
@@ -50,6 +51,18 @@ export function BrowseV2Feature() {
   const showObjects = cardKind !== "loose_file";
   const showLooseFiles = cardKind !== "object";
   const activeScope = getCategoryLabel(domain, category);
+
+  // Virtual list for card rendering
+  const totalCardCount = objectCards.length + looseFileCards.length;
+  const cardContainerRef = useRef<HTMLDivElement>(null);
+  const { startIndex, endIndex, offsetY, totalHeight, onScroll } = useVirtualList(
+    cardContainerRef,
+    { itemHeight: 80, totalItems: totalCardCount },
+  );
+  const allCards = [...(showObjects ? objectCards : []), ...(showLooseFiles ? looseFileCards : [])];
+  const visibleCards = allCards.slice(startIndex, endIndex);
+  const visibleObjectCards = visibleCards.filter(isObjectCard);
+  const visibleLooseFileCards = visibleCards.filter(isLooseFileCard);
 
   // Phase 8C-2: Compose selection
   const [selectedFileIds, setSelectedFileIds] = useState<Set<number>>(new Set());
@@ -317,63 +330,69 @@ export function BrowseV2Feature() {
               <EmptyState title={t("features.browseV2.empty")} />
             ) : null}
             {data && items.length > 0 ? (
-              <div className="browse-v2-result-sections">
-                {showObjects ? (
-                  <section className="browse-v2-result-section">
-                    <header className="browse-v2-result-section__header">
-                      <div>
-                        <span className="workbench-eyebrow">{t("features.browseV2.badges.object")}</span>
-                        <h4>{t("features.browseV2.sections.objects")}</h4>
-                      </div>
-                      <span>{t("features.browseV2.sections.currentPageCount", { count: String(objectCards.length) })}</span>
-                    </header>
-                    {objectCards.length > 0 ? (
-                      <div className="browse-v2-card-grid browse-v2-card-grid--objects">
-                        {objectCards.map((card) => (
-                          <ObjectCard
-                            key={card.namespaced_id}
-                            card={card}
-                            selected={selectedObject?.namespaced_id === card.namespaced_id}
-                            onClick={() => handleCardClick(card)}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="browse-v2-result-section__empty">{t("features.browseV2.sections.noObjectsOnPage")}</p>
-                    )}
-                  </section>
-                ) : null}
-                {showLooseFiles ? (
-                  <section className="browse-v2-result-section">
-                    <header className="browse-v2-result-section__header">
-                      <div>
-                        <span className="workbench-eyebrow">{t("features.browseV2.badges.file")}</span>
-                        <h4>{t("features.browseV2.sections.looseFiles")}</h4>
-                      </div>
-                      <span>{t("features.browseV2.sections.currentPageCount", { count: String(looseFileCards.length) })}</span>
-                    </header>
-                    {looseFileCards.length > 0 ? (
-                      <div className="browse-v2-file-list">
-                        {looseFileCards.map((card) => (
-                          <LooseFileCard
-                            key={`f${card.file_id}`}
-                            card={card}
-                            selected={selectedItemId === String(card.file_id)}
-                            checked={selectedFileIds.has(card.file_id)}
-                            onCheckboxToggle={
-                              card.storage_state === "inbox" || card.storage_state === "external" || card.storage_state === "managed"
-                                ? () => handleCheckboxToggle(card)
-                                : undefined
-                            }
-                            onClick={() => handleCardClick(card)}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="browse-v2-result-section__empty">{t("features.browseV2.sections.noLooseFilesOnPage")}</p>
-                    )}
-                  </section>
-                ) : null}
+              <div ref={cardContainerRef} onScroll={onScroll} style={{ height: "100%", overflow: "auto" }}>
+                <div style={{ height: totalHeight, position: "relative" }}>
+                  <div style={{ position: "absolute", top: offsetY, width: "100%" }}>
+                    <div className="browse-v2-result-sections">
+                      {showObjects && (objectCards.length === 0 || visibleObjectCards.length > 0) ? (
+                        <section className="browse-v2-result-section">
+                          <header className="browse-v2-result-section__header">
+                            <div>
+                              <span className="workbench-eyebrow">{t("features.browseV2.badges.object")}</span>
+                              <h4>{t("features.browseV2.sections.objects")}</h4>
+                            </div>
+                            <span>{t("features.browseV2.sections.currentPageCount", { count: String(objectCards.length) })}</span>
+                          </header>
+                          {objectCards.length > 0 ? (
+                            <div className="browse-v2-card-grid browse-v2-card-grid--objects">
+                              {visibleObjectCards.map((card) => (
+                                <ObjectCard
+                                  key={card.namespaced_id}
+                                  card={card}
+                                  selected={selectedObject?.namespaced_id === card.namespaced_id}
+                                  onClick={() => handleCardClick(card)}
+                                />
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="browse-v2-result-section__empty">{t("features.browseV2.sections.noObjectsOnPage")}</p>
+                          )}
+                        </section>
+                      ) : null}
+                      {showLooseFiles && (looseFileCards.length === 0 || visibleLooseFileCards.length > 0) ? (
+                        <section className="browse-v2-result-section">
+                          <header className="browse-v2-result-section__header">
+                            <div>
+                              <span className="workbench-eyebrow">{t("features.browseV2.badges.file")}</span>
+                              <h4>{t("features.browseV2.sections.looseFiles")}</h4>
+                            </div>
+                            <span>{t("features.browseV2.sections.currentPageCount", { count: String(looseFileCards.length) })}</span>
+                          </header>
+                          {looseFileCards.length > 0 ? (
+                            <div className="browse-v2-file-list">
+                              {visibleLooseFileCards.map((card) => (
+                                <LooseFileCard
+                                  key={`f${card.file_id}`}
+                                  card={card}
+                                  selected={selectedItemId === String(card.file_id)}
+                                  checked={selectedFileIds.has(card.file_id)}
+                                  onCheckboxToggle={
+                                    card.storage_state === "inbox" || card.storage_state === "external" || card.storage_state === "managed"
+                                      ? () => handleCheckboxToggle(card)
+                                      : undefined
+                                  }
+                                  onClick={() => handleCardClick(card)}
+                                />
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="browse-v2-result-section__empty">{t("features.browseV2.sections.noLooseFilesOnPage")}</p>
+                          )}
+                        </section>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : null}
           </WorkbenchResultFrame>
