@@ -16,9 +16,12 @@ export function useExecutePlan() {
     progress: null,
   });
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cancelledRef = useRef(false);
 
   useEffect(() => {
+    cancelledRef.current = false;
     return () => {
+      cancelledRef.current = true;
       if (pollRef.current !== null) {
         clearInterval(pollRef.current);
         pollRef.current = null;
@@ -30,8 +33,9 @@ export function useExecutePlan() {
     setS({ loading: true, planId, preflight: null, error: null, executed: false, executionStatus: null, summary: null, progress: null });
     try {
       const pf = await preparePlan(planId);
+      if (cancelledRef.current) return;
       setS(prev => ({ ...prev, loading: false, preflight: pf }));
-    } catch (e) { setS(prev => ({ ...prev, loading: false, error: String(e) })); }
+    } catch (e) { if (cancelledRef.current) return; setS(prev => ({ ...prev, loading: false, error: String(e) })); }
   };
 
   const execute = async () => {
@@ -41,6 +45,7 @@ export function useExecutePlan() {
     try {
       const planId = s.planId;
       await executePlan(planId);
+      if (cancelledRef.current) return;
       const poll = setInterval(async () => {
         try {
           const detail = await getOrganizePlan(planId);
@@ -57,10 +62,11 @@ export function useExecutePlan() {
         } catch { /* keep polling */ }
       }, 2000);
       pollRef.current = poll;
-    } catch (e) { setS(prev => ({ ...prev, loading: false, error: String(e) })); }
+    } catch (e) { if (cancelledRef.current) return; setS(prev => ({ ...prev, loading: false, error: String(e) })); }
   };
 
   const reset = () => {
+    cancelledRef.current = true;
     if (pollRef.current !== null) {
       clearInterval(pollRef.current);
       pollRef.current = null;
