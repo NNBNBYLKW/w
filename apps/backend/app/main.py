@@ -78,7 +78,7 @@ def create_app() -> FastAPI:
         organize_service.mark_stale_executing_plans_failed(startup_session)
     app = FastAPI(
         title=settings.app_name,
-        version="0.1.0",
+        version="0.3.0",
         openapi_url=None,
         docs_url=None,
         redoc_url=None,
