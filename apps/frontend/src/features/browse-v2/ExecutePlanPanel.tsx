@@ -6,7 +6,7 @@ import { useExecutePlan } from "./hooks/useExecutePlan";
 interface Props { planId: number; onClose: () => void; }
 
 export function ExecutePlanPanel({ planId, onClose }: Props) {
-  const { loading, preflight, error, executed, executionStatus, summary, start, execute, reset } = useExecutePlan();
+  const { loading, preflight, error, executed, executionStatus, summary, progress, start, execute, reset } = useExecutePlan();
   const memberCount = summary ? (summary.finalized_member_count ?? summary.finalized_add_count ?? summary.finalized_remove_count) : null;
   const objectName = summary ? (summary.object_name as string) : null;
 
@@ -40,6 +40,16 @@ export function ExecutePlanPanel({ planId, onClose }: Props) {
               <button className="primary-button" type="button" onClick={execute} disabled={loading} style={{marginTop:12}}>
                 {loading ? t("features.browseV2.executePanel.executing") : t("features.browseV2.executePanel.execute")}
               </button>
+            )}
+            {progress && !executed && (
+              <div style={{marginTop:12}}>
+                <div style={{fontSize:13,color:"var(--color-text-muted)",marginBottom:4}}>
+                  Executing action {progress.done}/{progress.total}...
+                </div>
+                <div className="progress-bar">
+                  <div className="progress-bar__fill" style={{width:`${Math.round(progress.total > 0 ? (progress.done/progress.total)*100 : 0)}%`}} />
+                </div>
+              </div>
             )}
           </>
         )}
