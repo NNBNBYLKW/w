@@ -8,6 +8,7 @@ import { AppSidebar } from "./AppSidebar";
 import { DesktopTitleBar } from "./DesktopTitleBar";
 import { PageContentHeader } from "./PageContentHeader";
 import { RightPanelContainer } from "./RightPanelContainer";
+import { ToastContainer } from "./ToastContainer";
 
 
 export function AppShell() {
@@ -91,6 +92,7 @@ export function AppShell() {
           <RightPanelContainer />
         </div>
       </div>
+      <ToastContainer />
     </div>
   );
 

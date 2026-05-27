@@ -18,3 +18,5 @@ export {
   WorkbenchResultFrame,
   WorkbenchToolbar,
 } from "./WorkbenchLayout";
+export { Pagination } from "./Pagination";
+export { ProgressBar } from "./ProgressBar";
