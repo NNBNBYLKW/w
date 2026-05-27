@@ -551,6 +551,52 @@ class ImportService:
         self.repository.update_inbox_item_status(session, item, "rejected")
         return item
 
+    def retry_failed_import(self, session: Session, item_id: int) -> dict:
+        """Retry a failed import by re-copying the source file to the inbox."""
+        import uuid as _uuid
+        from pathlib import Path as _Path
+
+        item = self.repository.get_inbox_item(session, item_id)
+        if item is None:
+            raise ValueError("Inbox item not found.")
+        if item.status != "failed":
+            raise ValueError(
+                "Only failed imports can be retried. "
+                "Check the item status in the Inbox tab."
+            )
+        source = item.source_path
+        if not source or not _Path(source).exists():
+            raise ValueError(
+                "Source file no longer exists. Cannot retry import. "
+                "Suggested: Verify the original file path and restore the file "
+                "if needed, or reject this inbox item."
+            )
+        target_root = self._resolve_inbox_root(session)
+        managed_source = self._get_managed_source(session)
+        batch_id = item.import_batch_id
+        inbox_dir = self._ensure_inbox_dir(target_root.root_path, batch_id)
+        op_id = str(_uuid.uuid4())
+
+        result = self._copy_one_file(
+            session, self.repository.get_batch(session, batch_id),
+            source, inbox_dir,
+            managed_source.id, target_root.id, op_id,
+        )
+        if result.file_id and result.inbox_item_id:
+            self.repository.update_inbox_item_status(session, item, "imported")
+            item.file_id = result.file_id
+            item.inbox_path = result.inbox_path
+            item.error_message = None
+
+            self.repository.append_journal_entry(
+                session, operation_id=op_id, operation_type="retry_import",
+                entity_type="inbox_item", entity_id=item.id,
+                status="succeeded",
+                after_json=__import__("json").dumps({"new_inbox_path": result.inbox_path}),
+            )
+        session.commit()
+        return {"status": "ok", "inbox_item_id": item.id, "inbox_path": result.inbox_path}
+
     def create_candidate_from_inbox_item(
         self, session: Session, item_id: int,
     ):

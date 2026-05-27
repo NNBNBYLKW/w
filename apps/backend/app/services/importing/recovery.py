@@ -51,7 +51,7 @@ class RecoverySummary:
 class ImportRecoveryService:
     """Read-only recovery diagnostics. Never modifies files or DB state."""
 
-    def scan(self, session: Session) -> RecoverySummary:
+    def scan(self, session: Session) -> tuple[RecoverySummary, str]:
         summary = RecoverySummary()
         findings: list[RecoveryFinding] = []
         scan_id = str(uuid.uuid4())
@@ -118,7 +118,168 @@ class ImportRecoveryService:
             )
         session.commit()
 
-        return summary
+        return summary, scan_id
+
+    def get_latest_scan_id(self, session: Session) -> str | None:
+        """Return the most recent scan_id from persisted findings, or None."""
+        row = session.execute(
+            text("SELECT scan_id FROM recovery_findings ORDER BY rowid DESC LIMIT 1")
+        ).fetchone()
+        return row[0] if row else None
+
+    def get_latest_summary(self, session: Session) -> dict:
+        """Return summary counts from the most recent persisted scan. Read-only — no scan triggered."""
+        scan_id = self.get_latest_scan_id(session)
+        if scan_id is None:
+            return {
+                "orphan_inbox_count": 0,
+                "missing_inbox_count": 0,
+                "missing_managed_count": 0,
+                "failed_import_count": 0,
+                "incomplete_batch_count": 0,
+                "incomplete_journal_count": 0,
+                "high_count": 0,
+                "warning_count": 0,
+                "info_count": 0,
+                "stale": True,
+                "hint": "No scan has been run yet. Use POST /recovery/scan to run a scan.",
+            }
+        rows = session.execute(
+            text(
+                "SELECT severity, COUNT(*) FROM recovery_findings "
+                "WHERE scan_id = :scan_id GROUP BY severity"
+            ),
+            {"scan_id": scan_id},
+        ).fetchall()
+        severity_counts = {"high": 0, "warning": 0, "info": 0}
+        for sev, cnt in rows:
+            severity_counts[sev] = cnt
+
+        type_counts = dict(
+            session.execute(
+                text(
+                    "SELECT finding_type, COUNT(*) FROM recovery_findings "
+                    "WHERE scan_id = :scan_id GROUP BY finding_type"
+                ),
+                {"scan_id": scan_id},
+            ).fetchall()
+        )
+
+        return {
+            "orphan_inbox_count": type_counts.get("orphan_inbox_file", 0),
+            "missing_inbox_count": type_counts.get("missing_inbox_copy", 0),
+            "missing_managed_count": type_counts.get("missing_managed_file", 0),
+            "failed_import_count": type_counts.get("failed_import_item", 0),
+            "incomplete_batch_count": type_counts.get("incomplete_import_batch", 0),
+            "incomplete_journal_count": type_counts.get("incomplete_journal_operation", 0),
+            "high_count": severity_counts["high"],
+            "warning_count": severity_counts["warning"],
+            "info_count": severity_counts["info"],
+            "scan_id": scan_id,
+            "stale": False,
+        }
+
+    def get_latest_findings(
+        self,
+        session: Session,
+        severity: str | None = None,
+        finding_type: str | None = None,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> dict:
+        """Return paginated findings from the most recent persisted scan. Read-only — no scan triggered."""
+        scan_id = self.get_latest_scan_id(session)
+        if scan_id is None:
+            return {
+                "items": [],
+                "total": 0,
+                "page": page,
+                "page_size": page_size,
+                "stale": True,
+                "hint": "No scan has been run yet. Use POST /recovery/scan to run a scan.",
+            }
+        params: dict = {"scan_id": scan_id}
+        where = ["scan_id = :scan_id"]
+        if severity:
+            where.append("severity = :severity")
+            params["severity"] = severity
+        if finding_type:
+            where.append("finding_type = :finding_type")
+            params["finding_type"] = finding_type
+        where_clause = " AND ".join(where)
+
+        total = session.execute(
+            text(f"SELECT COUNT(*) FROM recovery_findings WHERE {where_clause}"),
+            params,
+        ).scalar() or 0
+
+        offset = (page - 1) * page_size
+        rows = session.execute(
+            text(
+                f"SELECT finding_type, severity, entity_type, entity_id, path, message, suggested_action "
+                f"FROM recovery_findings WHERE {where_clause} "
+                f"ORDER BY (CASE severity WHEN 'high' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END), rowid "
+                f"LIMIT :limit OFFSET :offset"
+            ),
+            {**params, "limit": page_size, "offset": offset},
+        ).fetchall()
+
+        return {
+            "items": [
+                {
+                    "finding_type": r[0],
+                    "severity": r[1],
+                    "entity_type": r[2],
+                    "entity_id": r[3],
+                    "path": r[4],
+                    "message": r[5],
+                    "suggested_action": r[6],
+                }
+                for r in rows
+            ],
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "scan_id": scan_id,
+            "stale": False,
+        }
+
+    def get_persisted_findings(
+        self,
+        session: Session,
+        *,
+        severity: str | None = None,
+        scan_id: str | None = None,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> dict:
+        """Return paginated findings with optional severity and scan_id filters."""
+        where: list[str] = []
+        params: dict = {}
+        if severity:
+            where.append("severity = :severity")
+            params["severity"] = severity
+        if scan_id:
+            where.append("scan_id = :scan_id")
+            params["scan_id"] = scan_id
+        where_clause = (" AND " + " AND ".join(where)) if where else ""
+        total = session.execute(
+            text(f"SELECT COUNT(*) FROM recovery_findings{where_clause}"), params
+        ).scalar() or 0
+        offset = (page - 1) * page_size
+        rows = session.execute(
+            text(
+                f"SELECT scan_id, scanned_at, finding_type, severity, entity_type, entity_id, path, message, suggested_action "
+                f"FROM recovery_findings{where_clause} ORDER BY scanned_at DESC LIMIT :limit OFFSET :offset"
+            ),
+            {**params, "limit": page_size, "offset": offset},
+        ).fetchall()
+        return {
+            "items": [dict(r._mapping) for r in rows],
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+        }
 
     # ── detectors ───────────────────────────────────────
 

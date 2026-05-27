@@ -5,7 +5,7 @@ from datetime import datetime
 
 from app.core.time import utcnow
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.db.models.importing import (
@@ -221,6 +221,33 @@ class ImportRepository:
                 .order_by(OperationJournal.created_at.asc(), OperationJournal.id.asc())
             )
         )
+
+    def list_recent_operations(
+        self, session: Session, *, limit: int = 10
+    ) -> list[dict]:
+        """Return the most recent operation journal entries as raw dicts."""
+        rows = session.execute(
+            text(
+                "SELECT id, operation_id, operation_type, entity_type, entity_id, "
+                "status, before_json, after_json, created_at "
+                "FROM operation_journal ORDER BY created_at DESC LIMIT :limit"
+            ),
+            {"limit": limit},
+        ).fetchall()
+        return [
+            {
+                "id": r[0],
+                "operation_id": r[1],
+                "operation_type": r[2],
+                "entity_type": r[3],
+                "entity_id": r[4],
+                "status": r[5],
+                "before_json": r[6],
+                "after_json": r[7],
+                "created_at": r[8],
+            }
+            for r in rows
+        ]
 
     # ——— FilePathHistory ————————————————————————————————————
 

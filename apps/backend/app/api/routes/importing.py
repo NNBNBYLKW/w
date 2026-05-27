@@ -455,34 +455,9 @@ def list_persisted_findings(
     page_size: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
-    from sqlalchemy import text as sa_text
-    where = []
-    params: dict = {}
-    if severity:
-        where.append("severity = :severity")
-        params["severity"] = severity
-    if scan_id:
-        where.append("scan_id = :scan_id")
-        params["scan_id"] = scan_id
-    where_clause = (" AND " + " AND ".join(where)) if where else ""
-    total_row = db.execute(
-        sa_text(f"SELECT COUNT(*) FROM recovery_findings{where_clause}"), params
-    ).fetchone()
-    total = total_row[0] if total_row else 0
-    offset = (page - 1) * page_size
-    rows = db.execute(
-        sa_text(
-            f"SELECT scan_id, scanned_at, finding_type, severity, entity_type, entity_id, path, message, suggested_action "
-            f"FROM recovery_findings{where_clause} ORDER BY scanned_at DESC LIMIT :limit OFFSET :offset"
-        ),
-        {**params, "limit": page_size, "offset": offset},
-    ).fetchall()
-    return {
-        "items": [dict(r._mapping) for r in rows],
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-    }
+    return recovery_service.get_persisted_findings(
+        db, severity=severity, scan_id=scan_id, page=page, page_size=page_size,
+    )
 
 
 @router.get("/recent-operations")
@@ -490,26 +465,8 @@ def list_recent_operations(
     limit: int = Query(default=10, ge=1, le=50),
     db: Session = Depends(get_db),
 ):
-    from sqlalchemy import text as sa_text
-    rows = db.execute(
-        sa_text(
-            "SELECT id, operation_id, operation_type, entity_type, entity_id, "
-            "status, before_json, after_json, created_at "
-            "FROM operation_journal ORDER BY created_at DESC LIMIT :limit"
-        ),
-        {"limit": limit},
-    ).fetchall()
-    return {
-        "items": [
-            {
-                "id": r[0], "operation_id": r[1], "operation_type": r[2],
-                "entity_type": r[3], "entity_id": r[4], "status": r[5],
-                "before_json": r[6], "after_json": r[7], "created_at": r[8],
-            }
-            for r in rows
-        ],
-        "total": len(rows),
-    }
+    items = import_service.repository.list_recent_operations(db, limit=limit)
+    return {"items": items, "total": len(items)}
 
 
 # ── Retry Failed Import ─────────────────────────────────
@@ -519,42 +476,10 @@ def retry_failed_import(item_id: int, db: Session = Depends(get_db)):
     item = import_service.get_inbox_item(db, item_id)
     if item is None:
         raise HTTPException(status_code=404, detail="Inbox item not found.")
-    if item.status != "failed":
-        raise HTTPException(status_code=400, detail="Only failed imports can be retried. Check the item status in the Inbox tab.")
-
-    source = item.source_path
-    if not source or not __import__("pathlib").Path(source).exists():
-        raise HTTPException(status_code=400, detail="Source file no longer exists. Cannot retry import. Suggested: Verify the original file path and restore the file if needed, or reject this inbox item.")
-
     try:
-        target_root = import_service._resolve_inbox_root(db)
-        managed_source = import_service._get_managed_source(db)
-        # get batch
-        batch_id = item.import_batch_id
-        inbox_dir = import_service._ensure_inbox_dir(target_root.root_path, batch_id)
-        op_id = str(__import__("uuid").uuid4())
-
-        result = import_service._copy_one_file(
-            db, import_service.repository.get_batch(db, batch_id),
-            source, inbox_dir,
-            managed_source.id, target_root.id, op_id,
-        )
-        if result.file_id and result.inbox_item_id:
-            import_service.repository.update_inbox_item_status(db, item, "imported")
-            # update file reference on the item
-            item.file_id = result.file_id
-            item.inbox_path = result.inbox_path
-            item.error_message = None
-
-            import_service.repository.append_journal_entry(
-                db, operation_id=op_id, operation_type="retry_import",
-                entity_type="inbox_item", entity_id=item.id,
-                status="succeeded",
-                after_json=__import__("json").dumps({"new_inbox_path": result.inbox_path}),
-            )
-        db.commit()
-        return {"status": "ok", "inbox_item_id": item.id, "inbox_path": result.inbox_path}
-    except Exception as exc:
+        result = import_service.retry_failed_import(db, item_id)
+        return result
+    except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
