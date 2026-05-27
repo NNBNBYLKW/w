@@ -2,7 +2,7 @@ import { useState } from "react";
 import { t } from "../../shared/text";
 import { getObjectTypeGroups, objectTypeLabel } from "../library/objectTypeOptions";
 import type { BrowseV2LooseFileCard } from "../../services/api/browseV2Api";
-import type { LibraryRootVM } from "../../services/api/libraryObjectsApi";
+import type { LibraryRootVM } from "../../entities/library/types";
 import { suggestCollectionName, suggestTypeForFiles } from "./composeHelpers";
 
 interface Props {
@@ -52,13 +52,13 @@ export function ComposeObjectModal({ selectedFiles, roots, selectionSS, onCancel
 
   return (
     <div className="library-inbox-modal-overlay" onClick={busy ? undefined : onCancel}>
-      <div className="library-inbox-modal" role="dialog" onClick={e => e.stopPropagation()} style={{maxWidth:520}}>
+      <div className="library-inbox-modal browse-v2-amendment-modal browse-v2-amendment-modal--wide" role="dialog" onClick={e => e.stopPropagation()}>
         <h3>{t("features.browseV2.compose.title")}</h3>
         <p className="library-inbox-modal-hint">{t("features.browseV2.compose.description")}</p>
-        <div className="library-review-form" style={{marginTop:12}}>
+        <div className="library-review-form browse-v2-compose-form">
           <div className="library-review-form__field">
             <label>{t("features.browseV2.compose.objectName")}</label>
-            <input type="text" value={objectName} onChange={e => setObjectName(e.target.value)} disabled={busy} style={{width:"100%",padding:"4px 8px"}} />
+            <input className="text-input" type="text" value={objectName} onChange={e => setObjectName(e.target.value)} disabled={busy} />
           </div>
           <div className="library-review-form__field">
             <label>{t("features.library.inbox.review.finalObjectType")}</label>
@@ -83,10 +83,10 @@ export function ComposeObjectModal({ selectedFiles, roots, selectionSS, onCancel
             )}
           </div>
         </div>
-        <div className="browse-v2-compose-preview" style={{maxHeight:150,overflowY:"auto",margin:"8px 0",fontSize:12,border:"1px solid #e0e0e0",borderRadius:4,padding:4}}>
+        <div className="browse-v2-compose-preview">
           <strong>{selectedFiles.length} {t("features.browseV2.compose.selectedFiles")}:</strong>
           {selectedFiles.map((f, i) => (
-            <div key={i} style={{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}} title={f.name}>{f.name}</div>
+            <div className="browse-v2-compose-preview__item" key={i} title={f.name}>{f.name}</div>
           ))}
         </div>
         {selectionSS === "inbox" ? (

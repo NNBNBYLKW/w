@@ -41,8 +41,8 @@ export function LooseFileCard({ card, selected, checked, onCheckboxToggle, onCli
       aria-pressed={selected}
     >
       {onCheckboxToggle && (
-        <span className="browse-v2-card__check" onClick={e => { e.stopPropagation(); onCheckboxToggle(); }} style={{display:"flex",alignItems:"center",padding:"0 8px 0 0"}}>
-          <input type="checkbox" checked={!!checked} readOnly tabIndex={-1} style={{cursor:"pointer",pointerEvents:"none"}} />
+        <span className="browse-v2-card__check" onClick={e => { e.stopPropagation(); onCheckboxToggle(); }}>
+          <input className="browse-v2-card__check-input" type="checkbox" checked={!!checked} readOnly tabIndex={-1} />
         </span>
       )}
       <span className="browse-v2-card__mark browse-v2-card__mark--file" aria-hidden="true">
