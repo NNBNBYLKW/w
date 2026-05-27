@@ -3,7 +3,7 @@ import fs from "node:fs";
 import http from "node:http";
 import { execFile, spawn, type ChildProcess } from "node:child_process";
 
-import { app, BrowserWindow, dialog, ipcMain, type OpenDialogOptions } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell, type OpenDialogOptions } from "electron";
 
 
 const frontendUrl = process.env.FRONTEND_URL ?? "http://127.0.0.1:5173";
@@ -15,6 +15,7 @@ const toggleMaximizeWindowChannel = "asset-workbench:toggle-maximize-window";
 const closeWindowChannel = "asset-workbench:close-window";
 const getWindowStateChannel = "asset-workbench:get-window-state";
 const windowStateChangedChannel = "asset-workbench:window-state-changed";
+const openContainingFolderChannel = "asset-workbench:open-containing-folder";
 
 app.setName("Workbench Beta");
 
@@ -320,9 +321,7 @@ function createMainWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      // The preload bridge uses node:fs and node:path to implement desktop open
-      // actions, so it must run outside the sandboxed preload environment.
-      sandbox: false,
+      sandbox: true,
     },
   });
 
@@ -418,6 +417,37 @@ app.whenReady().then(() => {
   ipcMain.handle(getWindowStateChannel, (event) => {
     const ownerWindow = BrowserWindow.fromWebContents(event.sender);
     return getWindowStatePayload(ownerWindow);
+  });
+
+  ipcMain.handle(openContainingFolderChannel, async (_event, filePath: string) => {
+    const normalized = filePath.trim().replace(/\//g, "\\");
+    if (!normalized) {
+      return { ok: false as const, reason: "A usable file path is required." };
+    }
+
+    const parentDir = path.win32.dirname(normalized);
+    if (!parentDir || parentDir === "." || parentDir === normalized) {
+      return { ok: false as const, reason: "A containing folder could not be derived from this file path." };
+    }
+
+    if (!fs.existsSync(parentDir)) {
+      return { ok: false as const, reason: "The containing folder does not exist." };
+    }
+
+    try {
+      if (!fs.statSync(parentDir).isDirectory()) {
+        return { ok: false as const, reason: "The containing folder does not exist." };
+      }
+    } catch {
+      return { ok: false as const, reason: "The containing folder could not be verified." };
+    }
+
+    const errorMessage = await shell.openPath(parentDir);
+    if (errorMessage) {
+      return { ok: false as const, reason: errorMessage };
+    }
+
+    return { ok: true as const };
   });
 
   createMainWindow();
