@@ -7,7 +7,7 @@
 
 ## 目标
 
-修复剩余的 4 项 Bug，将大型文件库性能扩展至 50,000+ 个文件，拆分所有剩余 God 组件，添加缺失的功能和组织层能力，使应用达到正式版发布质量。
+修复 2 项剩余 Bug，将大型文件库性能扩展至 50,000+ 个文件，拆分所有剩余 God 组件和 CSS 文件，添加 11 项缺失的功能和组织层能力，添加 CI/CD 流水线，使应用达到正式版发布质量。总共 30 项有效任务，其中 3 项已在 Phase 9 完成，分 4 个批次。
 
 ## 原则
 
@@ -18,7 +18,7 @@
 
 ---
 
-## 批次 A：Bug 修复与数据库（7 项）
+## 批次 A：Bug 修复与数据库（5 项）
 
 ### A1：BrowseV2 `object_count` / `loose_file_count` 缺失
 
@@ -50,27 +50,7 @@ const poll = setInterval(...);
 
 ---
 
-### A3：托管组合 type_prefix 映射反转
-
-**文件：** `apps/backend/app/services/library/organize.py`
-
-**问题：** `_finalize_managed_compose` 中使用的 `OBJECT_PREFIX` 映射键值对反转。`type_prefix` 被错误地映射为："OBJ" → 大多数对象类型，而非正确的类型到前缀映射。
-
-**修复：** 检查 `OBJECT_PREFIX` 字典并反转键值关系。验证写入 `asset.yaml` 的 `type_prefix` 值与对象类型匹配。审查托管组合最终确定代码路径中的所有查找方向。
-
----
-
-### A4：移除成员 compose 守卫忽略 member_status
-
-**文件：** `apps/backend/app/services/library/organize.py`
-
-**问题：** 被移除的成员以 `member_status = 'removed'` 重新出现，但托管组合守卫查询未过滤 `member_status`，阻止了它们被重新组合。
-
-**修复：** 在用于确定文件是否可被托管组合重用的守卫查询中添加 `WHERE member_status = 'active'` 条件。被移除的成员不应阻止重新组合。
-
----
-
-### A5：数据库迁移版本管理
+### A3：数据库迁移版本管理
 
 **文件：** `apps/backend/app/db/session/engine.py`
 
@@ -84,7 +64,7 @@ const poll = setInterval(...);
 
 ---
 
-### A6：数据库 WAL 日志 + 周期性 VACUUM
+### A4：数据库 WAL 日志 + 周期性 VACUUM
 
 **文件：** `apps/backend/app/db/session/engine.py`、`apps/backend/app/main.py`
 
@@ -96,13 +76,13 @@ const poll = setInterval(...);
 
 ---
 
-### A7：`plan_kind` 枚举约束
+### A5：`plan_kind` 枚举约束
 
 **文件：** `apps/backend/app/db/models/organize.py`
 
-**问题：** `plan_kind` 是一个自由文本字段。在代码中与已知值进行比较，但原则上任何字符串都可以插入。
+**问题：** `plan_kind` 在数据库层面是自由文本字段。Python 代码中已有 `PlanKind` 字符串常量类（`ORGANIZE_INBOX`、`OBJECT_AMENDMENT` 等），但未使用真正的 `enum.Enum` 约束，数据库层面也无约束。
 
-**修复：** 在模型层添加 `PlanKind` 枚举或使用 SQLAlchemy 枚举类型进行约束。更新所有赋值以使用枚举，而非字符串字面量。
+**修复：** 将 `PlanKind` 转换为 `enum.StrEnum`，更新模型以使用 SQLAlchemy 枚举类型，保证数据库层面的约束。
 
 ---
 
