@@ -18,7 +18,7 @@ const SearchPage = lazy(() => import("../../pages/search/SearchPage"));
 const SettingsPage = lazy(() => import("../../pages/settings/SettingsPage"));
 
 function PageLoader() {
-  return <div className="page-loader" aria-busy="true" style={{display:"grid",placeItems:"center",minHeight:200,color:"var(--color-text-muted)",fontSize:14}}>Loading...</div>;
+  return <div className="page-loader" aria-busy="true">Loading...</div>;
 }
 
 function LazyPage({ children }: { children: React.ReactNode }) {
@@ -51,12 +51,7 @@ export function AppRouter() {
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/search" element={<LazyPage><SearchPage /></LazyPage>} />
         <Route path="/library" element={<LazyPage><LibraryPage /></LazyPage>} />
-        <Route path="/files" element={<Navigate to="/library?tab=path" replace />} />
-        <Route path="/books" element={<Navigate to="/browse-v2?domain=documents" replace />} />
-        <Route path="/software" element={<Navigate to="/browse-v2?domain=apps&category=software" replace />} />
-        <Route path="/library/games" element={<Navigate to="/browse-v2?domain=apps&category=game" replace />} />
         <Route path="/browse-v2" element={<LazyPage><BrowseV2Page /></LazyPage>} />
-        <Route path="/library/media" element={<Navigate to="/browse-v2?domain=media" replace />} />
         <Route path="/tools" element={<ToolsPage />} />
         <Route path="/recent" element={<RecentImportsPage />} />
         <Route path="/tags" element={<TagsPage />} />
