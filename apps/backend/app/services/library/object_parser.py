@@ -9,6 +9,13 @@ from typing import Any
 import yaml
 
 
+from app.core.classification import (
+    DOCUMENT_EXTENSIONS_DOTTED as DOCUMENT_EXTENSIONS,
+    IMAGE_EXTENSIONS_DOTTED as IMAGE_EXTENSIONS,
+    VIDEO_EXTENSIONS_DOTTED as VIDEO_EXTENSIONS,
+)
+
+
 SUPPORTED_OBJECT_TYPES = {
     "MOVIE": "movie",
     "ANIME": "anime",
@@ -30,10 +37,7 @@ SUPPORTED_OBJECT_TYPES = {
     "ASSET": "asset_pack",
 }
 
-VIDEO_EXTENSIONS = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v", ".ts"}
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
 SUBTITLE_EXTENSIONS = {".srt", ".ass", ".vtt"}
-DOCUMENT_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".csv", ".ppt", ".pptx", ".md", ".txt", ".rtf"}
 PROJECT_IGNORE_DIRS = {
     "node_modules",
     ".venv",

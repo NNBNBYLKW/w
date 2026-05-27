@@ -18,6 +18,7 @@ from app.db.session.engine import engine, initialize_database
 from app.db.session.session import SessionLocal
 from app.main import app
 from app.services.library.organize import LibraryOrganizeService
+from app.services.library.organize_file_ops import OrganizeFileOps
 
 
 def _dt() -> datetime:
@@ -316,14 +317,14 @@ class LibraryOrganizePartialFailureTestCase(unittest.TestCase):
                 a_yaml_id = a_yaml_action.id
 
             # Execute with patched _execute_action to fail only for candidate A's yaml
-            original_execute = LibraryOrganizeService._execute_action
+            original_execute = OrganizeFileOps.execute_action
 
-            def failing_execute(self, s, action):
+            def failing_execute(self, s, action, preflight_check=None):
                 if action.id == a_yaml_id:
                     raise RuntimeError("Simulated write_asset_yaml failure for test.")
-                return original_execute(self, s, action)
+                return original_execute(self, s, action, preflight_check)
 
-            with patch.object(LibraryOrganizeService, "_execute_action", failing_execute):
+            with patch.object(OrganizeFileOps, "execute_action", failing_execute):
                 with TestClient(app) as client:
                     exe = client.post(f"/library/organize/plans/{plan_id}/execute", json={"confirm": True})
                     self.assertEqual(200, exe.status_code)
@@ -393,14 +394,14 @@ class LibraryOrganizePartialFailureTestCase(unittest.TestCase):
                 self.assertIsNotNone(a_mkdir, "Could not find mkdir action for A")
                 a_mkdir_id = a_mkdir.id
 
-            original_execute = LibraryOrganizeService._execute_action
+            original_execute = OrganizeFileOps.execute_action
 
-            def failing_mkdir(self, s, action):
+            def failing_mkdir(self, s, action, preflight_check=None):
                 if action.id == a_mkdir_id:
                     raise RuntimeError("Simulated mkdir failure for test.")
-                return original_execute(self, s, action)
+                return original_execute(self, s, action, preflight_check)
 
-            with patch.object(LibraryOrganizeService, "_execute_action", failing_mkdir):
+            with patch.object(OrganizeFileOps, "execute_action", failing_mkdir):
                 with TestClient(app) as client:
                     exe = client.post(f"/library/organize/plans/{plan_id}/execute", json={"confirm": True})
                     self.assertEqual(200, exe.status_code)
