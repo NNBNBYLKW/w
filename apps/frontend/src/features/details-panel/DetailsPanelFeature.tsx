@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
@@ -22,6 +22,24 @@ import { DetailsMediaRetrievalSection } from "./sections/DetailsMediaRetrievalSe
 import { DetailsBookRetrievalSection } from "./sections/DetailsBookRetrievalSection";
 import { DetailsSoftwareRetrievalSection } from "./sections/DetailsSoftwareRetrievalSection";
 import { DetailsGameRetrievalSection } from "./sections/DetailsGameRetrievalSection";
+// Memoized section components for switching performance
+const MemoizedIdentitySection = React.memo(DetailsIdentitySection);
+const MemoizedPlacementSection = React.memo(DetailsPlacementSection);
+const MemoizedRatingSection = React.memo(DetailsRatingSection);
+const MemoizedGameStatusSection = React.memo(DetailsGameStatusSection);
+const MemoizedColorTagSection = React.memo(DetailsColorTagSection);
+const MemoizedTagsSection = React.memo(DetailsTagsSection);
+const MemoizedActionsSection = React.memo(DetailsActionsSection);
+const MemoizedFactListSection = React.memo(DetailsFactListSection);
+const MemoizedMetadataSection = React.memo(DetailsMetadataSection);
+const MemoizedStorageSection = React.memo(DetailsStorageSection);
+const MemoizedPreviewSection = React.memo(DetailsPreviewSection);
+const MemoizedBookInfoSection = React.memo(DetailsBookInfoSection);
+const MemoizedSoftwareInfoSection = React.memo(DetailsSoftwareInfoSection);
+const MemoizedMediaRetrievalSection = React.memo(DetailsMediaRetrievalSection);
+const MemoizedBookRetrievalSection = React.memo(DetailsBookRetrievalSection);
+const MemoizedSoftwareRetrievalSection = React.memo(DetailsSoftwareRetrievalSection);
+const MemoizedGameRetrievalSection = React.memo(DetailsGameRetrievalSection);
 import { useRetryingThumbnail, useThumbnailWarmup } from "../../shared/ui/thumbnail";
 import type {
   ColorTagValue,
@@ -120,6 +138,7 @@ export function DetailsPanelFeature() {
     queryKey: parsedFileId !== null ? queryKeys.fileDetail(parsedFileId) : ["file-detail", "idle"],
     queryFn: () => getFileDetails(parsedFileId as number),
     enabled: parsedFileId !== null && !hasInvalidSelectedId,
+    staleTime: 30000,
   });
   const currentItem = detailQuery.data?.item;
   const currentInferredBookFormat =
@@ -461,10 +480,10 @@ export function DetailsPanelFeature() {
         ? getFileVideoPreviewFrameUrl(item.id, activeVideoPreviewFrameIndex)
         : previewThumbnail.imageSrc;
     content = (
-      <div className="details-panel details-inspector details-panel--file">
+      <div className="details-panel details-inspector details-panel--file" key={item.id}>
         <div className="details-inspector__group details-inspector__group--identity">
-          <DetailsIdentitySection name={item.name} fileType={item.file_type} id={item.id} />
-          <DetailsFactListSection
+          <MemoizedIdentitySection name={item.name} fileType={item.file_type} id={item.id} />
+          <MemoizedFactListSection
             path={item.path}
             fileType={item.file_type}
             sizeBytes={item.size_bytes}
@@ -490,7 +509,7 @@ export function DetailsPanelFeature() {
         {item.storage_state && (
           <div className="details-inspector__group details-inspector__group--storage">
             <InspectorSection title={t("details.storage.title")}>
-              <DetailsStorageSection
+              <MemoizedStorageSection
                 storageState={item.storage_state}
                 path={item.path}
                 originalPath={item.original_path}
@@ -502,7 +521,7 @@ export function DetailsPanelFeature() {
           </div>
         )}
         <div className="details-inspector__group details-inspector__group--organization">
-          <DetailsPlacementSection
+          <MemoizedPlacementSection
             manualPlacement={item.manual_placement}
             fileKind={item.file_kind}
             autoPlacementLabel={formatPlacementLabel(item.auto_placement)}
@@ -513,19 +532,19 @@ export function DetailsPanelFeature() {
             onChange={(value) => placementMutation.mutate(value === "auto" ? null : (value as ManualPlacementValue))}
           />
         {isBookContext && inferredBookFormat ? (
-          <DetailsBookInfoSection
+          <MemoizedBookInfoSection
             name={item.name}
             format={inferredBookFormat}
             pageCount={metadata?.page_count ?? null}
           />
         ) : null}
         {isSoftwareContext && inferredSoftwareFormat ? (
-          <DetailsSoftwareInfoSection
+          <MemoizedSoftwareInfoSection
             name={item.name}
             format={inferredSoftwareFormat}
           />
         ) : null}
-          <DetailsMetadataSection
+          <MemoizedMetadataSection
             isMediaFile={isMediaFile}
             isVideoFile={isVideoFile}
             isBookContext={isBookContext}
@@ -543,7 +562,7 @@ export function DetailsPanelFeature() {
         </div>
         {isImageFile || isVideoFile || isExeSoftwareFile || isPdfBookFile ? (
           <div className="details-inspector__group details-inspector__group--preview">
-            <DetailsPreviewSection
+            <MemoizedPreviewSection
               isImageFile={isImageFile}
               isVideoFile={isVideoFile}
               isExeSoftwareFile={isExeSoftwareFile}
@@ -570,7 +589,7 @@ export function DetailsPanelFeature() {
           </div>
         ) : null}
         <div className="details-inspector__group details-inspector__group--signals">
-          <DetailsRatingSection
+          <MemoizedRatingSection
             isFavorite={item.is_favorite}
             rating={item.rating}
             isPending={isUserMetaMutationPending}
@@ -582,7 +601,7 @@ export function DetailsPanelFeature() {
             onClearRating={() => userMetaMutation.mutate({ rating: null })}
           />
           {isGameContext ? (
-            <DetailsGameStatusSection
+            <MemoizedGameStatusSection
               status={item.status}
               isPending={isStatusMutationPending}
               error={statusMutationError}
@@ -591,7 +610,7 @@ export function DetailsPanelFeature() {
               onChange={(value) => statusMutation.mutate(value)}
             />
           ) : null}
-          <DetailsColorTagSection
+          <MemoizedColorTagSection
             colorTag={item.color_tag}
             isPending={isColorTagMutationPending}
             error={colorTagMutationError}
@@ -599,7 +618,7 @@ export function DetailsPanelFeature() {
             currentColorLabel={item.color_tag ?? t("details.values.none")}
             onChange={(value) => colorTagMutation.mutate(value)}
           />
-          <DetailsTagsSection
+          <MemoizedTagsSection
             tags={item.tags}
             tagInput={tagInput}
             isPending={isTagMutationPending}
@@ -616,7 +635,7 @@ export function DetailsPanelFeature() {
           />
         </div>
         {isMediaFile && (firstTag || item.color_tag || (retrievalHint !== null && retrievalHint.kind !== "status")) ? (
-          <DetailsMediaRetrievalSection
+          <MemoizedMediaRetrievalSection
             fileId={item.id}
             firstTag={firstTag}
             colorTag={item.color_tag}
@@ -624,7 +643,7 @@ export function DetailsPanelFeature() {
           />
         ) : null}
         {isBookContext && (firstTag || item.color_tag || retrievalHint?.kind === "tag" || retrievalHint?.kind === "color") ? (
-          <DetailsBookRetrievalSection
+          <MemoizedBookRetrievalSection
             fileId={item.id}
             firstTag={firstTag}
             colorTag={item.color_tag}
@@ -634,7 +653,7 @@ export function DetailsPanelFeature() {
         ) : null}
         {isSoftwareContextForMutations &&
         (firstTag || item.color_tag || retrievalHint?.kind === "tag" || retrievalHint?.kind === "color") ? (
-          <DetailsSoftwareRetrievalSection
+          <MemoizedSoftwareRetrievalSection
             fileId={item.id}
             firstTag={firstTag}
             colorTag={item.color_tag}
@@ -643,7 +662,7 @@ export function DetailsPanelFeature() {
           />
         ) : null}
         {isGameContext ? (
-          <DetailsGameRetrievalSection
+          <MemoizedGameRetrievalSection
             fileId={item.id}
             firstTag={firstTag}
             colorTag={item.color_tag}
@@ -653,7 +672,7 @@ export function DetailsPanelFeature() {
           />
         ) : null}
         <div className="details-inspector__group details-inspector__group--actions">
-          <DetailsActionsSection
+          <MemoizedActionsSection
             isOpenActionPending={isOpenActionPending}
             hasDesktopOpenActions={hasDesktopOpenActions}
             openActionError={openActionError}
