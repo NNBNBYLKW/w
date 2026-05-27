@@ -613,6 +613,30 @@ class ImportService:
         )
         return candidate
 
+    # ── process inbox item (atomic chain) ───────────────────
+
+    def process_inbox_item(
+        self, session: Session, item_id: int, *,
+        final_object_type: str, target_library_root_id: int | None = None,
+    ) -> dict:
+        """Atomically confirm + create-candidate + generate-plan."""
+        self.confirm_inbox_item(
+            session, item_id,
+            final_object_type=final_object_type,
+            target_library_root_id=target_library_root_id,
+        )
+        candidate = self.create_candidate_from_inbox_item(session, item_id)
+        from app.services.library.organize import LibraryOrganizeService
+        from app.repositories.library_organize.repository import LibraryOrganizeRepository
+        repo = LibraryOrganizeRepository()
+        svc = LibraryOrganizeService(repo)
+        plan = svc.generate_plan(session, [candidate.id])
+        return {
+            "plan_id": plan.plan_id,
+            "plan_status": plan.status,
+            "candidate_id": candidate.id,
+        }
+
     # ── object candidate review ─────────────────────────────
 
     def confirm_object_candidate(
