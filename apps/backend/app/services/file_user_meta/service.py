@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from app.core.time import utcnow
 
 from sqlalchemy.orm import Session
 
@@ -13,10 +13,6 @@ from app.core.classification import MANUAL_PLACEMENT_VALUES, effective_placement
 from app.core.errors.exceptions import BadRequestError, NotFoundError
 from app.repositories.file.repository import FileRepository
 from app.repositories.file_user_meta.repository import FileUserMetaRepository
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class FileUserMetaService:
@@ -54,7 +50,7 @@ class FileUserMetaService:
             is_favorite=payload.is_favorite if is_favorite_provided else None,
             rating_provided=rating_provided,
             rating=payload.rating if rating_provided else None,
-            updated_at=_utcnow(),
+            updated_at=utcnow(),
         )
         session.commit()
 
@@ -78,7 +74,7 @@ class FileUserMetaService:
             raise NotFoundError("FILE_NOT_FOUND", "File not found.")
         self._ensure_valid_manual_placement(manual_placement)
 
-        updated_at = _utcnow()
+        updated_at = utcnow()
         self.file_user_meta_repository.upsert_manual_placement(
             session,
             file_id,
@@ -111,7 +107,7 @@ class FileUserMetaService:
         if len(found_ids) != len(deduped_file_ids):
             raise BadRequestError("BATCH_FILE_SELECTION_INVALID", "All selected files must exist and be active.")
 
-        updated_at = _utcnow()
+        updated_at = utcnow()
         self.file_user_meta_repository.upsert_manual_placement_for_files(
             session,
             deduped_file_ids,

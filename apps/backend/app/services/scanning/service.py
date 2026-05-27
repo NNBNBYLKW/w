@@ -1,9 +1,10 @@
 import os
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy.orm import Session
 
+from app.core.time import utcnow
 from app.db.models.source import Source
 from app.db.models.task import Task
 from app.repositories.file.repository import FileRepository
@@ -12,10 +13,6 @@ from app.services.library.path_safety import paths_overlap
 from app.services.metadata.service import MetadataService
 from app.services.tasks.service import TaskService
 from app.workers.scanning.scanner import ScannerWorker
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class ScanningService:
@@ -27,7 +24,7 @@ class ScanningService:
         self.worker = ScannerWorker()
 
     def run_source_scan_inline(self, session: Session, source: Source, task: Task) -> Task:
-        started_at = _utcnow()
+        started_at = utcnow()
         self.task_service.mark_running(task, started_at)
         source.last_scan_status = "running"
         source.updated_at = started_at
@@ -46,7 +43,7 @@ class ScanningService:
             )
             self.metadata_service.enrich_scanned_files(session, seen_files)
 
-            finished_at = _utcnow()
+            finished_at = utcnow()
             self.task_service.mark_succeeded(task, finished_at)
             source.last_scan_status = "succeeded"
             source.discovered_count = len(records)
@@ -64,7 +61,7 @@ class ScanningService:
             if failed_task is None or failed_source is None:
                 raise
 
-            finished_at = _utcnow()
+            finished_at = utcnow()
             self.task_service.mark_failed(failed_task, str(exc), finished_at)
             failed_source.last_scan_status = "failed"
             failed_source.updated_at = finished_at
@@ -84,7 +81,7 @@ class ScanningService:
         return tuple(Path(normalized).parts)
 
     def _next_scan_marker(self, session: Session, source: Source) -> datetime:
-        candidate = _utcnow()
+        candidate = utcnow()
         latest_last_seen = self.file_repository.get_latest_last_seen_at_for_source(session, source.id)
         floors = [value for value in (source.last_scan_at, latest_last_seen) if value is not None]
         if not floors:

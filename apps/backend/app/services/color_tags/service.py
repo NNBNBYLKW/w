@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from app.core.time import utcnow
 
 from sqlalchemy.orm import Session
 
@@ -9,10 +9,6 @@ from app.repositories.file_user_meta.repository import FileUserMetaRepository
 
 
 ALLOWED_COLOR_TAGS = {"red", "yellow", "green", "blue", "purple"}
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class ColorTagsService:
@@ -26,7 +22,7 @@ class ColorTagsService:
             raise NotFoundError("FILE_NOT_FOUND", "File not found.")
 
         normalized_color_tag = self._normalize_color_tag(raw_color_tag)
-        updated_at = _utcnow()
+        updated_at = utcnow()
 
         if normalized_color_tag is None:
             self.file_user_meta_repository.clear_color_tag(session, file_id, updated_at)
@@ -52,7 +48,7 @@ class ColorTagsService:
             raise BadRequestError("BATCH_FILE_SELECTION_INVALID", "One or more selected files are unavailable.")
 
         normalized_color_tag = self._normalize_color_tag(raw_color_tag)
-        updated_at = _utcnow()
+        updated_at = utcnow()
 
         if normalized_color_tag is None:
             self.file_user_meta_repository.clear_color_tag_for_files(session, deduped_file_ids, updated_at)

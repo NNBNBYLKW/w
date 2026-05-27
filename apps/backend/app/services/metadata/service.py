@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from app.core.time import utcnow
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -6,10 +6,6 @@ from sqlalchemy.orm import Session
 from app.db.models.file import File
 from app.repositories.file_metadata.repository import FileMetadataRepository
 from app.workers.metadata.extractor import MetadataExtractorWorker
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class MetadataService:
@@ -46,7 +42,7 @@ class MetadataService:
                         height=metadata.height,
                         duration_ms=metadata.duration_ms,
                         page_count=metadata.page_count,
-                        updated_at=_utcnow(),
+                        updated_at=utcnow(),
                     )
             except SQLAlchemyError:
                 continue

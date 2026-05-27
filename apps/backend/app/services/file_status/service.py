@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from app.core.time import utcnow
 
 from sqlalchemy.orm import Session
 
@@ -9,10 +9,6 @@ from app.repositories.file_user_meta.repository import FileUserMetaRepository
 
 
 ALLOWED_FILE_STATUSES = {"playing", "completed", "shelved"}
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class FileStatusService:
@@ -26,7 +22,7 @@ class FileStatusService:
             raise NotFoundError("FILE_NOT_FOUND", "File not found.")
 
         normalized_status = self._normalize_status(raw_status)
-        updated_at = _utcnow()
+        updated_at = utcnow()
 
         if normalized_status is None:
             self.file_user_meta_repository.clear_status(session, file_id, updated_at)

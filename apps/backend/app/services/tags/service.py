@@ -1,5 +1,6 @@
 import re
-from datetime import UTC, datetime
+
+from app.core.time import utcnow
 
 from sqlalchemy.orm import Session
 
@@ -16,10 +17,6 @@ from app.repositories.tag.repository import TagRepository
 
 
 WHITESPACE_PATTERN = re.compile(r"\s+")
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class TagsService:
@@ -39,7 +36,7 @@ class TagsService:
         if existing_tag is not None:
             return TagResponse(item=self._to_tag_item(existing_tag)), False
 
-        now = _utcnow()
+        now = utcnow()
         tag = Tag(
             name=cleaned_name,
             normalized_name=normalized_name,
@@ -58,7 +55,7 @@ class TagsService:
         cleaned_name, normalized_name = self._normalize_tag_name(payload.name)
         tag = self.tag_repository.get_by_normalized_name(session, normalized_name)
         if tag is None:
-            now = _utcnow()
+            now = utcnow()
             tag = Tag(
                 name=cleaned_name,
                 normalized_name=normalized_name,
@@ -67,7 +64,7 @@ class TagsService:
             )
             self.tag_repository.add(session, tag)
 
-        self.file_tag_repository.attach_tag(session, file_id, tag.id, _utcnow())
+        self.file_tag_repository.attach_tag(session, file_id, tag.id, utcnow())
         session.commit()
         return self._build_file_tag_list(session, file_id)
 
@@ -83,7 +80,7 @@ class TagsService:
         cleaned_name, normalized_name = self._normalize_tag_name(payload.name)
         tag = self.tag_repository.get_by_normalized_name(session, normalized_name)
         if tag is None:
-            now = _utcnow()
+            now = utcnow()
             tag = Tag(
                 name=cleaned_name,
                 normalized_name=normalized_name,
@@ -92,7 +89,7 @@ class TagsService:
             )
             self.tag_repository.add(session, tag)
 
-        self.file_tag_repository.attach_tag_to_files(session, deduped_file_ids, tag.id, _utcnow())
+        self.file_tag_repository.attach_tag_to_files(session, deduped_file_ids, tag.id, utcnow())
         session.commit()
         return BatchTagAttachResponse(
             updated_file_ids=deduped_file_ids,

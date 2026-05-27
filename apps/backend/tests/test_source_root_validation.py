@@ -1,7 +1,8 @@
 import tempfile
 import unittest
-from datetime import UTC, datetime
 from pathlib import Path
+
+from app.core.time import utcnow
 
 from fastapi.testclient import TestClient
 from sqlalchemy import text
@@ -10,10 +11,6 @@ from app.db.models.source import Source
 from app.db.session.engine import engine
 from app.db.session.session import SessionLocal
 from app.main import app
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class SourceRootValidationTestCase(unittest.TestCase):
@@ -84,8 +81,8 @@ class SourceRootValidationTestCase(unittest.TestCase):
                     scan_mode="manual_plus_basic_incremental",
                     last_scan_at=None,
                     last_scan_status=None,
-                    created_at=_utcnow(),
-                    updated_at=_utcnow(),
+                    created_at=utcnow(),
+                    updated_at=utcnow(),
                 )
                 session.add(source)
                 session.commit()
@@ -115,8 +112,8 @@ class SourceRootValidationTestCase(unittest.TestCase):
                     scan_mode="manual_plus_basic_incremental",
                     last_scan_at=None,
                     last_scan_status=None,
-                    created_at=_utcnow(),
-                    updated_at=_utcnow(),
+                    created_at=utcnow(),
+                    updated_at=utcnow(),
                 )
                 second = Source(
                     path=str(nested),
@@ -125,8 +122,8 @@ class SourceRootValidationTestCase(unittest.TestCase):
                     scan_mode="manual_plus_basic_incremental",
                     last_scan_at=None,
                     last_scan_status=None,
-                    created_at=_utcnow(),
-                    updated_at=_utcnow(),
+                    created_at=utcnow(),
+                    updated_at=utcnow(),
                 )
                 session.add(first)
                 session.add(second)

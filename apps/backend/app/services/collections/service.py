@@ -1,5 +1,3 @@
-from datetime import UTC, datetime
-
 from sqlalchemy.orm import Session
 
 from app.api.schemas.collection import (
@@ -13,6 +11,7 @@ from app.api.schemas.common import MessageResponse
 from app.api.schemas.file import FileListItemResponse, FileListResponse
 from app.core.classification import effective_placement
 from app.core.errors.exceptions import BadRequestError, NotFoundError
+from app.core.time import utcnow
 from app.db.models.collection import Collection
 from app.repositories.collection.repository import CollectionRepository
 from app.repositories.file.repository import FileRepository
@@ -22,10 +21,6 @@ from app.repositories.tag.repository import TagRepository
 
 
 ALLOWED_COLOR_TAGS = {"red", "yellow", "green", "blue", "purple"}
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class CollectionsService:
@@ -50,7 +45,7 @@ class CollectionsService:
             source_id=payload.source_id,
             parent_path=payload.parent_path,
         )
-        now = _utcnow()
+        now = utcnow()
         collection = Collection(
             name=validated["name"],
             file_type=payload.file_type,
@@ -100,7 +95,7 @@ class CollectionsService:
         collection.color_tag = validated["color_tag"]
         collection.source_id = validated["source_id"]
         collection.parent_path = validated["parent_path"]
-        collection.updated_at = _utcnow()
+        collection.updated_at = utcnow()
         self.collection_repository.save(session, collection)
         session.commit()
         session.refresh(collection)

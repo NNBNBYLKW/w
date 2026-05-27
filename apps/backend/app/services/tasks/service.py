@@ -1,5 +1,7 @@
 import json
-from datetime import UTC, datetime
+from datetime import datetime
+
+from app.core.time import utcnow
 
 from sqlalchemy.orm import Session
 
@@ -7,16 +9,12 @@ from app.db.models.task import Task
 from app.repositories.task.repository import TaskRepository
 
 
-def _utcnow() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
-
-
 class TaskService:
     def __init__(self) -> None:
         self.task_repository = TaskRepository()
 
     def create_pending_scan_task(self, session: Session, source_id: int) -> Task:
-        now = _utcnow()
+        now = utcnow()
         task = Task(
             task_type="scan_source",
             status="pending",

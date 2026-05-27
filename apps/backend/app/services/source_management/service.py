@@ -1,6 +1,7 @@
 import os
-from datetime import UTC, datetime
 from pathlib import Path
+
+from app.core.time import utcnow
 
 from sqlalchemy.orm import Session
 
@@ -12,10 +13,6 @@ from app.repositories.source.repository import SourceRepository
 from app.services.library.path_safety import paths_overlap
 from app.services.scanning.service import ScanningService
 from app.services.tasks.service import TaskService
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class SourceManagementService:
@@ -40,7 +37,7 @@ class SourceManagementService:
         if not canonical_path:
             raise ConflictError("INVALID_SOURCE_PATH", "Source path cannot be empty.")
         self._ensure_source_root_allowed(session, canonical_path)
-        now = _utcnow()
+        now = utcnow()
         source = Source(
             path=canonical_path,
             display_name=payload.display_name,
@@ -67,7 +64,7 @@ class SourceManagementService:
             source.display_name = payload.display_name
         if payload.is_enabled is not None:
             source.is_enabled = payload.is_enabled
-        source.updated_at = _utcnow()
+        source.updated_at = utcnow()
         session.commit()
         session.refresh(source)
         latest_task = self.task_service.list_latest_scan_tasks_by_source_ids(session, [source.id]).get(source.id)
