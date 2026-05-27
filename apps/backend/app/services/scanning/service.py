@@ -34,7 +34,13 @@ class ScanningService:
             self._ensure_non_overlapping_roots(session, source)
             scanned_at = self._next_scan_marker(session, source)
             records = self.worker.scan_source(source.path)
-            self.file_repository.upsert_discovered_files(session, source.id, records, scanned_at)
+
+            for record in records:
+                record.source_id = source.id
+            for i in range(0, len(records), 500):
+                chunk = records[i:i + 500]
+                self.file_repository.bulk_upsert_files(session, chunk, scanned_at)
+
             self.file_repository.mark_unseen_files_deleted(session, source.id, scanned_at)
             seen_files = self.file_repository.list_seen_files_for_source_scan(
                 session,

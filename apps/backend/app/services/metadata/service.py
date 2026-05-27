@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.db.models.file import File
 from app.repositories.file_metadata.repository import FileMetadataRepository
 from app.workers.metadata.extractor import MetadataExtractorWorker
+from app.workers.scanning.scanner import SKIP_METADATA_EXTENSIONS
 
 
 class MetadataService:
@@ -15,6 +16,9 @@ class MetadataService:
 
     def enrich_scanned_files(self, session: Session, files: list[File]) -> None:
         for file in files:
+            if file.extension and f".{file.extension}" in SKIP_METADATA_EXTENSIONS:
+                continue
+
             try:
                 metadata = self.extractor.extract_for_file(file)
             except Exception as error:

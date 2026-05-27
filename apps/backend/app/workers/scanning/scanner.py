@@ -15,6 +15,13 @@ from app.core.classification import (
 
 REPARSE_POINT_ATTRIBUTE = 0x0400
 
+SKIP_METADATA_EXTENSIONS = frozenset({
+    ".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz",
+    ".exe", ".dll", ".msi",
+    ".iso", ".bin", ".cue", ".img",
+    ".lnk", ".url",
+})
+
 
 @dataclass(slots=True)
 class DiscoveredFileRecord:
@@ -30,6 +37,8 @@ class DiscoveredFileRecord:
     size_bytes: int | None
     created_at_fs: datetime | None
     modified_at_fs: datetime | None
+    source_id: int = 0
+    skip_metadata: bool = False
 
 
 class ScannerWorker:
@@ -72,7 +81,8 @@ class ScannerWorker:
 
     def _build_record(self, entry_path: str, stat_result: os.stat_result) -> DiscoveredFileRecord:
         file_path = Path(entry_path).resolve(strict=False)
-        extension = file_path.suffix.lower().removeprefix(".") or None
+        suffix = file_path.suffix.lower()
+        extension = suffix.removeprefix(".") or None
         classification = classify_file(extension, str(file_path))
         return DiscoveredFileRecord(
             path=str(file_path),
@@ -87,6 +97,7 @@ class ScannerWorker:
             size_bytes=stat_result.st_size,
             created_at_fs=self._from_timestamp(stat_result.st_ctime),
             modified_at_fs=self._from_timestamp(stat_result.st_mtime),
+            skip_metadata=bool(suffix and suffix in SKIP_METADATA_EXTENSIONS),
         )
 
     def _should_skip_entry(self, entry: os.DirEntry[str], stat_result: os.stat_result) -> bool:

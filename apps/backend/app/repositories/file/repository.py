@@ -7,6 +7,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session, aliased
 
 from app.core.classification import classify_file
+from app.core.time import utcnow
 from app.db.models.file import File
 from app.db.models.file_tag import FileTag
 from app.db.models.file_user_meta import FileUserMeta
@@ -113,6 +114,45 @@ class FileRepository:
 
         session.flush()
         return total
+
+    def bulk_upsert_files(
+        self,
+        session: Session,
+        records: list[DiscoveredFileRecord],
+        scanned_at: datetime | None = None,
+    ) -> None:
+        now = scanned_at or utcnow()
+        values = [
+            {
+                "path": r.path,
+                "parent_path": r.parent_path,
+                "name": r.name,
+                "extension": r.extension,
+                "file_type": r.file_type,
+                "file_kind": r.file_kind,
+                "auto_placement": r.auto_placement,
+                "size_bytes": r.size_bytes,
+                "modified_at_fs": r.modified_at_fs,
+                "created_at_fs": r.created_at_fs,
+                "source_id": r.source_id,
+                "discovered_at": now,
+                "last_seen_at": now,
+                "updated_at": now,
+                "is_deleted": False,
+            }
+            for r in records
+        ]
+        stmt = sqlite_insert(File).values(values)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["path"],
+            set_={
+                "last_seen_at": now,
+                "size_bytes": stmt.excluded.size_bytes,
+                "modified_at_fs": stmt.excluded.modified_at_fs,
+            },
+        )
+        session.execute(stmt)
+        session.flush()
 
     def mark_unseen_files_deleted(self, session: Session, source_id: int, scanned_at: datetime) -> int:
         statement = (
