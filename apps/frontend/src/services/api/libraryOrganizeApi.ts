@@ -9,6 +9,23 @@ function getApiBaseUrl() {
 
 const BASE = () => `${getApiBaseUrl()}/library/organize`;
 
+async function parseResponse<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as
+      | { error?: { message?: string } }
+      | { detail?: unknown }
+      | null;
+    if (payload && "error" in payload) {
+      throw new Error(payload.error?.message ?? "Request failed.");
+    }
+    if (payload && "detail" in payload) {
+      throw new Error(typeof payload.detail === "string" ? payload.detail : "Request failed.");
+    }
+    throw new Error("Request failed.");
+  }
+  return response.json() as Promise<T>;
+}
+
 export interface ManagedComposePlanMember {
   file_id: number;
   role: string;
@@ -98,4 +115,35 @@ export async function createObjectAmendmentPlan(
     throw new Error(payload?.detail || "Failed to create amendment plan.");
   }
   return res.json() as Promise<AmendmentPlanResponse>;
+}
+
+// ── Phase 8E: Plan Prepare & Execute ──────────────────────
+
+export interface PreparePlanResponse {
+  plan_id: number;
+  can_execute: boolean;
+  blocked_count: number;
+  warning_count: number;
+  actions: Array<{
+    id: number; action_order: number; action_type: string;
+    source_path: string | null; target_path: string | null;
+    status: string; conflict_status: string; conflict_message: string | null;
+  }>;
+  messages: string[];
+}
+
+export async function preparePlan(planId: number): Promise<PreparePlanResponse> {
+  const base = getApiBaseUrl();
+  const res = await fetch(`${base}/library/organize/plans/${planId}/prepare`, { method: "POST" });
+  return parseResponse(res);
+}
+
+export interface ExecutePlanResponse {
+  plan_id: number; status: string; execution_summary_json?: string;
+}
+
+export async function executePlan(planId: number): Promise<ExecutePlanResponse> {
+  const base = getApiBaseUrl();
+  const res = await fetch(`${base}/library/organize/plans/${planId}/execute?confirm=true`, { method: "POST" });
+  return parseResponse(res);
 }

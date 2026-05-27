@@ -443,3 +443,22 @@ export async function getRecentOperations(limit = 10): Promise<{ items: RecentOp
   if (!res.ok) throw new Error("Failed to fetch recent operations");
   return res.json();
 }
+
+// ── Phase 8E: Process Inbox Item ──────────────────────────
+
+export interface ProcessInboxItemRequest {
+  final_object_type: string;
+  target_library_root_id?: number;
+}
+
+export interface ProcessInboxItemResponse {
+  plan_id: number; plan_status: string; candidate_id: number;
+}
+
+export async function processInboxItem(itemId: number, body: ProcessInboxItemRequest): Promise<ProcessInboxItemResponse> {
+  const base = getApiBaseUrl();
+  const res = await fetch(`${base}/library/import/inbox/items/${itemId}/process`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  return parseResponse(res);
+}
