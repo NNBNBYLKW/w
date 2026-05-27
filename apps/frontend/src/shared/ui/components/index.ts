@@ -20,5 +20,6 @@ export {
   WorkbenchToolbar,
 } from "./WorkbenchLayout";
 export { ConfirmDialog } from "./ConfirmDialog";
+export { CardSkeleton } from "./CardSkeleton";
 export { Pagination } from "./Pagination";
 export { ProgressBar } from "./ProgressBar";

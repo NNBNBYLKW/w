@@ -10,8 +10,7 @@ import { listLibraryRoots } from "../../services/api/libraryObjectsApi";
 import type { LibraryRootVM } from "../../entities/library/types";
 import { t } from "../../shared/text";
 import { DOMAINS } from "../../shared/browse-taxonomy";
-import { InspectorSection, MetricStrip, Pagination, WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
-import { LoadingState } from "../../shared/ui/components/LoadingState";
+import { CardSkeleton, InspectorSection, MetricStrip, Pagination, WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
 import { EmptyState } from "../../shared/ui/components/EmptyState";
 import { ComposeObjectModal } from "./ComposeObjectModal";
 import { LooseFileCard } from "./LooseFileCard";
@@ -320,7 +319,7 @@ export function BrowseV2Feature() {
               total: String(totalPages),
             }) : t("common.states.loading")}
           >
-            {isLoading ? <LoadingState /> : null}
+            {isLoading ? <CardSkeleton count={8} variant="card" /> : null}
             {isError ? (
               <div className="browse-v2-state browse-v2-state--error" role="alert">
                 {t("features.browseV2.errors.loadFailed")}: {String(error)}
