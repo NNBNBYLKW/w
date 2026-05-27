@@ -767,7 +767,7 @@ class LibraryOrganizeService:
                 self._finalize_managed_compose(session, plan_id, failed)
 
                 # Phase 8D-C: Finalize object amendment
-                self._finalize_object_amendment(session, plan_id, failed)
+                self._finalize_object_amendment(session, plan_id, failed, skipped)
 
                 plan = self.repository.get_plan(session, plan_id)
                 if plan is None:
@@ -2536,7 +2536,7 @@ class LibraryOrganizeService:
         return all(self._is_action_success_status(action.status) for action in required_actions)
 
     def _finalize_object_amendment(
-        self, session: Session, plan_id: int, failed_count: int,
+        self, session: Session, plan_id: int, failed_count: int, skipped_count: int = 0,
     ) -> None:
         """After successful execute, finalize object amendment (add/remove members).
 
@@ -2549,7 +2549,7 @@ class LibraryOrganizeService:
             return
         if plan.plan_kind != PlanKind.OBJECT_AMENDMENT:
             return
-        if failed_count > 0:
+        if failed_count > 0 or skipped_count > 0:
             return
 
         summary: dict[str, Any] = {}
