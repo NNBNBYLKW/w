@@ -1,10 +1,43 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+
+import { usePolling } from "../../shared/hooks/usePolling";
 
 import { t } from "../../shared/text";
-import { createSource, getSources, SourcesApiError, triggerSourceScan } from "../../services/api/sourcesApi";
+import { createSource, getSource, getSources, SourcesApiError, triggerSourceScan } from "../../services/api/sourcesApi";
 import { queryKeys } from "../../services/query/queryKeys";
 import { invalidateSourceSurfaces } from "../../services/query/invalidation";
+
+
+function ScanProgressIndicator({ sourceId, initialStatus }: { sourceId: number; initialStatus: string | null }) {
+  const { data, start } = usePolling(
+    () => getSource(sourceId),
+    (d) => d.last_scan_status !== "running",
+    2000,
+  );
+
+  useEffect(() => {
+    if (initialStatus === "running") {
+      start();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (initialStatus !== "running" && !data) return null;
+
+  const status = data?.last_scan_status ?? initialStatus;
+  const count = data?.discovered_count;
+
+  if (status === "running") {
+    return <span style={{color:"var(--color-accent)",fontSize:13}}>Scanning...{count ? ` ${count} files found` : ""}</span>;
+  }
+  if (status === "succeeded") {
+    return <span style={{color:"var(--color-success)",fontSize:13}}>Scan complete{count ? `: ${count} files` : ""}</span>;
+  }
+  if (status === "failed") {
+    return <span style={{color:"var(--color-danger)",fontSize:13}}>Scan failed</span>;
+  }
+  return null;
+}
 
 
 export function SourceManagementFeature() {
@@ -224,15 +257,16 @@ export function SourceManagementFeature() {
                 <strong>{source.display_name || source.path}</strong>
                 <p className="source-row__path">{source.path}</p>
                 <p className="source-row__path">
-                  {t("settings.sourceManagement.savedSources.statusLabel", {
-                    status: formatScanStatusLabel(source.last_scan_status),
-                  })}
+                  {source.last_scan_status === "running" ? (
+                    <ScanProgressIndicator sourceId={source.id} initialStatus={source.last_scan_status} />
+                  ) : (
+                    t("settings.sourceManagement.savedSources.statusLabel", {
+                      status: formatScanStatusLabel(source.last_scan_status),
+                    })
+                  )}
                 </p>
                 {source.last_scan_status === null ? (
                   <p className="source-row__path">{t("settings.sourceManagement.savedSources.runScanHint")}</p>
-                ) : null}
-                {source.last_scan_status === "running" ? (
-                  <p className="source-row__path">{t("settings.sourceManagement.savedSources.runningHint")}</p>
                 ) : null}
                 {source.last_scan_status === "failed" && source.last_scan_error_message ? (
                   <p className="source-row__path">

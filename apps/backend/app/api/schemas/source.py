@@ -24,6 +24,7 @@ class SourceResponse(BaseModel):
     last_scan_at: datetime | None
     last_scan_status: str | None
     last_scan_error_message: str | None = None
+    discovered_count: int | None = None
     created_at: datetime
     updated_at: datetime
 

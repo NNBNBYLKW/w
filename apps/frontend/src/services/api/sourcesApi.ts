@@ -48,6 +48,12 @@ export async function getSources(): Promise<SourceVM[]> {
 }
 
 
+export async function getSource(sourceId: number): Promise<SourceVM> {
+  const response = await fetch(`${getApiBaseUrl()}/sources/${sourceId}`);
+  return parseResponse<SourceVM>(response);
+}
+
+
 export async function createSource(input: CreateSourceInput): Promise<SourceVM> {
   const response = await fetch(`${getApiBaseUrl()}/sources`, {
     method: "POST",

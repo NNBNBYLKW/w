@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { usePolling } from "../../shared/hooks/usePolling";
+
 import { t } from "../../shared/text";
 import { hasDesktopFilePicker, selectImportFiles, selectImportFolder } from "../../services/desktop/filePicker";
 import {
   confirmInboxItem, confirmObjectCandidate, createCandidateFromInboxItem,
-  createCandidateFromObjectCandidate, createImportBatch, generateDraftPlan,
+  createCandidateFromObjectCandidate, createImportBatch, generateDraftPlan, getImportBatch,
   getObjectCandidate, importFileCollection, importFilesToBatch, importFolderToBatch,
   listImportBatches, listInboxItems, listObjectCandidates,
   rejectInboxItem, rejectObjectCandidate, updateInboxItem,
@@ -12,7 +14,8 @@ import {
   type ImportFolderResponse, type InboxItemVM, type ObjectCandidateDetailVM,
   type ObjectCandidateMemberVM, type ObjectCandidateVM,
 } from "../../services/api/importingApi";
-import { listLibraryRoots, type LibraryRootVM } from "../../services/api/libraryObjectsApi";
+import { listLibraryRoots } from "../../services/api/libraryObjectsApi";
+import type { LibraryRootVM } from "../../entities/library/types";
 import { getObjectTypeGroups, objectTypeLabel, isAliasValue, canonicalValue } from "./objectTypeOptions";
 
 // ── helpers ──────────────────────────────────────────────
@@ -106,6 +109,33 @@ function groupMembers(members: ObjectCandidateMemberVM[]): Record<string, Object
   return groups;
 }
 
+// ── Import Progress Banner ────────────────────────────
+
+function ImportProgressBanner({ batchId, onDone }: { batchId: number; onDone: () => void }) {
+  const { data } = usePolling(
+    () => getImportBatch(batchId),
+    (d) => d.status !== "created" && d.status !== "running",
+    2000,
+  );
+  if (!data) return null;
+  const done = data.status !== "created" && data.status !== "running";
+  const pct = data.file_count > 0 ? Math.round((data.completed_count / data.file_count) * 100) : 0;
+  return (
+    <div className={`browse-v2-inline-alert ${done ? (data.status === "completed" ? "browse-v2-inline-alert--success" : "browse-v2-inline-alert--error") : ""}`} role="status" style={{marginBottom:12}}>
+      {done
+        ? (data.status === "completed" ? `Import complete: ${data.completed_count} files` : `Import finished: ${data.failed_count} failed`)
+        : `Importing ${data.completed_count ?? 0}/${data.file_count ?? 0} files...`
+      }
+      {!done && data.file_count > 0 && (
+        <div className="progress-bar" style={{marginTop:8}}>
+          <div className="progress-bar__fill" style={{width:`${pct}%`}} />
+        </div>
+      )}
+      {done && <button className="ghost-button" type="button" onClick={onDone} style={{marginLeft:12}}>Dismiss</button>}
+    </div>
+  );
+}
+
 // ── Component ────────────────────────────────────────────
 
 export function LibraryInboxPanel() {
@@ -115,6 +145,7 @@ export function LibraryInboxPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
+  const [progressBatchId, setProgressBatchId] = useState<number | null>(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportFilesResponse | ImportFolderResponse | null>(null);
   const [page, setPage] = useState(1);
@@ -215,13 +246,13 @@ export function LibraryInboxPanel() {
   async function doImportFilePaths(paths: string[]) {
     if (paths.length === 0) return;
     setImporting(true); setImportResult(null); setError(null);
-    try { const batch = await createImportBatch(); const r = await importFilesToBatch(batch.id, paths); setImportResult(r); await loadBatches(); await loadItems(batch.id); setSelectedBatchId(batch.id); }
+    try { const batch = await createImportBatch(); setProgressBatchId(batch.id); const r = await importFilesToBatch(batch.id, paths); setImportResult(r); await loadBatches(); await loadItems(batch.id); setSelectedBatchId(batch.id); }
     catch (err) { setError(String(err)); } finally { setImporting(false); }
   }
 
   async function doImportFolderPath(folderPath: string) {
     setImporting(true); setImportResult(null); setError(null);
-    try { const batch = await createImportBatch(); const r = await importFolderToBatch(batch.id, [folderPath], mode === "folder-as-object" ? "object" : "loose_files"); setImportResult(r); await loadBatches(); await loadObjectCandidates(); setSelectedBatchId(batch.id); }
+    try { const batch = await createImportBatch(); setProgressBatchId(batch.id); const r = await importFolderToBatch(batch.id, [folderPath], mode === "folder-as-object" ? "object" : "loose_files"); setImportResult(r); await loadBatches(); await loadObjectCandidates(); setSelectedBatchId(batch.id); }
     catch (err) { setError(String(err)); } finally { setImporting(false); }
   }
 
@@ -290,7 +321,7 @@ export function LibraryInboxPanel() {
     if (oc) {
       updateReviewState(candidateId, {
         finalType: oc.final_object_type || oc.suggested_object_type || "",
-        targetRootId: (oc as Record<string, unknown>).target_library_root_id as number | null ?? null,
+        targetRootId: (oc as unknown as { target_library_root_id?: number | null }).target_library_root_id ?? null,
         launchFileId: oc.launch_file_id,
       });
     }
@@ -426,6 +457,9 @@ export function LibraryInboxPanel() {
 
   return (
     <div className="library-inbox-panel">
+      {progressBatchId ? (
+        <ImportProgressBanner batchId={progressBatchId} onDone={() => setProgressBatchId(null)} />
+      ) : null}
       {/* ── Toolbar ── */}
       <div className="library-inbox-toolbar">
         <div className="library-inbox-mode-picker" role="radiogroup" aria-label="Import mode">
@@ -695,7 +729,7 @@ export function LibraryInboxPanel() {
                   <td><span className={`library-status-pill library-status--${item.status}`}>{itemStatusLabel(item.status)}</span>{rs.candidateId && <span className="library-badge library-badge--success" style={{marginLeft:4}}>#{rs.candidateId}</span>}{rs.planId && <span className="library-badge library-badge--info" style={{marginLeft:4}}>P#{rs.planId}</span>}</td>
                   <td>{item.detected_object_type || item.detected_file_kind || "—"}</td>
                   <td>
-                    {(item.status === "imported" || item.status === "pending_review" || item.status === "classified") && item.status !== "rejected" && (
+                    {(item.status === "imported" || item.status === "pending_review" || item.status === "classified") && (
                       <div className="library-inbox-item-review" style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                         <select value={rs.finalType} onChange={e => updateReviewState(item.id, { finalType: e.target.value })} style={{width:120}} disabled={rs.busy}>
                           <option value="">—</option>
@@ -708,7 +742,7 @@ export function LibraryInboxPanel() {
                         </select>
                         <select value={rs.targetRootId ?? ""} onChange={e => updateReviewState(item.id, { targetRootId: e.target.value ? Number(e.target.value) : null })} style={{width:140}} disabled={rs.busy}>
                           <option value="">— root —</option>
-                          {enabledRootOptions.map(r => <option key={r.value} value={r.value}>{r.display_name || r.root_path}</option>)}
+                          {enabledRootOptions.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                         </select>
                         <button className="secondary-button" type="button" disabled={!canConfirm || rs.busy} onClick={() => handleConfirmInboxItem(item.id)} style={{fontSize:11}}>{t("features.library.inbox.review.confirm")}</button>
                         <button className="secondary-button" type="button" disabled={rs.busy} onClick={() => handleRejectInboxItem(item.id)} style={{fontSize:11}}>{t("features.library.inbox.review.reject")}</button>

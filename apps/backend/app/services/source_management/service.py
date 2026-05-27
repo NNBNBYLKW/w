@@ -101,9 +101,17 @@ class SourceManagementService:
             last_scan_at=source.last_scan_at,
             last_scan_status=source.last_scan_status,
             last_scan_error_message=self._derive_last_scan_error_message(latest_scan_task),
+            discovered_count=source.discovered_count,
             created_at=source.created_at,
             updated_at=source.updated_at,
         )
+
+    def get_source(self, session: Session, source_id: int) -> SourceResponse:
+        source = self.source_repository.get_by_id(session, source_id)
+        if source is None:
+            raise NotFoundError("SOURCE_NOT_FOUND", "Source not found.")
+        latest_task = self.task_service.list_latest_scan_tasks_by_source_ids(session, [source_id]).get(source_id)
+        return self._build_source_response(source, latest_task)
 
     def _derive_last_scan_error_message(self, latest_scan_task: Task | None) -> str | None:
         if latest_scan_task is None:

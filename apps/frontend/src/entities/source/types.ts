@@ -7,6 +7,7 @@ export type SourceVM = {
   last_scan_at: string | null;
   last_scan_status: string | null;
   last_scan_error_message: string | null;
+  discovered_count: number | null;
   created_at: string;
   updated_at: string;
 };

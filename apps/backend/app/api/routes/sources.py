@@ -22,6 +22,11 @@ def list_sources(db: Session = Depends(get_db)) -> SourceListResponse:
     return SourceListResponse(items=source_service.list_sources(db))
 
 
+@router.get("/{source_id}", response_model=SourceResponse)
+def get_source(source_id: int, db: Session = Depends(get_db)) -> SourceResponse:
+    return source_service.get_source(db, source_id)
+
+
 @router.post("", response_model=SourceResponse, status_code=status.HTTP_201_CREATED)
 def create_source(payload: SourceCreateRequest, db: Session = Depends(get_db)) -> SourceResponse:
     return source_service.create_source(db, payload)
