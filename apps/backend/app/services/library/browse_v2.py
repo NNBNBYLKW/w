@@ -106,7 +106,8 @@ class BrowseV2Service:
         include_objects = card_kind in ("all", "object")
         include_loose = card_kind in ("all", "loose_file")
 
-        items: list = []
+        object_cards: list[BrowseV2ObjectCard] = []
+        loose_file_cards: list[BrowseV2LooseFileCard] = []
         summary = BrowseV2Summary()
 
         # ── Object cards from library_objects ────────────────
@@ -144,7 +145,7 @@ class BrowseV2Service:
                     needs_review=bool(lo.needs_review),
                     badges=_badges_for_object("library_object", "managed", bool(lo.needs_review)),
                 )
-                items.append(card)
+                object_cards.append(card)
                 summary.total_objects += 1
                 summary.managed_objects += 1
 
@@ -188,7 +189,7 @@ class BrowseV2Service:
                     confidence=ioc.confidence,
                     badges=_badges_for_object("import_object_candidate", ss, True),
                 )
-                items.append(card)
+                object_cards.append(card)
                 summary.total_objects += 1
                 if ss == "inbox":
                     summary.inbox_objects += 1
@@ -260,35 +261,34 @@ class BrowseV2Service:
                     import_batch_id=ii_data[1] if ii_data else None,
                     badges=_badges_for_loose_file(f.file_kind, f.storage_state),
                 )
-                items.append(card)
+                loose_file_cards.append(card)
                 summary.total_loose_files += 1
                 if f.storage_state == "external":
                     summary.external_loose += 1
 
-        # ── Sort and paginate combined results ──────────────
-        items.sort(key=lambda c: (
-            0 if getattr(c, "card_kind", None) == "object" else 1,
-            (
-                getattr(c, "display_title", "")
-                if hasattr(c, "display_title")
-                else getattr(c, "name", "")
+        # ── Merge all cards, then sort, then paginate once ──
+        all_cards: list[BrowseV2ObjectCard | BrowseV2LooseFileCard] = object_cards + loose_file_cards
+        all_cards.sort(key=lambda c: (
+            0 if c.card_kind == "object" else 1,
+            str(
+                c.display_title
+                if isinstance(c, BrowseV2ObjectCard)
+                else c.name
             ).casefold(),
-            getattr(c, "namespaced_id", None) or f"loose_file:{getattr(c, 'file_id', 0)}",
         ))
 
-        total = len(items)
+        total_items = len(all_cards)
         start = (page - 1) * page_size
-        end = start + page_size
-        paged_items = items[start:end]
+        items = all_cards[start:start + page_size]
 
         return BrowseV2Response(
-            items=paged_items,
+            items=items,
             summary=summary,
-            total=total,
+            total=total_items,
             page=page,
             page_size=page_size,
-            object_count=sum(1 for c in items if c.card_kind == "object"),
-            loose_file_count=sum(1 for c in items if c.card_kind == "loose_file"),
+            object_count=len(object_cards),
+            loose_file_count=len(loose_file_cards),
         )
 
     # ── Phase 8B: Object Detail ─────────────────────────────
