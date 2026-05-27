@@ -56,6 +56,11 @@ class Phase2BFileDetailsTestCase(unittest.TestCase):
                 "is_favorite": False,
                 "rating": None,
                 "metadata": None,
+                "storage_state": "external",
+                "original_path": None,
+                "managed_root_id": None,
+                "managed_at": None,
+                "inbox_item_id": None,
             },
             response.json()["item"],
         )
