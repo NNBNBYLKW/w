@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t } from "../../shared/text";
-import { WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
+import { EmptyState, LoadingState, WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
 import type { FileListSortBy, FileListSortOrder } from "../../entities/file/types";
 import { listFilesForTag, listTags, TagsApiError } from "../../services/api/tagsApi";
 import { queryKeys } from "../../services/query/queryKeys";
@@ -110,7 +110,7 @@ export function TagBrowserFeature() {
         description={t("features.tags.description")}
       />
 
-      {tagsQuery.isLoading ? <p>{t("features.tags.loading")}</p> : null}
+      {tagsQuery.isLoading ? <LoadingState /> : null}
 
       {tagsQuery.error instanceof Error ? (
         <div className="status-block page-card">
@@ -120,7 +120,8 @@ export function TagBrowserFeature() {
       ) : null}
 
       {tagsQuery.data && tagsQuery.data.items.length === 0 ? (
-        <div className="future-frame">{t("features.tags.empty")}</div>
+        <EmptyState title={t("features.tags.empty")} description={t("features.tags.emptyGuide")}
+          action={{ label: t("features.homeOverview.browseCardAction"), onClick: () => navigate("/browse-v2") }} />
       ) : null}
 
       {tagsQuery.data && tagsQuery.data.items.length > 0 ? (
@@ -197,7 +198,7 @@ export function TagBrowserFeature() {
                             tag_id: String(selectedTag.id),
                             entry: "tags",
                           });
-                          navigate(`/library/media?${params.toString()}`);
+                          navigate(`/browse-v2?domain=media&${params.toString()}`);
                         }}
                       >
                         {t("common.actions.openMatchingMedia")}
@@ -210,7 +211,7 @@ export function TagBrowserFeature() {
                             tag_id: String(selectedTag.id),
                             entry: "tags",
                           });
-                          navigate(`/library/books?${params.toString()}`);
+                          navigate(`/browse-v2?domain=documents&${params.toString()}`);
                         }}
                       >
                         {t("common.actions.openMatchingBooks")}
@@ -223,7 +224,7 @@ export function TagBrowserFeature() {
                             tag_id: String(selectedTag.id),
                             entry: "tags",
                           });
-                          navigate(`/library/games?${params.toString()}`);
+                          navigate(`/browse-v2?domain=apps&category=game&${params.toString()}`);
                         }}
                       >
                         {t("common.actions.openMatchingGames")}
@@ -236,7 +237,7 @@ export function TagBrowserFeature() {
                             tag_id: String(selectedTag.id),
                             entry: "tags",
                           });
-                          navigate(`/software?${params.toString()}`);
+                          navigate(`/browse-v2?domain=apps&category=software&${params.toString()}`);
                         }}
                       >
                         {t("common.actions.openMatchingSoftware")}
@@ -249,7 +250,7 @@ export function TagBrowserFeature() {
             {tagFlowNote ? <div className="context-flow-note">{tagFlowNote}</div> : null}
 
             <WorkbenchResultFrame className="tag-browser-result-frame" title={selectedTag?.name ?? t("features.tags.title")}>
-            {tagFilesQuery.isLoading ? <p role="status" aria-live="polite">{t("features.tags.loading")}</p> : null}
+            {tagFilesQuery.isLoading ? <LoadingState /> : null}
 
             {missingSelectedTag ? (
               <div className="status-block page-card">

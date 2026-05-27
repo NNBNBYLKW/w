@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t } from "../../shared/text";
-import { WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
+import { EmptyState, WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
 import type { FileListSortOrder } from "../../entities/file/types";
 import type { RecentActivityListItemVM, RecentFamilyKind, RecentRangeValue } from "../../entities/recent/types";
 import { BatchActionBar } from "../batch-organize/BatchActionBar";
@@ -68,7 +68,7 @@ function getSubsetTarget(item: RecentActivityListItemVM): { label: string; to: s
     });
     return {
       label: t("features.recent.openInMedia"),
-      to: `/library/media?${params.toString()}`,
+      to: `/browse-v2?domain=media&${params.toString()}`,
     };
   }
 
@@ -79,7 +79,7 @@ function getSubsetTarget(item: RecentActivityListItemVM): { label: string; to: s
     });
     return {
       label: t("features.recent.openInBooks"),
-      to: `/library/books?${params.toString()}`,
+      to: `/browse-v2?domain=documents&${params.toString()}`,
     };
   }
 
@@ -90,7 +90,7 @@ function getSubsetTarget(item: RecentActivityListItemVM): { label: string; to: s
     });
     return {
       label: t("features.recent.openInGames"),
-      to: `/library/games?${params.toString()}`,
+      to: `/browse-v2?domain=apps&category=game&${params.toString()}`,
     };
   }
 
@@ -101,7 +101,7 @@ function getSubsetTarget(item: RecentActivityListItemVM): { label: string; to: s
     });
     return {
       label: t("features.recent.openInSoftware"),
-      to: `/software?${params.toString()}`,
+      to: `/browse-v2?domain=apps&category=software&${params.toString()}`,
     };
   }
 
@@ -195,8 +195,11 @@ export function RecentImportsFeature() {
         occurred_at: item.discovered_at,
       })) ?? [];
     }
-    return activeQuery.data?.items ?? [];
-  }, [activeQuery.data?.items, family, recentImportsQuery.data?.items]);
+    if (family === "tagged") {
+      return recentTaggedQuery.data?.items ?? [];
+    }
+    return recentColorTaggedQuery.data?.items ?? [];
+  }, [family, recentColorTaggedQuery.data?.items, recentImportsQuery.data?.items, recentTaggedQuery.data?.items]);
 
   const totalPages = activeQuery.data ? Math.max(1, Math.ceil(activeQuery.data.total / activeQuery.data.page_size)) : 1;
   const familyDescription =
@@ -300,13 +303,16 @@ export function RecentImportsFeature() {
             ) : null}
 
             {activeQuery.data && items.length === 0 ? (
-              <div className="future-frame">
-                {family === "imports"
-                  ? t("features.recent.emptyImports")
-                  : family === "tagged"
-                    ? t("features.recent.emptyTagged")
-                    : t("features.recent.emptyColorTagged")}
-              </div>
+              family === "imports" ? (
+                <EmptyState title={t("features.recent.emptyImports")} description={t("features.recent.emptyGuideImports")}
+                  action={{ label: t("features.homeOverview.scanCardAction"), onClick: () => navigate("/library?tab=sources") }} />
+              ) : family === "tagged" ? (
+                <EmptyState title={t("features.recent.emptyTagged")} description={t("features.recent.emptyGuideTagged")}
+                  action={{ label: t("features.homeOverview.browseCardAction"), onClick: () => navigate("/browse-v2") }} />
+              ) : (
+                <EmptyState title={t("features.recent.emptyColorTagged")} description={t("features.recent.emptyGuideColorTagged")}
+                  action={{ label: t("features.homeOverview.browseCardAction"), onClick: () => navigate("/browse-v2") }} />
+              )
             ) : null}
 
             {activeQuery.data && items.length > 0 ? (

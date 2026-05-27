@@ -1,8 +1,10 @@
 import type { DragEvent } from "react";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 
 import { t } from "../../shared/text";
+import { EmptyState } from "../../shared/ui/components";
 import type { FilesListItemVM } from "../../entities/file/types";
 import type { ToolRunVM, VideoMergeMode, VideoMergeInputItemVM } from "../../entities/tool/types";
 import { listIndexedFiles } from "../../services/api/filesApi";
@@ -153,6 +155,7 @@ function ToolRunDetail({ run }: { run: ToolRunVM | undefined }) {
 
 export function ToolsFeature() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [inputs, setInputs] = useState<VideoMergeInput[]>([]);
   const [outputName, setOutputName] = useState("merged-video");
   const [outputDir, setOutputDir] = useState("");
@@ -403,7 +406,10 @@ export function ToolsFeature() {
 
               <div className="video-merge-inputs">
                 <strong>{t("features.tools.videoMerge.mergeOrder")}</strong>
-                {sortedInputs.length === 0 ? <p>{t("features.tools.videoMerge.noInputs")}</p> : null}
+                {sortedInputs.length === 0 ? (
+                  <EmptyState title={t("features.tools.videoMerge.noInputs")} description={t("features.tools.videoMerge.emptyGuide")}
+                    action={{ label: t("navigation.items.browseMedia"), onClick: () => navigate("/browse-v2?domain=media") }} />
+                ) : null}
                 {sortedInputs.map((item, index) => (
                   <div
                     key={item.id}

@@ -1,9 +1,10 @@
 import { FormEvent, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t } from "../../shared/text";
-import { WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
+import { EmptyState, WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
 import { AssetIconGrid, ViewModeToggle, useViewMode, type AssetIconCardItem } from "../../shared/ui/view-mode";
 import { useThumbnailWarmup } from "../../shared/ui/thumbnail";
 import type {
@@ -66,6 +67,7 @@ function getSearchTypeLabel(fileType: FileType): string {
 export function SearchFeature() {
   const selectedItemId = useUIStore((state) => state.selectedItemId);
   const selectItem = useUIStore((state) => state.selectItem);
+  const navigate = useNavigate();
   const { viewMode, setViewMode } = useViewMode("search");
   const fileTypeOptions: Array<{ label: string; value: FileType | "all" }> = [
     { label: t("common.fileTypes.all"), value: "all" },
@@ -338,7 +340,8 @@ export function SearchFeature() {
         ) : null}
 
         {searchQuery.data && searchQuery.data.items.length === 0 ? (
-          <div className="future-frame">{t("features.search.empty")}</div>
+          <EmptyState title={t("features.search.empty")} description={t("features.search.emptyGuide")}
+            action={{ label: t("features.homeOverview.scanCardAction"), onClick: () => navigate("/library?tab=sources") }} />
         ) : null}
 
         {searchQuery.data && searchQuery.data.items.length > 0 ? (

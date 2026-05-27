@@ -19,6 +19,7 @@ import { getSources } from "../../services/api/sourcesApi";
 import { listTags } from "../../services/api/tagsApi";
 import { queryKeys } from "../../services/query/queryKeys";
 import { invalidateCollectionSurfaces } from "../../services/query/invalidation";
+import { EmptyState, LoadingState } from "../../shared/ui/components";
 
 function formatBytes(value: number | null): string {
   return value === null ? t("common.states.sizeUnavailable") : `${value.toLocaleString()} bytes`;
@@ -323,7 +324,7 @@ export function CollectionsFeature() {
       params.set("color_tag", selectedCollection.color_tag);
     }
 
-    return `/library/media?${params.toString()}`;
+    return `/browse-v2?domain=media&${params.toString()}`;
   }, [selectedCollection]);
   const booksCompatibleCollection = useMemo(() => {
     if (!selectedCollection) {
@@ -349,7 +350,7 @@ export function CollectionsFeature() {
       params.set("color_tag", selectedCollection.color_tag);
     }
 
-    return `/library/books?${params.toString()}`;
+    return `/browse-v2?domain=documents&${params.toString()}`;
   }, [selectedCollection]);
   const softwareCompatibleCollection = useMemo(() => {
     if (!selectedCollection) {
@@ -375,7 +376,7 @@ export function CollectionsFeature() {
       params.set("color_tag", selectedCollection.color_tag);
     }
 
-    return `/software?${params.toString()}`;
+    return `/browse-v2?domain=apps&category=software&${params.toString()}`;
   }, [selectedCollection]);
   const gamesCompatibleCollection = useMemo(() => {
     if (!selectedCollection) {
@@ -401,7 +402,7 @@ export function CollectionsFeature() {
       params.set("color_tag", selectedCollection.color_tag);
     }
 
-    return `/library/games?${params.toString()}`;
+    return `/browse-v2?domain=apps&category=game&${params.toString()}`;
   }, [selectedCollection]);
 
   useEffect(() => {
@@ -648,7 +649,7 @@ export function CollectionsFeature() {
               )}
             </div>
 
-            {collectionsQuery.isLoading ? <p>{t("features.collections.listLoading")}</p> : null}
+            {collectionsQuery.isLoading ? <LoadingState /> : null}
 
             {collectionsQuery.error instanceof Error ? (
               <div className="status-block page-card">
@@ -658,7 +659,8 @@ export function CollectionsFeature() {
             ) : null}
 
             {collectionsQuery.data && collectionsQuery.data.items.length === 0 ? (
-              <div className="future-frame">{t("features.collections.listEmpty")}</div>
+              <EmptyState title={t("features.collections.listEmpty")} description={t("features.collections.emptyGuide")}
+                action={{ label: t("features.homeOverview.browseCardAction"), onClick: () => navigate("/browse-v2") }} />
             ) : null}
 
             {collectionsQuery.data && collectionsQuery.data.items.length > 0 ? (
@@ -819,7 +821,7 @@ export function CollectionsFeature() {
                 {collectionFilesQuery.data ? <span>{t("common.labels.files", { count: collectionFilesQuery.data.total })}</span> : null}
               </div>
 
-              {collectionFilesQuery.isLoading ? <p>{t("features.collections.resultsLoading")}</p> : null}
+              {collectionFilesQuery.isLoading ? <LoadingState /> : null}
 
               {collectionFilesQuery.error instanceof Error ? (
                 <div className="status-block page-card">
