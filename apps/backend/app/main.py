@@ -53,6 +53,21 @@ def _backup_database() -> None:
     ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     shutil.copy2(str(db_path), str(backup_dir / f"workbench_{ts}.db"))
 
+    # VACUUM every 5th startup
+    import sqlite3 as _sqlite3
+    vacuum_file = backup_dir / ".vacuum_count"
+    try:
+        count = int(vacuum_file.read_text().strip())
+    except Exception:
+        count = 0
+    count += 1
+    vacuum_file.write_text(str(count))
+    if count >= 5:
+        with _sqlite3.connect(settings.database_path) as vconn:
+            vconn.execute("VACUUM")
+        vacuum_file.write_text("0")
+        logging.getLogger(__name__).info("Database VACUUM completed")
+
 
 def create_app() -> FastAPI:
     _setup_logging()
