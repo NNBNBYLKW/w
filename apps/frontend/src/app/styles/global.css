@@ -3,7 +3,9 @@
 
 @import "./tokens.css";
 @import "./base.css";
-@import "./shell.css";
+@import "./shell-layout.css";
+@import "./shell-sidebar.css";
+@import "./shell-titlebar.css";
 @import "./components.css";
 @import "./forms.css";
 @import "./details-panel.css";
@@ -13,3 +15,4 @@
 @import "./tools.css";
 @import "./settings.css";
 @import "./responsive.css";
+@import "./gallery-lab.css";

@@ -1,0 +1,107 @@
+/* Shell titlebar — desktop-titlebar and controls */
+
+.desktop-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 10px 0 14px;
+  border-bottom: 1px solid var(--titlebar-border);
+  background: var(--titlebar-bg);
+  box-shadow: var(--titlebar-shadow);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.desktop-titlebar__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.desktop-titlebar__brand-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--accent-strong);
+}
+
+.desktop-titlebar__brand-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.desktop-titlebar__brand-title {
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.desktop-titlebar__controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+
+.desktop-titlebar__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
+  -webkit-app-region: no-drag;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
+}
+
+.desktop-titlebar__button:hover {
+  border-color: var(--accent-soft-strong);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.desktop-titlebar__button:active {
+  background: var(--control-bg-active);
+}
+
+.desktop-titlebar__button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.desktop-titlebar__button--close:hover {
+  border-color: var(--danger-border);
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+
+.desktop-titlebar__button--close:active {
+  background: var(--danger-soft-strong);
+}
+
+.desktop-titlebar__button-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+}
+
+.desktop-titlebar__button-icon svg {
+  width: 14px;
+  height: 14px;
+}
