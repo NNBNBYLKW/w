@@ -57,6 +57,7 @@ export function AppRouter() {
         <Route path="/tags" element={<LazyPage><TagsPage /></LazyPage>} />
         <Route path="/collections" element={<LazyPage><CollectionsPage /></LazyPage>} />
         <Route path="/settings" element={<LazyPage><SettingsPage /></LazyPage>} />
+        <Route path="*" element={<Navigate to="/home" replace />} />
       </Route>
     </Routes>
   );

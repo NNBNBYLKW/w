@@ -9,10 +9,14 @@ export function getApiBaseUrl(): string {
   return "http://127.0.0.1:8000";
 }
 
-export async function parseResponse<T>(response: Response): Promise<T> {
+type ErrorConstructor = new (message: string, code: string | null) => Error;
+
+export async function parseResponse<T>(response: Response, ErrorClass?: ErrorConstructor): Promise<T> {
   if (!response.ok) {
     const body = await response.json().catch(() => ({} as Record<string, unknown>));
     const message = (body.detail as string) ?? (body.message as string) ?? `HTTP ${response.status}`;
+    const code = (body.code as string) ?? null;
+    if (ErrorClass) throw new ErrorClass(message, code);
     throw new Error(message);
   }
   return response.json() as Promise<T>;

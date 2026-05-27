@@ -1131,4 +1131,8 @@ export const features = {
       detailFailed: "加载对象详情失败",
     },
   },
+  detailsPanel: {
+    copyPath: "复制",
+    pathCopied: "已复制！",
+  },
 } as const;

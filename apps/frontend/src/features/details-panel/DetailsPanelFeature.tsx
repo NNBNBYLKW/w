@@ -482,7 +482,7 @@ export function DetailsPanelFeature() {
                 style={{ fontSize: 12, padding: "2px 8px" }}
                 type="button"
               >
-                {copied ? "Copied!" : "Copy"}
+                {copied ? t("features.detailsPanel.pathCopied") : t("features.detailsPanel.copyPath")}
               </button>
             }
           />

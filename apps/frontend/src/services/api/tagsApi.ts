@@ -18,10 +18,13 @@ export class TagsApiError extends Error {
   }
 }
 
+function p<T>(response: Response): Promise<T> {
+  return parseResponse<T>(response, TagsApiError);
+}
 
 export async function listTags(): Promise<TagListResponseVM> {
   const response = await fetch(`${getApiBaseUrl()}/tags`);
-  return parseResponse<TagListResponseVM>(response);
+  return p<TagListResponseVM>(response);
 }
 
 
@@ -31,7 +34,7 @@ export async function createTag(name: string): Promise<TagResponseVM> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
   });
-  return parseResponse<TagResponseVM>(response);
+  return p<TagResponseVM>(response);
 }
 
 
@@ -41,7 +44,7 @@ export async function attachTagToFile(fileId: number, name: string): Promise<Tag
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
   });
-  return parseResponse<TagListResponseVM>(response);
+  return p<TagListResponseVM>(response);
 }
 
 
@@ -51,7 +54,7 @@ export async function attachTagToFilesBatch(fileIds: number[], name: string): Pr
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ file_ids: fileIds, name }),
   });
-  return parseResponse<BatchTagAttachResponseVM>(response);
+  return p<BatchTagAttachResponseVM>(response);
 }
 
 
@@ -59,7 +62,7 @@ export async function removeTagFromFile(fileId: number, tagId: number): Promise<
   const response = await fetch(`${getApiBaseUrl()}/files/${fileId}/tags/${tagId}`, {
     method: "DELETE",
   });
-  return parseResponse<TagListResponseVM>(response);
+  return p<TagListResponseVM>(response);
 }
 
 
@@ -71,5 +74,5 @@ export async function listFilesForTag(tagId: number, params: Omit<TagFilesQueryI
     sort_order: params.sort_order,
   });
   const response = await fetch(`${getApiBaseUrl()}/tags/${tagId}/files?${searchParams.toString()}`);
-  return parseResponse<TagFilesListResponseVM>(response);
+  return p<TagFilesListResponseVM>(response);
 }

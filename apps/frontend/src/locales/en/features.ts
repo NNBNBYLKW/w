@@ -1149,4 +1149,8 @@ export const features = {
       detailFailed: "Failed to load object detail",
     },
   },
+  detailsPanel: {
+    copyPath: "Copy",
+    pathCopied: "Copied!",
+  },
 } as const;
