@@ -23,6 +23,7 @@ from app.db.session.session import SessionLocal
 from app.repositories.library_organize.repository import CandidateFilters, LibraryOrganizeRepository, PlanFilters
 from app.repositories.library_roots.repository import LibraryRootRepository
 from app.repositories.source.repository import SourceRepository
+from app.db.models.library_root import LibraryRoot
 from app.schemas.library_organize import (
     CandidateListResponse,
     CandidateScanResponse,
@@ -3214,24 +3215,69 @@ def _deserialize_diff_val(val: str | None) -> object:
         return val
 
 
-def _detect_file_type(file: File) -> tuple[str, str, str]:
+def _detect_file_type(file, folder_name=None):
+    """Return (type, confidence, reason). Optionally uses folder_name for stronger signals."""
     name = file.name
     extension = Path(file.path).suffix.lower()
+    if folder_name:
+        from app.core.classification import detect_type_from_folder_name
+        ft, fc = detect_type_from_folder_name(folder_name)
+        if ft and fc == "high":
+            return ft, "high", f"Folder name matches '{ft}' pattern."
     if extension in VIDEO_EXTENSIONS:
         if re.search(r"[Ss]\d{1,2}[Ee]\d{1,3}", name):
-            return "course", "medium", "Video filename looks episodic or lesson-like and needs review."
+            return "course", "medium", "Video filename looks episodic or lesson-like."
         if _year_from_text(name):
-            return "movie", "medium", "Video filename includes a year-like title pattern."
-        return "clip", "low", "Video file does not have a strong object pattern."
+            return "movie", "medium", "Video filename includes a year."
+        return "clip", "low", "Video file without strong pattern."
     if extension == ".exe":
-        return "game", "low", "Executable file may belong to a game object but needs review."
+        return "game", "low", "Executable, may be a game."
     if extension in {".bat", ".cmd", ".ps1", ".sh", ".py", ".rb", ".pl"}:
-        return "software", "low", "Detected as script or executable file."
+        return "software", "low", "Script or executable file."
     if extension in IMAGE_EXTENSIONS:
-        return "imgset", "low", "Image file may belong to an image set."
+        if re.search(r"^\d{2,4}[.\-_]", name):
+            return "comic", "medium", "Numbered image suggests comic."
+        return "imgset", "low", "Image may belong to an image set."
     if extension in DOCUMENT_EXTENSIONS:
-        return "docset", "low", "Document file may belong to a document set."
-    return "unknown", "unknown", "No safe rule matched this file."
+        return "docset", "low", "Document may belong to a document set."
+    if extension in {".flac", ".mp3", ".ogg", ".wav", ".m4a", ".wma"}:
+        return "audio", "low", "Audio file."
+    return "unknown", "unknown", "No rule matched."
+
+
+def _suggest_target_root(session, file=None, object_type=None):
+    """Suggest target root_id. Priority: path-match > same-type-last > global-last > default > first."""
+    from app.db.models.importing import InboxItem
+    roots = session.query(LibraryRoot).filter(LibraryRoot.is_enabled == True).all()
+    if not roots:
+        return None
+    # 1: file path belongs to root
+    if file and file.path:
+        for root in roots:
+            try:
+                Path(file.path).resolve().relative_to(Path(root.root_path).resolve())
+                return root.id
+            except ValueError:
+                continue
+    # 2: same type last root
+    if object_type:
+        last = session.query(InboxItem).filter(
+            InboxItem.final_object_type == object_type,
+            InboxItem.target_library_root_id.isnot(None),
+        ).order_by(InboxItem.updated_at.desc()).first()
+        if last and last.target_library_root_id:
+            return last.target_library_root_id
+    # 3: global last root
+    last_any = session.query(InboxItem).filter(
+        InboxItem.target_library_root_id.isnot(None),
+    ).order_by(InboxItem.updated_at.desc()).first()
+    if last_any and last_any.target_library_root_id:
+        return last_any.target_library_root_id
+    # 4: default
+    default = next((r for r in roots if r.is_default), None)
+    if default:
+        return default.id
+    return roots[0].id
 
 
 def _is_inbox_path(path: Path, source_root: Path) -> bool:
