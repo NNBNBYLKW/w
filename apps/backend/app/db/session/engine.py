@@ -50,6 +50,8 @@ def initialize_database() -> None:
         if current < 7:
             _ensure_tag_color(connection)
             _ensure_collection_ordering(connection)
+        if current < 8:
+            _ensure_game_sessions(connection)
         _ensure_schema_version(connection)
         connection.commit()
     finally:
@@ -497,7 +499,19 @@ def _ensure_collection_ordering(connection: sqlite3.Connection) -> None:
         connection.execute("ALTER TABLE collections ADD COLUMN group_name TEXT NULL")
 
 
-CURRENT_SCHEMA_VERSION = 7
+def _ensure_game_sessions(connection: sqlite3.Connection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS game_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            file_id INTEGER NOT NULL REFERENCES files(id),
+            started_at DATETIME NOT NULL,
+            ended_at DATETIME NULL,
+            duration_seconds INTEGER NULL
+        )
+    """)
+
+
+CURRENT_SCHEMA_VERSION = 8
 
 
 def _get_schema_version(connection: sqlite3.Connection) -> int:

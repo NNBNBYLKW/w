@@ -32,8 +32,10 @@ from app.api.schemas.file import (
     SortOrder,
 )
 from app.api.schemas.tag import TagCreateRequest, TagListResponse
-from app.core.errors.exceptions import BadRequestError
+from app.core.errors.exceptions import BadRequestError, NotFoundError
+from app.core.time import utcnow
 from app.db.models.file import File
+from app.db.models.game_session import GameSession
 from app.db.session.session import get_db
 from app.services.color_tags.service import ColorTagsService
 from app.services.details.service import DetailsService
@@ -333,3 +335,30 @@ def get_suggestions(payload: dict, db: Session = Depends(get_db)):
         suggestions = suggester.suggest(f.name, f.path)
         results.append({"file_id": fid, "name": f.name, "suggestions": suggestions})
     return {"items": results}
+
+
+@router.post("/files/{file_id}/sessions")
+def start_game_session(
+    file_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+):
+    session = GameSession(file_id=file_id, started_at=utcnow())
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    return {"id": session.id}
+
+
+@router.patch("/files/{file_id}/sessions/{session_id}")
+def end_game_session(
+    file_id: int = Path(..., ge=1),
+    session_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+):
+    session = db.get(GameSession, session_id)
+    if not session:
+        raise NotFoundError("SESSION_NOT_FOUND", "Session not found")
+    session.ended_at = utcnow()
+    session.duration_seconds = int((session.ended_at - session.started_at).total_seconds())
+    db.commit()
+    return {"item": {"id": session.id, "duration_seconds": session.duration_seconds}}
