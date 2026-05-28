@@ -1834,10 +1834,11 @@
 
 .browse-v2-layout {
   display: grid;
-  grid-template-columns: 220px minmax(560px, 1fr) minmax(300px, 340px);
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr) minmax(0, 340px);
   gap: var(--space-4);
   align-items: start;
   min-width: 0;
+  overflow: hidden;
 }
 
 .browse-v2-taxonomy,

@@ -54,10 +54,13 @@
   height: 100%;
   overflow: hidden;
   padding-bottom: 12px;
+  background: var(--color-bg-app);
 }
 
 .app-shell__content--details-hidden {
   grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  padding-bottom: 0;
 }
 
 /* ── Page content header ── */
