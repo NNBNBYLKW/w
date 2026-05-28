@@ -19,7 +19,8 @@ jobs:
       - name: Lint backend
         run: |
           pip install ruff
-          ruff check apps/backend/ --select=E,F --ignore=E501 || true
+          ruff check . --select=E,F --ignore=E501 || true
+        continue-on-error: true
 
   frontend:
     runs-on: windows-latest
