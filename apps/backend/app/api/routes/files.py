@@ -42,6 +42,7 @@ from app.services.files.service import FilesService
 from app.services.file_user_meta.service import FileUserMetaService
 from app.services.tags.service import TagsService
 from app.services.thumbnails.service import ThumbnailService
+from app.services.classification.suggester import RuleBasedSuggester
 from app.workers.epub.parser import EpubParser
 
 
@@ -320,3 +321,15 @@ def get_epub_content(file_id: int = Path(..., ge=1), db: Session = Depends(get_d
         raise BadRequestError("FILE_NOT_EPUB", "File is not an EPUB")
     parsed = EpubParser().parse(file.path)
     return {"item": parsed}
+
+
+@router.post("/files/classify-suggestions")
+def get_suggestions(payload: dict, db: Session = Depends(get_db)):
+    file_ids = payload.get("file_ids", [])
+    suggester = RuleBasedSuggester()
+    results = []
+    for fid in file_ids:
+        f = files_service.get_file(db, fid)
+        suggestions = suggester.suggest(f.name, f.path)
+        results.append({"file_id": fid, "name": f.name, "suggestions": suggestions})
+    return {"items": results}
