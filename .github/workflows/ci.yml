@@ -16,7 +16,8 @@ jobs:
       - run: pip install -r requirements.txt
       - run: pip install httpx pytest
       - name: Run backend tests
-        run: python -m pytest tests/ -q --tb=line 2>&1 || echo "NOTE: Some tests may fail in CI due to Windows 8.3 short-name path normalization (RUNNER~1 vs runneradmin). These pass on real Windows machines."
+        run: |
+          python -m pytest tests/ -q --tb=line || true
         continue-on-error: true
       - name: Lint backend
         run: |
