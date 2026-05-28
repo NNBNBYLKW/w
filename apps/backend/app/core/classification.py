@@ -142,7 +142,7 @@ def classify_file(extension: str | None, path: str | None = None, source_path: s
             PLACEMENT_GAMES if _has_game_path_hint(candidate_path) else PLACEMENT_NONE,
         )
     if normalized_extension in SCRIPT_EXTENSIONS:
-        return ClassificationResult(FILE_KIND_EXECUTABLE, PLACEMENT_SOFTWARE)
+        return ClassificationResult(FILE_KIND_DOCUMENT, PLACEMENT_BOOKS)
     if normalized_extension in DOCUMENT_EXTENSIONS:
         return ClassificationResult(FILE_KIND_DOCUMENT, PLACEMENT_BOOKS)
 

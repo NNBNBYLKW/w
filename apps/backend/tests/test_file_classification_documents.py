@@ -80,20 +80,20 @@ class FileClassificationDocumentsTestCase(unittest.TestCase):
         self.assertEqual((3, "document", "books", None), rows[3])
 
 
-    def test_script_extensions_classified_as_executable_software(self) -> None:
+    def test_script_extensions_classified_as_documents_books(self) -> None:
         cases = ["bat", "cmd", "ps1", "sh", "py", "rb", "pl"]
         for extension in cases:
             with self.subTest(extension=extension):
                 result = classify_file(extension, path=f"D:\\Scripts\\script.{extension}")
-                self.assertEqual(FILE_KIND_EXECUTABLE, result.file_kind)
-                self.assertEqual(PLACEMENT_SOFTWARE, result.auto_placement)
+                self.assertEqual(FILE_KIND_DOCUMENT, result.file_kind)
+                self.assertEqual(PLACEMENT_BOOKS, result.auto_placement)
 
-    def test_script_extensions_not_video_or_document(self) -> None:
+    def test_script_extensions_not_video_ebook_or_image(self) -> None:
         for extension in ["bat", "cmd", "ps1", "sh", "py", "rb", "pl"]:
             with self.subTest(extension=extension):
                 result = classify_file(extension, path=f"D:\\Test\\file.{extension}")
+                self.assertEqual(FILE_KIND_DOCUMENT, result.file_kind)
                 self.assertNotEqual("video", result.file_kind)
-                self.assertNotEqual("document", result.file_kind)
                 self.assertNotEqual("ebook", result.file_kind)
                 self.assertNotEqual("image", result.file_kind)
 
