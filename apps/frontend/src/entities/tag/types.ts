@@ -4,6 +4,7 @@ import type { FileListSortBy, FileListSortOrder, FileType } from "../file/types"
 export type TagItemVM = {
   id: number;
   name: string;
+  color?: string | null;
 };
 
 export type TagResponseVM = {

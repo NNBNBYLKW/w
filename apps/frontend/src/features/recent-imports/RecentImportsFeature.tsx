@@ -15,7 +15,7 @@ import {
   normalizeIndexedFilePath,
   openIndexedFile,
 } from "../../services/desktop/openActions";
-import { listRecentColorTagged, listRecentImports, listRecentTagged } from "../../services/api/recentApi";
+import { listRecentAll, listRecentColorTagged, listRecentImports, listRecentTagged } from "../../services/api/recentApi";
 import { queryKeys } from "../../services/query/queryKeys";
 
 
@@ -130,6 +130,7 @@ export function RecentImportsFeature() {
     { label: t("features.recent.families.imports"), value: "imports" },
     { label: t("features.recent.families.tagged"), value: "tagged" },
     { label: t("features.recent.families.colorTagged"), value: "color-tagged" },
+    { label: t("features.recent.families.all"), value: "all" },
   ];
   const rangeOptions: Array<{ label: string; hint: string; value: RecentRangeValue }> = [
     { label: t("features.recent.ranges.oneDay"), hint: t("features.recent.ranges.oneDayHint"), value: "1d" },
@@ -153,12 +154,12 @@ export function RecentImportsFeature() {
     pageLabel: t("shell.topbar.pages.recent"),
     resetDeps: [family, range, sortOrder, page],
   });
-  const { applyColorTag, applyPlacement, applyTag, isApplyingColorTag, isApplyingPlacement, isApplyingTag } = useBatchOrganizeActions({
+  const { applyColorTag, applyPlacement, applyTag, applyBatchMeta, isApplyingColorTag, isApplyingPlacement, isApplyingTag, isApplyingBatchMeta } = useBatchOrganizeActions({
     onSuccess: clearSelection,
   });
 
   useEffect(() => {
-    if (family !== "imports" && isBatchMode) {
+    if (family !== "imports" && family !== "all" && isBatchMode) {
       exitBatchMode();
     }
   }, [exitBatchMode, family, isBatchMode]);
@@ -186,8 +187,13 @@ export function RecentImportsFeature() {
     queryFn: () => listRecentColorTagged(queryParams),
     enabled: family === "color-tagged",
   });
+  const recentAllQuery = useQuery({
+    queryKey: queryKeys.recentAll(queryParams),
+    queryFn: () => listRecentAll(queryParams),
+    enabled: family === "all",
+  });
 
-  const activeQuery = family === "imports" ? recentImportsQuery : family === "tagged" ? recentTaggedQuery : recentColorTaggedQuery;
+  const activeQuery = family === "imports" ? recentImportsQuery : family === "tagged" ? recentTaggedQuery : family === "color-tagged" ? recentColorTaggedQuery : recentAllQuery;
   const items = useMemo<RecentActivityListItemVM[]>(() => {
     if (family === "imports") {
       return recentImportsQuery.data?.items.map((item) => ({
@@ -198,8 +204,11 @@ export function RecentImportsFeature() {
     if (family === "tagged") {
       return recentTaggedQuery.data?.items ?? [];
     }
-    return recentColorTaggedQuery.data?.items ?? [];
-  }, [family, recentColorTaggedQuery.data?.items, recentImportsQuery.data?.items, recentTaggedQuery.data?.items]);
+    if (family === "color-tagged") {
+      return recentColorTaggedQuery.data?.items ?? [];
+    }
+    return recentAllQuery.data?.items ?? [];
+  }, [family, recentAllQuery.data?.items, recentColorTaggedQuery.data?.items, recentImportsQuery.data?.items, recentTaggedQuery.data?.items]);
 
   const totalPages = activeQuery.data ? Math.max(1, Math.ceil(activeQuery.data.total / activeQuery.data.page_size)) : 1;
   const familyDescription =
@@ -207,7 +216,9 @@ export function RecentImportsFeature() {
       ? t("features.recent.descriptions.imports", { range: selectedRangeLabel })
       : family === "tagged"
         ? t("features.recent.descriptions.tagged", { range: selectedRangeLabel })
-        : t("features.recent.descriptions.colorTagged", { range: selectedRangeLabel });
+        : family === "color-tagged"
+          ? t("features.recent.descriptions.colorTagged", { range: selectedRangeLabel })
+          : t("features.recent.descriptions.all", { range: selectedRangeLabel });
 
   return (
     <WorkbenchPage className="refind-surface refind-surface--recent" variant="recent">
@@ -270,7 +281,7 @@ export function RecentImportsFeature() {
             <p>{familyDescription}</p>
             <div className="files-meta-row__actions">
               {activeQuery.data ? <span>{t("common.labels.files", { count: activeQuery.data.total })}</span> : null}
-              {family === "imports" && !isBatchMode ? (
+              {family !== "tagged" && family !== "color-tagged" && !isBatchMode ? (
                 <button className="ghost-button" type="button" onClick={enterBatchMode}>
                   {t("common.actions.batchOrganize")}
                 </button>
@@ -278,14 +289,16 @@ export function RecentImportsFeature() {
             </div>
           </WorkbenchToolbar>
 
-          {family === "imports" && isBatchMode ? (
+          {family !== "tagged" && family !== "color-tagged" && isBatchMode ? (
             <BatchActionBar
               isApplyingColorTag={isApplyingColorTag}
               isApplyingPlacement={isApplyingPlacement}
               isApplyingTag={isApplyingTag}
+              isApplyingBatchMeta={isApplyingBatchMeta}
               onApplyColorTag={(colorTag) => applyColorTag(selectedIds, colorTag)}
               onApplyPlacement={(manualPlacement) => applyPlacement(selectedIds, manualPlacement)}
               onApplyTag={(name) => applyTag(selectedIds, name)}
+              onApplyBatchMeta={(isFavorite, rating) => applyBatchMeta(selectedIds, isFavorite, rating)}
               onClearSelection={clearSelection}
               onExitBatchMode={exitBatchMode}
               selectedCount={selectedCount}
@@ -309,9 +322,12 @@ export function RecentImportsFeature() {
               ) : family === "tagged" ? (
                 <EmptyState title={t("features.recent.emptyTagged")} description={t("features.recent.emptyGuideTagged")}
                   action={{ label: t("features.homeOverview.browseCardAction"), onClick: () => navigate("/browse-v2") }} />
-              ) : (
+              ) : family === "color-tagged" ? (
                 <EmptyState title={t("features.recent.emptyColorTagged")} description={t("features.recent.emptyGuideColorTagged")}
                   action={{ label: t("features.homeOverview.browseCardAction"), onClick: () => navigate("/browse-v2") }} />
+              ) : (
+                <EmptyState title={t("features.recent.emptyAll")} description={t("features.recent.emptyGuideAll")}
+                  action={{ label: t("features.homeOverview.scanCardAction"), onClick: () => navigate("/library?tab=sources") }} />
               )
             ) : null}
 

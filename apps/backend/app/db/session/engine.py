@@ -45,6 +45,11 @@ def initialize_database() -> None:
             _ensure_recovery_findings_table(connection)
         if current < 5:
             _ensure_performance_indexes(connection)
+        if current < 6:
+            _ensure_notes_column(connection)
+        if current < 7:
+            _ensure_tag_color(connection)
+            _ensure_collection_ordering(connection)
         _ensure_schema_version(connection)
         connection.commit()
     finally:
@@ -472,7 +477,27 @@ def _ensure_performance_indexes(connection: sqlite3.Connection) -> None:
     )
 
 
-CURRENT_SCHEMA_VERSION = 5
+def _ensure_notes_column(connection: sqlite3.Connection) -> None:
+    cols = _table_columns(connection, "file_user_meta")
+    if "notes" not in cols:
+        connection.execute("ALTER TABLE file_user_meta ADD COLUMN notes TEXT NULL")
+
+
+def _ensure_tag_color(connection: sqlite3.Connection) -> None:
+    cols = _table_columns(connection, "tags")
+    if "color" not in cols:
+        connection.execute("ALTER TABLE tags ADD COLUMN color TEXT NULL")
+
+
+def _ensure_collection_ordering(connection: sqlite3.Connection) -> None:
+    cols = _table_columns(connection, "collections")
+    if "sort_order" not in cols:
+        connection.execute("ALTER TABLE collections ADD COLUMN sort_order INTEGER DEFAULT 0")
+    if "group_name" not in cols:
+        connection.execute("ALTER TABLE collections ADD COLUMN group_name TEXT NULL")
+
+
+CURRENT_SCHEMA_VERSION = 7
 
 
 def _get_schema_version(connection: sqlite3.Connection) -> int:

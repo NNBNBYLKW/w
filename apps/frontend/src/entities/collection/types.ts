@@ -9,6 +9,8 @@ export type CollectionVM = {
   color_tag: ColorTagValue | null;
   source_id: number | null;
   parent_path: string | null;
+  sort_order: number;
+  group_name: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -33,6 +35,8 @@ export type UpdateCollectionInput = {
   color_tag?: ColorTagValue | null;
   source_id?: number | null;
   parent_path?: string | null;
+  sort_order?: number | null;
+  group_name?: string | null;
 };
 
 export type CollectionFilesQueryInput = {

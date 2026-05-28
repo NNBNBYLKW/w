@@ -196,6 +196,35 @@ export function CollectionsFeature() {
     },
   });
 
+  const handleMoveCollection = (id: number, direction: "up" | "down") => {
+    const items = collectionsQuery.data?.items ?? [];
+    const idx = items.findIndex((c) => c.id === id);
+    if (idx < 0) return;
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= items.length) return;
+
+    const current = items[idx];
+    const neighbor = items[swapIdx];
+    const currentOrder = current.sort_order;
+    const neighborOrder = neighbor.sort_order;
+
+    updateCollectionMutation.mutate({
+      collectionId: current.id,
+      input: { sort_order: neighborOrder },
+    });
+    updateCollectionMutation.mutate({
+      collectionId: neighbor.id,
+      input: { sort_order: currentOrder },
+    });
+  };
+
+  const handleRenameCollection = (id: number, name: string) => {
+    updateCollectionMutation.mutate({
+      collectionId: id,
+      input: { name },
+    });
+  };
+
   const totalPages = collectionFilesQuery.data
     ? Math.max(1, Math.ceil(collectionFilesQuery.data.total / collectionFilesQuery.data.page_size))
     : 1;
@@ -341,6 +370,8 @@ export function CollectionsFeature() {
               });
             }}
             onDeleteCollection={(id) => setConfirmDeleteCollectionId(id)}
+            onMoveCollection={handleMoveCollection}
+            onRenameCollection={handleRenameCollection}
             onNavigateBrowse={() => navigate("/browse-v2")}
           />
         </aside>

@@ -6,7 +6,7 @@ from app.db.models.collection import Collection
 
 class CollectionRepository:
     def list_collections(self, session: Session) -> list[Collection]:
-        statement = select(Collection).order_by(Collection.created_at.desc(), Collection.id.desc())
+        statement = select(Collection).order_by(Collection.sort_order.asc(), Collection.created_at.desc(), Collection.id.desc())
         return list(session.scalars(statement))
 
     def get_by_id(self, session: Session, collection_id: int) -> Collection | None:

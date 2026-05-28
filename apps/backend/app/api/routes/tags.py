@@ -52,7 +52,7 @@ def rename_tag(
     tag_id: int = Path(..., ge=1),
     db: Session = Depends(get_db),
 ) -> TagResponse:
-    return tags_service.rename(db, tag_id, payload.name)
+    return tags_service.rename(db, tag_id, payload)
 
 
 @router.delete("/tags/{tag_id}", response_model=MessageResponse)

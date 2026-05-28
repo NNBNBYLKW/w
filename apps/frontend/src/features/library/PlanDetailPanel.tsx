@@ -4,7 +4,7 @@ import { t } from "../../shared/text";
 import { queryKeys } from "../../services/query/queryKeys";
 import { invalidateLibraryOrganizeSurfaces } from "../../services/query/invalidation";
 import type { OrganizePlanListQueryInput, PreflightResponseVM, CopyFailedActionsResponseVM, GenerateAssetYamlMergeResponseVM, GenerateRollbackResponseVM, ReconcilePlanResponseVM, OrganizeActionItemVM, OrganizeActionLogItemVM } from "../../entities/library/types";
-import { getOrganizePlan, markOrganizePlanReady, preflightOrganizePlan, executeOrganizePlan, cancelOrganizePlan, getOrganizePlanLogs, reconcileOrganizePlan, copyFailedActions, generateRollbackPlan, generateAssetYamlMerge, updateOrganizeAction } from "../../services/api/libraryObjectsApi";
+import { getOrganizePlan, markOrganizePlanReady, preflightOrganizePlan, executeOrganizePlan, cancelOrganizePlan, getOrganizePlanLogs, reconcileOrganizePlan, copyFailedActions, generateRollbackPlan, generateAssetYamlMerge, updateOrganizeAction, scanLibraryObjects } from "../../services/api/libraryObjectsApi";
 import { EmptyState, LoadingState, PlanStatusPill, StatusBadge, ActionButton, KeyValueRow } from "../../shared/ui/components";
 import { formatTimestamp } from "./shared/helpers";
 
@@ -122,8 +122,10 @@ function PlanLogList({ logs, isLoading }: { logs: OrganizeActionLogItemVM[]; isL
 
 export function PlanDetail({
   planId,
+  onSelectPlan,
 }: {
   planId: number | null;
+  onSelectPlan?: (planId: number) => void;
 }) {
   const queryClient = useQueryClient();
   const [preflightResult, setPreflightResult] = useState<PreflightResponseVM | null>(null);
@@ -506,7 +508,7 @@ export function PlanDetail({
               <button
                 className="secondary-button"
                 type="button"
-                onClick={() => setSelectedPlanId(copyFailedResult.new_plan_id)}
+                onClick={() => onSelectPlan?.(copyFailedResult.new_plan_id)}
               >
                 {t("features.library.organize.openNewPlan")}
               </button>
@@ -530,7 +532,7 @@ export function PlanDetail({
               <button
                 className="secondary-button"
                 type="button"
-                onClick={() => setSelectedPlanId(generateRollbackResult.rollback_plan_id)}
+                onClick={() => onSelectPlan?.(generateRollbackResult.rollback_plan_id)}
               >
                 {t("features.library.organize.openRollbackPlan")}
               </button>
@@ -558,7 +560,7 @@ export function PlanDetail({
               <button
                 className="secondary-button"
                 type="button"
-                onClick={() => setSelectedPlanId(mergeResult.merge_plan_id)}
+                onClick={() => onSelectPlan?.(mergeResult.merge_plan_id)}
               >
                 {t("features.library.organize.openMergePlan")}
               </button>
@@ -600,4 +602,3 @@ export function PlanDetail({
     </aside>
   );
 }
-

@@ -32,6 +32,8 @@ class SearchService:
             storage_state=params.storage_state,
             tag_id=params.tag_id,
             color_tag=normalized_color_tag,
+            is_favorite=params.is_favorite,
+            min_rating=params.min_rating,
             page=params.page,
             page_size=params.page_size,
             sort_by=params.sort_by,

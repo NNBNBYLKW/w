@@ -1,7 +1,7 @@
 // Browser smoke test for frontend acceptance after Codex + CSS fixes
 // Run: npx playwright test --config=... or npx node scripts/smoke-test.mjs
 import { chromium } from "playwright";
-import { mkdirSync } from "fs";
+import { existsSync, mkdirSync, readFileSync } from "fs";
 
 const BASE = "http://127.0.0.1:5173";
 const SCREENSHOT_DIR = "../../docs/_wip/frontend-acceptance/screenshots";
@@ -15,6 +15,69 @@ function record(page, result, consoleErrors = [], networkErrors = [], notes = ""
 
 function addIssue(severity, page, description, steps = "") {
   issues.push({ severity, page, description, steps });
+}
+
+function runCssReview() {
+  const reviewIssues = [];
+  const globalCssPath = "src/app/styles/global.css";
+  const galleryCssPath = "src/app/styles/gallery-lab.css";
+
+  const readText = (path) => existsSync(path) ? readFileSync(path, "utf8") : "";
+  const globalCss = readText(globalCssPath);
+  const galleryCss = readText(galleryCssPath);
+
+  if (!galleryCss) {
+    reviewIssues.push({
+      severity: "P2",
+      page: "(CSS review)",
+      description: "P2-01: gallery-lab.css is missing; Gallery Lab visual layer is not loaded.",
+    });
+    return reviewIssues;
+  }
+
+  if (!globalCss.includes("gallery-lab.css")) {
+    reviewIssues.push({
+      severity: "P2",
+      page: "(CSS review)",
+      description: "P2-02: global.css does not import gallery-lab.css.",
+    });
+  }
+
+  if (/workbench-polish\.css/.test(globalCss)) {
+    reviewIssues.push({
+      severity: "P3",
+      page: "(CSS review)",
+      description: "P3-01: legacy workbench-polish.css import is still present.",
+    });
+  }
+
+  if (/font-size:\s*(10px|11px)\b/.test(galleryCss)) {
+    reviewIssues.push({
+      severity: "P2",
+      page: "(CSS review)",
+      description: "P2-03: Gallery Lab CSS still has 10-11px text.",
+    });
+  }
+
+  const letterSpacingValues = [...galleryCss.matchAll(/letter-spacing:\s*([^;\n]+)/g)]
+    .map((match) => match[1].trim());
+  if (letterSpacingValues.some((value) => value !== "0")) {
+    reviewIssues.push({
+      severity: "P3",
+      page: "(CSS review)",
+      description: "P3-02: Gallery Lab CSS has non-zero letter spacing.",
+    });
+  }
+
+  if (/@media\s*\(max-width:\s*900px\)/.test(galleryCss)) {
+    reviewIssues.push({
+      severity: "P3",
+      page: "(CSS review)",
+      description: "P3-03: Gallery Lab responsive breakpoint is still capped at 900px.",
+    });
+  }
+
+  return reviewIssues;
 }
 
 async function checkPage(browser, pagePath, interactions = null) {
@@ -273,6 +336,7 @@ async function run() {
     const page = await context.newPage();
     const themeNotes = [];
     const themeErrors = [];
+    let themeResult = "PASS";
 
     page.on("console", (msg) => {
       if (msg.type() === "error") themeErrors.push(msg.text());
@@ -334,12 +398,13 @@ async function run() {
         await page.screenshot({ path: `${SCREENSHOT_DIR}/${safeName}.png`, fullPage: false });
       }
     } catch (e) {
+      themeResult = "FAIL";
       themeNotes.push(`Theme error: ${e.message}`);
     }
 
     record(
       `theme-${theme}`,
-      themeErrors.length > 0 ? "PARTIAL" : "PASS",
+      themeResult === "FAIL" ? "FAIL" : themeErrors.length > 0 ? "PARTIAL" : "PASS",
       themeErrors,
       [],
       themeNotes.join("; ")
@@ -352,11 +417,11 @@ async function run() {
 
   // === OUTPUT REPORT ===
   console.log("\n" + "=".repeat(60));
-  console.log("# Frontend Browser Smoke After CSS Fixes");
+  console.log("# Frontend Browser Smoke: Gallery Lab Workbench");
   console.log("=".repeat(60));
 
   console.log("\n## Build");
-  console.log("- npm run build: 233 modules, 0 errors, 1.13s");
+  console.log("- Browser smoke only. Run npm run build separately for production bundling.");
 
   console.log("\n## Pages Checked");
   console.log("| Page | Result | Console Errors | Network Errors | Notes |");
@@ -380,11 +445,9 @@ async function run() {
       bySeverity.P2.push({ page: r.page, errors: r.networkErrors });
     }
   }
-  // Add code-review issues
-  bySeverity.P2.push({ page: "(CSS review)", description: "P2-02: 10-11px muted text may fail WCAG 4.5:1 contrast" });
-  bySeverity.P3.push({ page: "(CSS review)", description: "P3-01: No CSS variable fallbacks in workbench-polish.css" });
-  bySeverity.P3.push({ page: "(CSS review)", description: "P3-02: Minimal responsive breakpoint at 900px" });
-  bySeverity.P3.push({ page: "(CSS review)", description: "P3-03: Possibly unused .mono, .path-text classes" });
+  for (const issue of runCssReview()) {
+    bySeverity[issue.severity].push(issue);
+  }
 
   for (const sev of ["P0", "P1", "P2", "P3"]) {
     if (bySeverity[sev].length === 0) continue;

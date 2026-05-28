@@ -3,7 +3,7 @@ export const pages = {
     eyebrow: "Lightweight overview",
     title: "Home",
     description:
-      "Use this lightweight overview page as the main entry to system status, source coverage, and the current indexed-file flows.",
+      "Use this lightweight dashboard to review system status and jump into Browse, Library, Search, and recent operations.",
   },
   onboarding: {
     eyebrow: "Getting started",
@@ -20,29 +20,34 @@ export const pages = {
     title: "Files",
     description: "Browse active indexed file records by source and exact directory.",
   },
+  library: {
+    eyebrow: "File library",
+    title: "File Library",
+    description: "Your file management center. Scan folders to index files, add managed roots as organization targets, import files into inbox, and execute organize plans. Use the browse categories in the sidebar to explore organized content.",
+  },
   books: {
     eyebrow: "Library subset surface",
-    title: "Books",
+    title: "Documents",
     description:
-      "Browse recognized ebook files in a focused subset surface. Selection continues into shared details and the existing open actions.",
+      "A pre-filtered view of recognized document files. For the full object-and-file browse experience with taxonomy navigation, use Browse.",
   },
   media: {
     eyebrow: "Visual subset surface",
     title: "Media",
     description:
-      "Browse indexed images and videos in a visual subset surface. Selection continues into shared details and the existing open actions.",
+      "A pre-filtered view of indexed images and videos. For the full object-and-file browse experience with taxonomy navigation, use Browse.",
   },
   games: {
     eyebrow: "Library subset surface",
     title: "Games",
     description:
-      "Browse recognized game-entry files in a focused subset surface. Selection continues into shared details and the existing open actions.",
+      "A pre-filtered view of recognized game-entry files. For the full object-and-file browse experience with taxonomy navigation, use Browse.",
   },
   software: {
     eyebrow: "Library subset surface",
     title: "Software",
     description:
-      "Browse recognized software-related files in a focused subset surface. Selection continues into shared details and the existing open actions.",
+      "A pre-filtered view of recognized software-related files. For the full object-and-file browse experience with taxonomy navigation, use Browse.",
   },
   recent: {
     eyebrow: "Recent retrieval family",
@@ -65,6 +70,11 @@ export const pages = {
   settings: {
     eyebrow: "Source and system entry",
     title: "Settings",
-    description: "Use this lightweight page as the source and system entry for the local-first workbench.",
+    description: "Configure appearance, language, and system preferences. Manage scan folders in Library > Sources.",
+  },
+  browseV2: {
+    eyebrow: "Content browse",
+    title: "Browse",
+    description: "Browse organized objects and loose files by content domain. Categories are available in the sidebar. Select an object to view members, add or remove files.",
   },
 } as const;

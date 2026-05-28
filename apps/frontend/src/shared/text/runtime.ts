@@ -1,8 +1,8 @@
 import { en } from "../../locales/en";
 import { zhCN } from "../../locales/zh-CN";
-import type { NestedLeafKey } from "./types";
+import type { NestedLeafKey, WidenTextDictionary } from "./types";
 
-type TextDictionary = typeof en;
+type TextDictionary = WidenTextDictionary<typeof en>;
 export type TextKey = NestedLeafKey<TextDictionary>;
 export type TextParams = Record<string, string | number | boolean | null | undefined>;
 export type LocaleCode = "en" | "zh-CN";

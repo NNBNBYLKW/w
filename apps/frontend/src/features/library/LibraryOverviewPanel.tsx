@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { t } from "../../shared/text";
+import { LoadingState } from "../../shared/ui/components/LoadingState";
 import { queryKeys } from "../../services/query/queryKeys";
 import { invalidateLibraryObjectSurfaces } from "../../services/query/invalidation";
 import { getLibraryOverview, getOrganizeStats, scanLibraryObjects } from "../../services/api/libraryObjectsApi";
@@ -88,7 +89,7 @@ function StorageSummarySection() {
   return (
     <div className="library-overview-card">
       <span className="page-header__eyebrow">{t("features.library.storageSummary.eyebrow")}</span>
-      {q.isLoading ? <p>{t("common.states.loading")}</p> : null}
+      {q.isLoading ? <LoadingState /> : null}
       {q.isError ? <p className="muted-text">{t("features.library.storageSummary.unavailable")}</p> : null}
       {d ? (
         <div className="library-stat-grid">
@@ -171,7 +172,7 @@ export function LibraryOverviewPanel() {
 
       <div className="library-overview-card">
         <span className="page-header__eyebrow">{t("features.library.overview.statsEyebrow")}</span>
-        {overviewQuery.isLoading ? <p>{t("common.states.loading")}</p> : null}
+        {overviewQuery.isLoading ? <LoadingState /> : null}
         {overviewQuery.isError ? <p>{t("features.library.scan.unableToLoad")}</p> : null}
         {stats ? (
           <div className="library-stat-grid">

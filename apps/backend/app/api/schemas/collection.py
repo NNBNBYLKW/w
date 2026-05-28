@@ -12,6 +12,8 @@ class CollectionCreateRequest(BaseModel):
     color_tag: str | None = None
     source_id: int | None = Field(default=None, ge=1)
     parent_path: str | None = None
+    sort_order: int = 0
+    group_name: str | None = None
 
     @field_validator("color_tag", mode="before")
     @classmethod
@@ -33,6 +35,8 @@ class CollectionUpdateRequest(BaseModel):
     color_tag: str | None = None
     source_id: int | None = Field(default=None, ge=1)
     parent_path: str | None = None
+    sort_order: int | None = None
+    group_name: str | None = None
 
     @field_validator("color_tag", mode="before")
     @classmethod
@@ -57,6 +61,8 @@ class CollectionResponse(BaseModel):
     color_tag: str | None
     source_id: int | None
     parent_path: str | None
+    sort_order: int = 0
+    group_name: str | None = None
     created_at: datetime
     updated_at: datetime
 

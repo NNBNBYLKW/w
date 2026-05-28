@@ -49,3 +49,20 @@ export async function getFileVideoPreview(fileId: number): Promise<FileVideoPrev
   const response = await fetch(`${getApiBaseUrl()}/files/${fileId}/video-preview`);
   return parseResponse<FileVideoPreviewResponseVM>(response);
 }
+
+export type SiblingFileVM = {
+  id: number;
+  name: string;
+  path: string;
+  file_type: string;
+  modified_at: string;
+};
+
+export type SiblingFilesResponseVM = {
+  items: SiblingFileVM[];
+};
+
+export async function getSiblingFiles(fileId: number, limit: number = 20): Promise<SiblingFilesResponseVM> {
+  const response = await fetch(`${getApiBaseUrl()}/files/${fileId}/siblings?limit=${limit}`);
+  return parseResponse<SiblingFilesResponseVM>(response);
+}

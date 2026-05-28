@@ -49,6 +49,7 @@ class DetailsService:
                 status=file_user_meta.status if file_user_meta is not None else None,
                 is_favorite=file_user_meta.is_favorite if file_user_meta is not None else False,
                 rating=file_user_meta.rating if file_user_meta is not None else None,
+                notes=file_user_meta.notes if file_user_meta is not None else None,
                 metadata=(
                     {
                         "width": file_metadata.width,

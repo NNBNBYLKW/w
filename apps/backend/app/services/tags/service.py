@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.schemas.file import FileListItemResponse, FileListResponse
 from app.api.schemas.file import BatchTagAttachRequest, BatchTagAttachResponse
-from app.api.schemas.tag import TagCreateRequest, TagFileListQueryParams, TagItemResponse, TagListResponse, TagResponse
+from app.api.schemas.tag import TagCreateRequest, TagFileListQueryParams, TagItemResponse, TagListResponse, TagRenameRequest, TagResponse
 from app.core.classification import effective_placement
 from app.core.errors.exceptions import BadRequestError, NotFoundError
 from app.db.models.tag import Tag
@@ -40,6 +40,7 @@ class TagsService:
         tag = Tag(
             name=cleaned_name,
             normalized_name=normalized_name,
+            color=payload.color,
             created_at=now,
             updated_at=now,
         )
@@ -59,6 +60,7 @@ class TagsService:
             tag = Tag(
                 name=cleaned_name,
                 normalized_name=normalized_name,
+                color=payload.color,
                 created_at=now,
                 updated_at=now,
             )
@@ -84,6 +86,7 @@ class TagsService:
             tag = Tag(
                 name=cleaned_name,
                 normalized_name=normalized_name,
+                color=None,
                 created_at=now,
                 updated_at=now,
             )
@@ -157,18 +160,20 @@ class TagsService:
         session.commit()
         return self._build_file_tag_list(session, file_id)
 
-    def rename(self, session: Session, tag_id: int, name: str) -> TagResponse:
+    def rename(self, session: Session, tag_id: int, payload: TagRenameRequest) -> TagResponse:
         tag = self.tag_repository.get_by_id(session, tag_id)
         if tag is None:
             raise NotFoundError("TAG_NOT_FOUND", "Tag not found.")
 
-        cleaned_name, normalized_name = self._normalize_tag_name(name)
+        cleaned_name, normalized_name = self._normalize_tag_name(payload.name)
         duplicate = self.tag_repository.get_by_normalized_name(session, normalized_name)
         if duplicate is not None and duplicate.id != tag_id:
             raise BadRequestError("TAG_NAME_EXISTS", "A tag with this name already exists.")
 
         tag.name = cleaned_name
         tag.normalized_name = normalized_name
+        if "color" in payload.model_fields_set:
+            tag.color = payload.color
         self.tag_repository.add(session, tag)
         session.commit()
         return TagResponse(item=self._to_tag_item(tag))
@@ -209,4 +214,4 @@ class TagsService:
         return cleaned_name, cleaned_name.casefold()
 
     def _to_tag_item(self, tag: Tag) -> TagItemResponse:
-        return TagItemResponse(id=tag.id, name=tag.name)
+        return TagItemResponse(id=tag.id, name=tag.name, color=tag.color)

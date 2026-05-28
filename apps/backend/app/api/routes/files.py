@@ -1,3 +1,5 @@
+import os
+
 from fastapi import APIRouter, Depends, Path, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -5,6 +7,8 @@ from sqlalchemy.orm import Session
 from app.api.schemas.file import (
     BatchColorTagUpdateRequest,
     BatchColorTagUpdateResponse,
+    BatchMetaUpdateRequest,
+    BatchMetaUpdateResponse,
     BatchPlacementUpdateRequest,
     BatchPlacementUpdateResponse,
     BatchTagAttachRequest,
@@ -71,6 +75,14 @@ def update_placement_batch(
     return file_user_meta_service.update_files_placement(db, payload)
 
 
+@router.post("/files/batch/meta", response_model=BatchMetaUpdateResponse)
+def batch_update_meta(
+    payload: BatchMetaUpdateRequest,
+    db: Session = Depends(get_db),
+) -> BatchMetaUpdateResponse:
+    return file_user_meta_service.batch_update(db, payload)
+
+
 @router.get("/files", response_model=FileListResponse)
 def list_files(
     source_id: int | None = Query(default=None, ge=1),
@@ -96,6 +108,18 @@ def list_files(
         sort_order=sort_order,
     )
     return files_service.list_files(db, params)
+
+
+@router.get("/files/{file_id}/siblings")
+def get_sibling_files(
+    file_id: int = Path(..., ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+) -> dict:
+    file = files_service.get_file(db, file_id)
+    parent = os.path.dirname(file.path) if file else ""
+    siblings = files_service.list_files_in_directory(db, parent, file_id, limit)
+    return {"items": siblings}
 
 
 @router.get("/files/{file_id}", response_model=FileDetailResponse)

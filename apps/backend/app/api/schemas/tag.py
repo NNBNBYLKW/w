@@ -9,10 +9,12 @@ TagFileListSortOrder = Literal["asc", "desc"]
 
 class TagCreateRequest(BaseModel):
     name: str
+    color: str | None = None
 
 
 class TagRenameRequest(BaseModel):
     name: str
+    color: str | None = None
 
 
 class TagMergeRequest(BaseModel):
@@ -23,6 +25,7 @@ class TagMergeRequest(BaseModel):
 class TagItemResponse(BaseModel):
     id: int
     name: str
+    color: str | None = None
 
 
 class TagResponse(BaseModel):

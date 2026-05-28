@@ -6,6 +6,7 @@ import { navigation } from "./navigation";
 import { pages } from "./pages";
 import { settings } from "./settings";
 import { shell } from "./shell";
+import type { WidenTextDictionary } from "../../shared/text/types";
 
 export const zhCN = {
   common,
@@ -15,4 +16,4 @@ export const zhCN = {
   pages,
   settings,
   shell,
-} as const satisfies typeof en;
+} as const satisfies WidenTextDictionary<typeof en>;

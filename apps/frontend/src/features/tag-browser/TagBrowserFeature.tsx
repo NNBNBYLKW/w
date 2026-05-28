@@ -89,16 +89,18 @@ export function TagBrowserFeature() {
   const queryClient = useQueryClient();
   const [renamingTagId, setRenamingTagId] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [renameColor, setRenameColor] = useState("");
   const [deleteConfirmTagId, setDeleteConfirmTagId] = useState<number | null>(null);
   const [mergingTagId, setMergingTagId] = useState<number | null>(null);
   const [openMenuTagId, setOpenMenuTagId] = useState<number | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
   const renameMutation = useMutation({
-    mutationFn: ({ tagId, name }: { tagId: number; name: string }) => renameTag(tagId, name),
+    mutationFn: ({ tagId, name, color }: { tagId: number; name: string; color?: string | null }) => renameTag(tagId, name, color),
     onSuccess: () => {
       setRenamingTagId(null);
       setRenameValue("");
+      setRenameColor("");
       void queryClient.invalidateQueries({ queryKey: ["tags"] });
     },
   });
@@ -181,32 +183,54 @@ export function TagBrowserFeature() {
               {tagsQuery.data.items.map((tag) => (
                 <div key={tag.id} style={{ position: "relative" }}>
                   {renamingTagId === tag.id ? (
-                    <div style={{ display: "flex", gap: 4, padding: "4px 8px" }}>
-                      <input
-                        ref={renameInputRef}
-                        className="text-input"
-                        style={{ flex: 1, fontSize: 13 }}
-                        value={renameValue}
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && renameValue.trim()) {
-                            renameMutation.mutate({ tagId: tag.id, name: renameValue.trim() });
-                          }
-                          if (e.key === "Escape") {
-                            setRenamingTagId(null);
-                            setRenameValue("");
-                          }
-                        }}
-                      />
-                      <button
-                        className="primary-button"
-                        style={{ padding: "2px 8px", fontSize: 13 }}
-                        type="button"
-                        disabled={!renameValue.trim() || renameMutation.isPending}
-                        onClick={() => renameMutation.mutate({ tagId: tag.id, name: renameValue.trim() })}
-                      >
-                        {t("common.actions.save")}
-                      </button>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "4px 8px" }}>
+                      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                        <input
+                          ref={renameInputRef}
+                          className="text-input"
+                          style={{ flex: 1, fontSize: 13 }}
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && renameValue.trim()) {
+                              renameMutation.mutate({ tagId: tag.id, name: renameValue.trim(), color: renameColor || null });
+                            }
+                            if (e.key === "Escape") {
+                              setRenamingTagId(null);
+                              setRenameValue("");
+                              setRenameColor("");
+                            }
+                          }}
+                        />
+                        <button
+                          className="primary-button"
+                          style={{ padding: "2px 8px", fontSize: 13 }}
+                          type="button"
+                          disabled={!renameValue.trim() || renameMutation.isPending}
+                          onClick={() => renameMutation.mutate({ tagId: tag.id, name: renameValue.trim(), color: renameColor || null })}
+                        >
+                          {t("common.actions.save")}
+                        </button>
+                      </div>
+                      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                        <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>Color:</span>
+                        <input
+                          type="color"
+                          value={renameColor || "#000000"}
+                          onChange={(e) => setRenameColor(e.target.value)}
+                          style={{ width: 28, height: 28, padding: 0, border: "none", borderRadius: 4, cursor: "pointer" }}
+                        />
+                        {renameColor ? (
+                          <button
+                            type="button"
+                            className="ghost-button"
+                            style={{ fontSize: 11, padding: "2px 6px" }}
+                            onClick={() => setRenameColor("")}
+                          >
+                            {t("common.actions.clear")}
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                   ) : (
                     <>
@@ -219,6 +243,11 @@ export function TagBrowserFeature() {
                           setPage(1);
                         }}
                       >
+                        <span className="tag-color-dot" style={{
+                          backgroundColor: tag.color ?? "var(--color-border)",
+                          width: 10, height: 10, borderRadius: "50%", display: "inline-block", marginRight: 6,
+                          flexShrink: 0,
+                        }} />
                         {tag.name}
                       </button>
                       <button
@@ -254,6 +283,7 @@ export function TagBrowserFeature() {
                             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = ""; }}
                             onClick={() => {
                               setRenameValue(tag.name);
+                              setRenameColor(tag.color ?? "");
                               setRenamingTagId(tag.id);
                             }}
                           >

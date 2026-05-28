@@ -14,3 +14,5 @@ export function SearchPage() {
     </section>
   );
 }
+
+export default SearchPage;

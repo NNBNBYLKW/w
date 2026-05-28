@@ -8,3 +8,5 @@ export function LibraryPage() {
     </section>
   );
 }
+
+export default LibraryPage;

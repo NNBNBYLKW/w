@@ -66,6 +66,8 @@ export type SearchQueryInput = {
   storage_state?: StorageStateFilter;
   tag_id?: number;
   color_tag?: ColorTagValue;
+  is_favorite?: boolean;
+  min_rating?: number;
   page: number;
   page_size: number;
   sort_by: SearchSortBy;
@@ -112,6 +114,7 @@ export type FileDetailItemVM = {
   status: FileStatusValue | null;
   is_favorite: boolean;
   rating: FileRatingValue | null;
+  notes?: string | null;
   metadata:
     | {
         width: number | null;
@@ -156,6 +159,7 @@ export type FileUserMetaResponseVM = {
     id: number;
     is_favorite: boolean;
     rating: FileRatingValue | null;
+    notes?: string | null;
   };
 };
 

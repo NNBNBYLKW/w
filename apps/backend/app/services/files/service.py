@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.api.schemas.file import FileListItemResponse, FileListQueryParams, FileListResponse
 from app.core.classification import effective_placement
 from app.core.errors.exceptions import BadRequestError, NotFoundError
+from app.db.models.file import File
 from app.repositories.file_user_meta.repository import FileUserMetaRepository
 from app.repositories.file.repository import FileRepository
 from app.repositories.source.repository import SourceRepository
@@ -18,6 +19,12 @@ class FilesService:
         self.source_repository = SourceRepository()
         self.tag_repository = TagRepository()
         self.file_user_meta_repository = FileUserMetaRepository()
+
+    def get_file(self, session: Session, file_id: int) -> File:
+        file = self.file_repository.get_by_id(session, file_id)
+        if file is None:
+            raise NotFoundError("FILE_NOT_FOUND", "File not found.")
+        return file
 
     def list_files(self, session: Session, params: FileListQueryParams) -> FileListResponse:
         if params.parent_path is not None and params.source_id is None:
@@ -74,6 +81,30 @@ class FilesService:
             modified_at=file.modified_at_fs or file.discovered_at,
             size_bytes=file.size_bytes,
         )
+
+    def list_files_in_directory(
+        self,
+        session: Session,
+        parent_path: str,
+        exclude_file_id: int,
+        limit: int = 20,
+    ) -> list[dict]:
+        files = self.file_repository.list_files_in_directory(
+            session,
+            parent_path=parent_path,
+            exclude_file_id=exclude_file_id,
+            limit=limit,
+        )
+        return [
+            {
+                "id": f.id,
+                "name": f.name,
+                "path": f.path,
+                "file_type": f.file_type,
+                "modified_at": f.modified_at_fs or f.discovered_at,
+            }
+            for f in files
+        ]
 
     def _normalize_color_tag(self, raw_color_tag: str | None) -> str | None:
         if raw_color_tag is None:

@@ -322,6 +322,8 @@ class FileRepository:
         storage_state: str | None = None,
         tag_id: int | None,
         color_tag: str | None,
+        is_favorite: bool | None = None,
+        min_rating: int | None = None,
         page: int,
         page_size: int,
         sort_by: str,
@@ -360,6 +362,26 @@ class FileRepository:
                 .where(
                     FileUserMeta.file_id == File.id,
                     FileUserMeta.color_tag == color_tag,
+                )
+                .exists()
+            )
+        if is_favorite is not None:
+            filters.append(
+                select(1)
+                .select_from(FileUserMeta)
+                .where(
+                    FileUserMeta.file_id == File.id,
+                    FileUserMeta.is_favorite == is_favorite,
+                )
+                .exists()
+            )
+        if min_rating is not None:
+            filters.append(
+                select(1)
+                .select_from(FileUserMeta)
+                .where(
+                    FileUserMeta.file_id == File.id,
+                    FileUserMeta.rating >= min_rating,
                 )
                 .exists()
             )
@@ -690,6 +712,95 @@ class FileRepository:
             sort_order=sort_order,
         )
 
+    def list_recent_all_events(
+        self,
+        session: Session,
+        *,
+        cutoff: datetime,
+        now: datetime,
+        page: int,
+        page_size: int,
+        sort_order: str,
+    ) -> tuple[list[tuple[File, datetime]], int]:
+        """Unified timeline: imports + tagged + color-tagged events sorted by occurred_at DESC."""
+        from sqlalchemy import union_all, literal_column
+
+        imports_subq = (
+            select(
+                File.id.label("file_id"),
+                File.discovered_at.label("occurred_at"),
+                literal_column("1").label("event_type"),
+            )
+            .where(File.is_deleted.is_(False), File.discovered_at >= cutoff, File.discovered_at <= now)
+            .subquery()
+        )
+
+        latest_tagged_subq = (
+            select(
+                FileTag.file_id.label("file_id"),
+                func.max(FileTag.created_at).label("occurred_at"),
+                literal_column("2").label("event_type"),
+            )
+            .group_by(FileTag.file_id)
+            .subquery()
+        )
+        tagged_subq = (
+            select(
+                latest_tagged_subq.c.file_id,
+                latest_tagged_subq.c.occurred_at,
+                latest_tagged_subq.c.event_type,
+            )
+            .where(latest_tagged_subq.c.occurred_at >= cutoff, latest_tagged_subq.c.occurred_at <= now)
+            .subquery()
+        )
+
+        color_tagged_subq = (
+            select(
+                FileUserMeta.file_id.label("file_id"),
+                FileUserMeta.updated_at.label("occurred_at"),
+                literal_column("3").label("event_type"),
+            )
+            .where(FileUserMeta.color_tag.is_not(None), FileUserMeta.updated_at >= cutoff, FileUserMeta.updated_at <= now)
+            .subquery()
+        )
+
+        all_events = union_all(
+            select(imports_subq.c.file_id, imports_subq.c.occurred_at).select_from(imports_subq),
+            select(tagged_subq.c.file_id, tagged_subq.c.occurred_at).select_from(tagged_subq),
+            select(color_tagged_subq.c.file_id, color_tagged_subq.c.occurred_at).select_from(color_tagged_subq),
+        ).subquery()
+
+        ordered = all_events.c.occurred_at.asc() if sort_order == "asc" else all_events.c.occurred_at.desc()
+        offset = (page - 1) * page_size
+
+        count_stmt = select(func.count()).select_from(all_events)
+        total = int(session.scalar(count_stmt) or 0)
+
+        distinct_events = (
+            select(
+                all_events.c.file_id,
+                func.max(all_events.c.occurred_at).label("occurred_at"),
+            )
+            .group_by(all_events.c.file_id)
+            .subquery()
+        )
+
+        ordered_distinct = distinct_events.c.occurred_at.asc() if sort_order == "asc" else distinct_events.c.occurred_at.desc()
+        offset2 = (page - 1) * page_size
+
+        stmt = (
+            select(File, distinct_events.c.occurred_at)
+            .join(distinct_events, distinct_events.c.file_id == File.id)
+            .order_by(ordered_distinct, File.path.asc(), File.id.asc())
+            .offset(offset2)
+            .limit(page_size)
+        )
+        items = [(row[0], row[1]) for row in session.execute(stmt).all()]
+
+        total2_stmt = select(func.count()).select_from(distinct_events)
+        total2 = int(session.scalar(total2_stmt) or 0)
+        return items, total2
+
     def list_files_for_tag(
         self,
         session: Session,
@@ -729,6 +840,26 @@ class FileRepository:
         )
         total = int(session.scalar(total_statement) or 0)
         return items, total
+
+    def list_files_in_directory(
+        self,
+        session: Session,
+        *,
+        parent_path: str,
+        exclude_file_id: int,
+        limit: int,
+    ) -> list[File]:
+        statement = (
+            select(File)
+            .where(
+                File.is_deleted.is_(False),
+                func.lower(File.parent_path) == parent_path.lower(),
+                File.id != exclude_file_id,
+            )
+            .order_by(File.modified_at_fs.desc(), File.name.asc())
+            .limit(limit)
+        )
+        return list(session.scalars(statement))
 
     def _select_files(
         self,

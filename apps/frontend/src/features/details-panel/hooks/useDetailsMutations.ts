@@ -234,7 +234,7 @@ export function useDetailsMutations(
   });
 
   const userMetaMutation = useMutation({
-    mutationFn: (payload: { is_favorite?: boolean; rating?: FileRatingValue | null }) =>
+    mutationFn: (payload: { is_favorite?: boolean; rating?: FileRatingValue | null; notes?: string | null }) =>
       updateFileUserMeta(parsedFileId as number, payload),
     onMutate: () => setUserMetaMutationError(null),
     onSuccess: (response) => {
@@ -249,6 +249,7 @@ export function useDetailsMutations(
               ...current.item,
               is_favorite: response.item.is_favorite,
               rating: response.item.rating,
+              notes: response.item.notes,
             },
           };
         },

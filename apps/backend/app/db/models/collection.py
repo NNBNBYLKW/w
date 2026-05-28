@@ -16,5 +16,7 @@ class Collection(Base):
     color_tag: Mapped[str | None] = mapped_column(String, nullable=True)
     source_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     parent_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    group_name: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)

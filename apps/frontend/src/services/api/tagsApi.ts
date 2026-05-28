@@ -28,11 +28,15 @@ export async function listTags(): Promise<TagListResponseVM> {
 }
 
 
-export async function createTag(name: string): Promise<TagResponseVM> {
+export async function createTag(name: string, color?: string | null): Promise<TagResponseVM> {
+  const body: Record<string, unknown> = { name };
+  if (color !== undefined) {
+    body.color = color;
+  }
   const response = await fetch(`${getApiBaseUrl()}/tags`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(body),
   });
   return p<TagResponseVM>(response);
 }
@@ -66,11 +70,15 @@ export async function removeTagFromFile(fileId: number, tagId: number): Promise<
 }
 
 
-export async function renameTag(tagId: number, name: string): Promise<TagResponseVM> {
+export async function renameTag(tagId: number, name: string, color?: string | null): Promise<TagResponseVM> {
+  const body: Record<string, unknown> = { name };
+  if (color !== undefined) {
+    body.color = color;
+  }
   const response = await fetch(`${getApiBaseUrl()}/tags/${tagId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(body),
   });
   return p<TagResponseVM>(response);
 }

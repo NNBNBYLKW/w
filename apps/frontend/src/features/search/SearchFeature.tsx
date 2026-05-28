@@ -122,6 +122,8 @@ export function SearchFeature() {
   const [storageState, setStorageState] = useState<StorageStateFilter | "all">("all");
   const [selectedTagId, setSelectedTagId] = useState("all");
   const [selectedColorTag, setSelectedColorTag] = useState<ColorTagValue | "all">("all");
+  const [isFavorite, setIsFavorite] = useState<boolean>(false);
+  const [minRating, setMinRating] = useState<number>(0);
   const [sortBy, setSortBy] = useState<SearchSortBy>("modified_at");
   const [sortOrder, setSortOrder] = useState<SearchSortOrder>("desc");
   const [page, setPage] = useState(1);
@@ -137,6 +139,8 @@ export function SearchFeature() {
     storage_state: storageState === "all" ? undefined : storageState,
     tag_id: selectedTagId === "all" ? undefined : Number(selectedTagId),
     color_tag: selectedColorTag === "all" ? undefined : selectedColorTag,
+    is_favorite: isFavorite || undefined,
+    min_rating: minRating > 0 ? minRating : undefined,
     page,
     page_size: 50,
     sort_by: sortBy,
@@ -338,6 +342,36 @@ export function SearchFeature() {
                   {option.label}
                 </option>
               ))}
+            </select>
+          </label>
+          <label className="field-stack search-toolbar__field search-toolbar__field--checkbox">
+            <span>Favorites only</span>
+            <input
+              type="checkbox"
+              className="checkbox-input"
+              checked={isFavorite}
+              onChange={(event) => {
+                setIsFavorite(event.target.checked);
+                setPage(1);
+              }}
+            />
+          </label>
+          <label className="field-stack search-toolbar__field">
+            <span>Min rating</span>
+            <select
+              className="select-input"
+              value={minRating}
+              onChange={(event) => {
+                setMinRating(Number(event.target.value));
+                setPage(1);
+              }}
+            >
+              <option value={0}>Any</option>
+              <option value={1}>1 star</option>
+              <option value={2}>2 stars</option>
+              <option value={3}>3 stars</option>
+              <option value={4}>4 stars</option>
+              <option value={5}>5 stars</option>
             </select>
           </label>
           <label className="field-stack search-toolbar__field">

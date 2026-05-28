@@ -71,9 +71,8 @@ export function LibraryPlansPanel() {
             ))}
           </div>
         </div>
-        <PlanDetail planId={selectedPlanId} />
+        <PlanDetail planId={selectedPlanId} onSelectPlan={setSelectedPlanId} />
       </div>
     </section>
   );
 }
-

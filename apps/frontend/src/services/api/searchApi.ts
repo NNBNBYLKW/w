@@ -24,6 +24,12 @@ export async function searchFiles(input: SearchQueryInput): Promise<SearchRespon
   if (input.color_tag) {
     params.set("color_tag", input.color_tag);
   }
+  if (input.is_favorite !== undefined) {
+    params.set("is_favorite", String(input.is_favorite));
+  }
+  if (input.min_rating !== undefined) {
+    params.set("min_rating", String(input.min_rating));
+  }
 
   params.set("page", String(input.page));
   params.set("page_size", String(input.page_size));

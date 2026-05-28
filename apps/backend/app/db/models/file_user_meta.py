@@ -16,4 +16,5 @@ class FileUserMeta(Base):
     rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
     is_favorite: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     placement_updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    notes: Mapped[str | None] = mapped_column(String, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)

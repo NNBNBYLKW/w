@@ -108,5 +108,69 @@ class FileClassificationDocumentsTestCase(unittest.TestCase):
         result = classify_file("exe", path="D:\\Software\\app.exe")
         self.assertEqual(FILE_KIND_EXECUTABLE, result.file_kind)
 
+    def test_ts_extension_classified_as_video(self) -> None:
+        """TS is a valid video container and should be classified as video."""
+        result = classify_file("ts", path="D:\\Media\\recording.ts")
+        self.assertEqual("video", result.file_kind)
+        self.assertEqual("media", result.auto_placement)
+
+    def test_dotted_sets_derived_from_base_sets(self) -> None:
+        from app.core.classification import (
+            DOCUMENT_EXTENSIONS,
+            DOCUMENT_EXTENSIONS_DOTTED,
+            EBOOK_EXTENSIONS,
+            IMAGE_EXTENSIONS,
+            IMAGE_EXTENSIONS_DOTTED,
+            VIDEO_EXTENSIONS,
+            VIDEO_EXTENSIONS_DOTTED,
+        )
+
+        for base, dotted in [
+            (IMAGE_EXTENSIONS, IMAGE_EXTENSIONS_DOTTED),
+            (VIDEO_EXTENSIONS, VIDEO_EXTENSIONS_DOTTED),
+        ]:
+            self.assertEqual(len(base), len(dotted))
+            for ext in base:
+                self.assertIn(f".{ext}", dotted)
+
+        # DOCUMENT_EXTENSIONS_DOTTED = DOCUMENT + EBOOK combined
+        combined = DOCUMENT_EXTENSIONS | EBOOK_EXTENSIONS
+        self.assertEqual(len(combined), len(DOCUMENT_EXTENSIONS_DOTTED))
+        for ext in combined:
+            self.assertIn(f".{ext}", DOCUMENT_EXTENSIONS_DOTTED)
+
+    def test_dotted_extensions_importable_from_classification(self) -> None:
+        """Verify other modules can import dotted sets from classification.py."""
+        from app.core.classification import (
+            DOCUMENT_EXTENSIONS_DOTTED,
+            IMAGE_EXTENSIONS_DOTTED,
+            VIDEO_EXTENSIONS_DOTTED,
+        )
+
+        self.assertIsInstance(IMAGE_EXTENSIONS_DOTTED, set)
+        self.assertIsInstance(VIDEO_EXTENSIONS_DOTTED, set)
+        self.assertIsInstance(DOCUMENT_EXTENSIONS_DOTTED, set)
+        self.assertGreater(len(IMAGE_EXTENSIONS_DOTTED), 0)
+        self.assertGreater(len(VIDEO_EXTENSIONS_DOTTED), 0)
+        self.assertGreater(len(DOCUMENT_EXTENSIONS_DOTTED), 0)
+
+    def test_object_parser_imports_from_classification(self) -> None:
+        """Verify object_parser no longer maintains independent ext sets."""
+        from app.services.library.object_parser import (
+            DOCUMENT_EXTENSIONS,
+            IMAGE_EXTENSIONS,
+            VIDEO_EXTENSIONS,
+        )
+        from app.core.classification import (
+            DOCUMENT_EXTENSIONS_DOTTED,
+            IMAGE_EXTENSIONS_DOTTED,
+            VIDEO_EXTENSIONS_DOTTED,
+        )
+
+        self.assertIs(VIDEO_EXTENSIONS, VIDEO_EXTENSIONS_DOTTED)
+        self.assertIs(IMAGE_EXTENSIONS, IMAGE_EXTENSIONS_DOTTED)
+        self.assertIs(DOCUMENT_EXTENSIONS, DOCUMENT_EXTENSIONS_DOTTED)
+
+
 if __name__ == "__main__":
     unittest.main()

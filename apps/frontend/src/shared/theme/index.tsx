@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 export type ThemeMode = "light" | "dark";
 
 const THEME_STORAGE_KEY = "WORKBENCH_THEME";
-const DEFAULT_THEME: ThemeMode = "light";
+const DEFAULT_THEME: ThemeMode = "dark";
 
 type ThemeContextValue = {
   theme: ThemeMode;

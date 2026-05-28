@@ -13,6 +13,7 @@ export async function updateFileUserMeta(
   payload: {
     is_favorite?: boolean;
     rating?: FileRatingValue | null;
+    notes?: string | null;
   },
 ): Promise<FileUserMetaResponseVM> {
   const response = await fetch(`${getApiBaseUrl()}/files/${fileId}/user-meta`, {
@@ -45,4 +46,30 @@ export async function updateFilesPlacementBatch(
     body: JSON.stringify({ file_ids: fileIds, manual_placement: manualPlacement }),
   });
   return parseResponse<BatchPlacementUpdateResponseVM>(response);
+}
+
+
+export type BatchMetaUpdatePayload = {
+  file_ids: number[];
+  is_favorite?: boolean | null;
+  rating?: number | null;
+};
+
+export type BatchMetaUpdateResponseVM = {
+  updated_file_ids: number[];
+  updated_count: number;
+  is_favorite: boolean | null;
+  rating: number | null;
+};
+
+export async function updateFilesMetaBatch(
+  fileIds: number[],
+  payload: { is_favorite?: boolean | null; rating?: number | null },
+): Promise<BatchMetaUpdateResponseVM> {
+  const response = await fetch(`${getApiBaseUrl()}/files/batch/meta`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ file_ids: fileIds, ...payload }),
+  });
+  return parseResponse<BatchMetaUpdateResponseVM>(response);
 }

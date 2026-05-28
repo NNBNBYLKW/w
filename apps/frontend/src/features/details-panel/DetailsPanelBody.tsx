@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import { t } from "../../shared/text";
 import { ConfirmDialog, EmptyState, InspectorSection, LoadingState } from "../../shared/ui/components";
+import { getSiblingFiles } from "../../services/api/fileDetailsApi";
 import type { ColorTagValue, FileRatingValue, FileStatusValue } from "../../entities/file/types";
 import { DetailsIdentitySection } from "./sections/DetailsIdentitySection";
 import { DetailsPlacementSection } from "./sections/DetailsPlacementSection";
@@ -81,6 +83,7 @@ export interface DetailsPanelBodyProps {
   onToggleFavorite: () => void;
   onSetRating: (value: FileRatingValue) => void;
   onClearRating: () => void;
+  onNotesSave: (notes: string | null) => void;
   onPlacementChange: (value: string) => void;
   onStatusChange: (value: FileStatusValue) => void;
   onColorTagChange: (value: ColorTagValue | null) => void;
@@ -119,6 +122,27 @@ export interface DetailsPanelBodyProps {
   retrievalHint: RetrievalHint;
   // UI labels
   openFileLabel: string;
+  // Navigation
+  onSelectFile: (fileId: number) => void;
+}
+
+function SiblingFilesSection({ fileId, onSelectFile }: { fileId: number; onSelectFile: (id: number) => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["siblings", fileId],
+    queryFn: () => getSiblingFiles(fileId),
+    enabled: fileId > 0,
+  });
+  if (isLoading) return <LoadingState />;
+  if (!data?.items.length) return null;
+  return (
+    <InspectorSection title="Files in same directory">
+      {data.items.map((f) => (
+        <button key={f.id} onClick={() => onSelectFile(f.id)} className="sibling-file-link">
+          {f.name}
+        </button>
+      ))}
+    </InspectorSection>
+  );
 }
 
 export function DetailsPanelBody({
@@ -146,6 +170,7 @@ export function DetailsPanelBody({
   onToggleFavorite,
   onSetRating,
   onClearRating,
+  onNotesSave,
   onPlacementChange,
   onStatusChange,
   onColorTagChange,
@@ -179,6 +204,7 @@ export function DetailsPanelBody({
   onCancelRemoveTag,
   retrievalHint,
   openFileLabel,
+  onSelectFile,
 }: DetailsPanelBodyProps) {
   if (batchSelectionSummary) {
     return (
@@ -236,6 +262,7 @@ export function DetailsPanelBody({
 
   if (detailQuery.data) {
     const item = detailQuery.data.item;
+    const [notes, setNotes] = useState<string>(item.notes ?? "");
 
     return (
       <>
@@ -375,6 +402,17 @@ export function DetailsPanelBody({
               onAddTag={onAddTag}
               onRemoveTag={onRemoveTag}
             />
+            <InspectorSection title="Notes">
+              <textarea
+                className="details-notes-textarea"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                onBlur={() => onNotesSave(notes || null)}
+                maxLength={2000}
+                rows={3}
+                style={{ width: "100%", resize: "vertical" }}
+              />
+            </InspectorSection>
           </div>
           {isMediaFile && (firstTag || item.color_tag || (retrievalHint !== null && retrievalHint.kind !== "status")) ? (
             <MemoizedMediaRetrievalSection
@@ -422,6 +460,9 @@ export function DetailsPanelBody({
               onOpenFolder={onOpenFolder}
               openFileLabel={openFileLabel}
             />
+          </div>
+          <div className="details-inspector__group details-inspector__group--siblings">
+            <SiblingFilesSection fileId={item.id} onSelectFile={onSelectFile} />
           </div>
         </div>
         {confirmRemoveTag !== null ? (

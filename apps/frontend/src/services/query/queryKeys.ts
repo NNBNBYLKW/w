@@ -42,6 +42,7 @@ export const queryKeys = {
   recent: (params: RecentListQueryInput) => ["recent", params] as const,
   recentTagged: (params: RecentListQueryInput) => ["recent-tagged", params] as const,
   recentColorTagged: (params: RecentListQueryInput) => ["recent-color-tagged", params] as const,
+  recentAll: (params: RecentListQueryInput) => ["recent-all", params] as const,
   search: (params: SearchQueryInput) => ["search", params] as const,
   tagFiles: (params: TagFilesQueryInput) => ["tag-files", params] as const,
 };

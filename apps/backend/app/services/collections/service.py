@@ -53,6 +53,8 @@ class CollectionsService:
             color_tag=validated["color_tag"],
             source_id=validated["source_id"],
             parent_path=validated["parent_path"],
+            sort_order=payload.sort_order,
+            group_name=payload.group_name,
             created_at=now,
             updated_at=now,
         )
@@ -79,6 +81,8 @@ class CollectionsService:
         next_color_tag = payload.color_tag if "color_tag" in updated_fields else collection.color_tag
         next_source_id = payload.source_id if "source_id" in updated_fields else collection.source_id
         next_parent_path = payload.parent_path if "parent_path" in updated_fields else collection.parent_path
+        next_sort_order = payload.sort_order if "sort_order" in updated_fields else collection.sort_order
+        next_group_name = payload.group_name if "group_name" in updated_fields else collection.group_name
 
         validated = self._validate_collection_values(
             session,
@@ -95,6 +99,8 @@ class CollectionsService:
         collection.color_tag = validated["color_tag"]
         collection.source_id = validated["source_id"]
         collection.parent_path = validated["parent_path"]
+        collection.sort_order = next_sort_order
+        collection.group_name = next_group_name
         collection.updated_at = utcnow()
         self.collection_repository.save(session, collection)
         session.commit()

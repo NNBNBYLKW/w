@@ -175,6 +175,8 @@ class FileUserMetaRepository:
         is_favorite: bool | None,
         rating_provided: bool,
         rating: int | None,
+        notes_provided: bool = False,
+        notes: str | None = None,
         updated_at: datetime,
     ) -> None:
         current = self.get_by_file_id(session, file_id)
@@ -182,11 +184,14 @@ class FileUserMetaRepository:
         next_status = current.status if current is not None else None
         next_is_favorite = current.is_favorite if current is not None else False
         next_rating = current.rating if current is not None else None
+        next_notes = current.notes if current is not None else None
 
         if is_favorite_provided:
             next_is_favorite = bool(is_favorite)
         if rating_provided:
             next_rating = rating
+        if notes_provided:
+            next_notes = notes
 
         insert_statement = sqlite_insert(FileUserMeta).values(
             file_id=file_id,
@@ -194,6 +199,7 @@ class FileUserMetaRepository:
             status=next_status,
             rating=next_rating,
             is_favorite=next_is_favorite,
+            notes=next_notes,
             updated_at=updated_at,
         )
         upsert_statement = insert_statement.on_conflict_do_update(
@@ -201,6 +207,7 @@ class FileUserMetaRepository:
             set_={
                 "is_favorite": insert_statement.excluded.is_favorite,
                 "rating": insert_statement.excluded.rating,
+                "notes": insert_statement.excluded.notes,
                 "updated_at": insert_statement.excluded.updated_at,
             },
         )

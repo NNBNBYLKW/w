@@ -30,6 +30,7 @@ apps/desktop/build-resources/ffmpeg/
 
 # Claude local workspace
 .claude/
+.superpowers/
 
 # Temporary docs
 docs/_wip/*

@@ -18,6 +18,7 @@ export function DetailsPanelFeature() {
   useLocale();
   const selectedItemId = useUIStore((state) => state.selectedItemId);
   const batchSelectionSummary = useUIStore((state) => state.batchSelectionSummary);
+  const selectItem = useUIStore((state) => state.selectItem);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
@@ -158,6 +159,7 @@ export function DetailsPanelFeature() {
         onToggleFavorite={() => mutations.userMetaMutation.mutate({ is_favorite: !item?.is_favorite })}
         onSetRating={(value: FileRatingValue) => mutations.userMetaMutation.mutate({ rating: value })}
         onClearRating={() => mutations.userMetaMutation.mutate({ rating: null })}
+        onNotesSave={(notes: string | null) => mutations.userMetaMutation.mutate({ notes })}
         onPlacementChange={(value: string) =>
           mutations.placementMutation.mutate(value === "auto" ? null : (value as any))
         }
@@ -165,6 +167,7 @@ export function DetailsPanelFeature() {
         onColorTagChange={(value: ColorTagValue | null) => mutations.colorTagMutation.mutate(value)}
         onCopyPath={() => mutations.handleCopyPath(item?.path ?? "")}
         copied={mutations.copied}
+        onSelectFile={(fileId: number) => selectItem(String(fileId))}
         previewLoadFailed={mutations.previewLoadFailed}
         previewImageSrc={previewImageSrc}
         isVideoPreviewActive={isVideoPreviewActive}

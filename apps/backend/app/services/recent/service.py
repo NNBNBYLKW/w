@@ -102,6 +102,29 @@ class RecentImportsService:
         ]
         return RecentActivityListResponse(items=items, page=params.page, page_size=params.page_size, total=total)
 
+    def list_recent_all(self, session: Session, params: RecentListQueryParams) -> RecentActivityListResponse:
+        query_cutoff, query_now = self._build_time_window(params.range)
+        rows, total = self.file_repository.list_recent_all_events(
+            session,
+            cutoff=query_cutoff,
+            now=query_now,
+            page=params.page,
+            page_size=params.page_size,
+            sort_order=params.sort_order,
+        )
+        items = [
+            RecentActivityListItemResponse(
+                id=file.id,
+                name=file.name,
+                path=file.path,
+                file_type=file.file_type,
+                occurred_at=occurred_at,
+                size_bytes=file.size_bytes,
+            )
+            for file, occurred_at in rows
+        ]
+        return RecentActivityListResponse(items=items, page=params.page, page_size=params.page_size, total=total)
+
     def _normalize_range(self, value: str | None) -> str:
         if value is None:
             return "7d"

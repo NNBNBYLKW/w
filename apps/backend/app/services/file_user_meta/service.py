@@ -3,6 +3,8 @@ from app.core.time import utcnow
 from sqlalchemy.orm import Session
 
 from app.api.schemas.file import (
+    BatchMetaUpdateRequest,
+    BatchMetaUpdateResponse,
     BatchPlacementUpdateRequest,
     BatchPlacementUpdateResponse,
     FilePlacementResponse,
@@ -33,8 +35,9 @@ class FileUserMetaService:
         fields_set = payload.model_fields_set
         is_favorite_provided = "is_favorite" in fields_set
         rating_provided = "rating" in fields_set
+        notes_provided = "notes" in fields_set
 
-        if not is_favorite_provided and not rating_provided:
+        if not is_favorite_provided and not rating_provided and not notes_provided:
             raise BadRequestError("FILE_USER_META_PATCH_EMPTY", "No file user metadata fields were provided.")
 
         if is_favorite_provided and not isinstance(payload.is_favorite, bool):
@@ -50,6 +53,8 @@ class FileUserMetaService:
             is_favorite=payload.is_favorite if is_favorite_provided else None,
             rating_provided=rating_provided,
             rating=payload.rating if rating_provided else None,
+            notes_provided=notes_provided,
+            notes=payload.notes if notes_provided else None,
             updated_at=utcnow(),
         )
         session.commit()
@@ -60,6 +65,7 @@ class FileUserMetaService:
                 "id": file_id,
                 "is_favorite": persisted.is_favorite if persisted is not None else False,
                 "rating": persisted.rating if persisted is not None else None,
+                "notes": persisted.notes if persisted is not None else None,
             }
         )
 
@@ -119,6 +125,45 @@ class FileUserMetaService:
             updated_file_ids=deduped_file_ids,
             updated_count=len(deduped_file_ids),
             manual_placement=payload.manual_placement,
+        )
+
+    def batch_update(
+        self,
+        session: Session,
+        payload: BatchMetaUpdateRequest,
+    ) -> BatchMetaUpdateResponse:
+        is_favorite_provided = payload.is_favorite is not None
+        rating_provided = payload.rating is not None
+
+        if not is_favorite_provided and not rating_provided:
+            raise BadRequestError("BATCH_META_EMPTY", "At least one of is_favorite or rating must be provided.")
+
+        if rating_provided and not self._is_valid_rating(payload.rating):
+            raise BadRequestError("FILE_RATING_INVALID", "Rating must be an integer from 1 to 5, or null.")
+
+        deduped_file_ids = list(dict.fromkeys(payload.file_ids))
+        files = self.file_repository.list_active_files_by_ids(session, deduped_file_ids)
+        found_ids = {file.id for file in files}
+        if len(found_ids) != len(deduped_file_ids):
+            raise BadRequestError("BATCH_FILE_SELECTION_INVALID", "All selected files must exist and be active.")
+
+        updated_at = utcnow()
+        for file_id in deduped_file_ids:
+            self.file_user_meta_repository.update_user_meta(
+                session,
+                file_id,
+                is_favorite_provided=is_favorite_provided,
+                is_favorite=payload.is_favorite if is_favorite_provided else None,
+                rating_provided=rating_provided,
+                rating=payload.rating if rating_provided else None,
+                updated_at=updated_at,
+            )
+        session.commit()
+        return BatchMetaUpdateResponse(
+            updated_file_ids=deduped_file_ids,
+            updated_count=len(deduped_file_ids),
+            is_favorite=payload.is_favorite,
+            rating=payload.rating,
         )
 
     def _ensure_valid_manual_placement(self, value: str | None) -> None:

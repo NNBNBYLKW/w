@@ -1,4 +1,4 @@
-import type { SVGProps } from "react";
+import type { ComponentType, SVGProps } from "react";
 
 import BooksIcon from "../../../assets/icons/navigation/books.svg?react";
 import CloseIcon from "../../../assets/icons/navigation/close.svg?react";
@@ -23,7 +23,7 @@ import ToolsIcon from "../../../assets/icons/navigation/tools.svg?react";
 
 import type { NavigationIconName } from "./icon-types";
 
-const navigationIconMap: Record<NavigationIconName, (props: SVGProps<SVGSVGElement>) => JSX.Element> = {
+const navigationIconMap: Record<NavigationIconName, ComponentType<SVGProps<SVGSVGElement>>> = {
   home: HomeIcon,
   onboarding: OnboardingIcon,
   search: SearchIcon,

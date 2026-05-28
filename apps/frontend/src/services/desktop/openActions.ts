@@ -13,19 +13,29 @@ type AssetWorkbenchBridge = {
   openContainingFolder?: (path: string) => Promise<OpenActionResult>;
 };
 
+type AvailableAssetWorkbenchBridge = {
+  openFile: (path: string) => Promise<OpenActionResult>;
+  openContainingFolder: (path: string) => Promise<OpenActionResult>;
+};
 
-function getAssetWorkbenchBridge(): AssetWorkbenchBridge | null {
+function getAssetWorkbenchBridge(): AvailableAssetWorkbenchBridge | null {
   const assetWorkbench = (
     window as typeof window & {
       assetWorkbench?: AssetWorkbenchBridge;
     }
   ).assetWorkbench;
 
-  if (!assetWorkbench?.openFile || !assetWorkbench?.openContainingFolder) {
+  if (
+    typeof assetWorkbench?.openFile !== "function" ||
+    typeof assetWorkbench.openContainingFolder !== "function"
+  ) {
     return null;
   }
 
-  return assetWorkbench;
+  return {
+    openFile: assetWorkbench.openFile,
+    openContainingFolder: assetWorkbench.openContainingFolder,
+  };
 }
 
 

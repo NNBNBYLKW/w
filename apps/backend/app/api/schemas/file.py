@@ -114,6 +114,7 @@ class FileDetailItemResponse(BaseModel):
     status: FileStatusValue | None
     is_favorite: bool
     rating: FileRatingValue | None
+    notes: str | None = None
     metadata: FileMetadataResponse | None
     storage_state: str | None = None
     original_path: str | None = None
@@ -134,6 +135,12 @@ class FileVideoPreviewItemResponse(BaseModel):
 
 class FileVideoPreviewResponse(BaseModel):
     item: FileVideoPreviewItemResponse
+
+
+class BatchMetaUpdateRequest(BaseModel):
+    file_ids: list[int] = Field(min_length=1)
+    is_favorite: bool | None = None
+    rating: int | None = None
 
 
 class ThumbnailWarmupRequest(BaseModel):
@@ -174,6 +181,13 @@ class BatchColorTagUpdateResponse(BaseModel):
     updated_file_ids: list[int]
     updated_count: int
     color_tag: ColorTagValue | None
+
+
+class BatchMetaUpdateResponse(BaseModel):
+    updated_file_ids: list[int]
+    updated_count: int
+    is_favorite: bool | None
+    rating: int | None
 
 
 class FilePlacementUpdateRequest(BaseModel):
@@ -228,12 +242,14 @@ class FileStatusResponse(BaseModel):
 class FileUserMetaPatchRequest(BaseModel):
     is_favorite: Any = None
     rating: Any = None
+    notes: str | None = None
 
 
 class FileUserMetaItemResponse(BaseModel):
     id: int
     is_favorite: bool
     rating: FileRatingValue | None
+    notes: str | None = None
 
 
 class FileUserMetaResponse(BaseModel):

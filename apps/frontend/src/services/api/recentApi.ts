@@ -40,3 +40,16 @@ export async function listRecentColorTagged(input: RecentListQueryInput): Promis
   const response = await fetch(`${getApiBaseUrl()}/recent/color-tagged?${params.toString()}`);
   return parseResponse<RecentActivityListResponseVM>(response);
 }
+
+
+export async function listRecentAll(input: RecentListQueryInput): Promise<RecentActivityListResponseVM> {
+  const params = new URLSearchParams();
+  params.set("range", input.range);
+  params.set("page", String(input.page));
+  params.set("page_size", String(input.page_size));
+  params.set("sort_order", input.sort_order);
+  params.set("family", "all");
+
+  const response = await fetch(`${getApiBaseUrl()}/recent?${params.toString()}`);
+  return parseResponse<RecentActivityListResponseVM>(response);
+}

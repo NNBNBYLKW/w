@@ -14,6 +14,7 @@ export function invalidateFileOrganizationSurfaces(queryClient: QueryClient) {
     queryClient.invalidateQueries({ queryKey: ["recent"] }),
     queryClient.invalidateQueries({ queryKey: ["recent-tagged"] }),
     queryClient.invalidateQueries({ queryKey: ["recent-color-tagged"] }),
+    queryClient.invalidateQueries({ queryKey: ["recent-all"] }),
     queryClient.invalidateQueries({ queryKey: ["search"] }),
     queryClient.invalidateQueries({ queryKey: ["files-list"] }),
     queryClient.invalidateQueries({ queryKey: queryKeys.collections }),

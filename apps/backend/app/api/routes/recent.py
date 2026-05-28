@@ -1,3 +1,5 @@
+from typing import Union
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -11,20 +13,23 @@ router = APIRouter(tags=["recent"])
 recent_imports_service = RecentImportsService()
 
 
-@router.get("/recent", response_model=RecentListResponse)
+@router.get("/recent", response_model=Union[RecentListResponse, RecentActivityListResponse])
 def list_recent_imports(
     range: str | None = Query(default=None),
+    family: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=100),
     sort_order: SortOrder = Query(default="desc"),
     db: Session = Depends(get_db),
-) -> RecentListResponse:
+) -> Union[RecentListResponse, RecentActivityListResponse]:
     params = RecentListQueryParams(
         range=range,
         page=page,
         page_size=page_size,
         sort_order=sort_order,
     )
+    if family == "all":
+        return recent_imports_service.list_recent_all(db, params)
     return recent_imports_service.list_recent_imports(db, params)
 
 

@@ -2,7 +2,7 @@ import type { FileListSortOrder, FileType } from "../file/types";
 
 
 export type RecentRangeValue = "1d" | "7d" | "30d";
-export type RecentFamilyKind = "imports" | "tagged" | "color-tagged";
+export type RecentFamilyKind = "imports" | "tagged" | "color-tagged" | "all";
 
 export type RecentListQueryInput = {
   range: RecentRangeValue;

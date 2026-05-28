@@ -50,6 +50,9 @@ class LibraryV2RecoveryTestCase(unittest.TestCase):
     # ── clean ──────────────────────────────────────────────
 
     def test_recovery_summary_empty_when_clean(self):
+        with SessionLocal() as s:
+            s.execute(text("DELETE FROM recovery_findings"))
+            s.commit()
         with TestClient(app) as c:
             r = c.get("/library/import/recovery/summary")
             self.assertEqual(200, r.status_code)
@@ -69,6 +72,7 @@ class LibraryV2RecoveryTestCase(unittest.TestCase):
             orphan.write_text("orphan", encoding="utf-8")
 
             with TestClient(app) as c:
+                c.post("/library/import/recovery/scan")
                 r = c.get("/library/import/recovery/summary")
                 self.assertEqual(200, r.status_code)
                 self.assertGreater(r.json()["orphan_inbox_count"], 0)
@@ -110,6 +114,7 @@ class LibraryV2RecoveryTestCase(unittest.TestCase):
                 s.add(ii); s.commit()
 
             with TestClient(app) as c:
+                c.post("/library/import/recovery/scan")
                 r = c.get("/library/import/recovery/summary")
                 self.assertGreater(r.json()["missing_inbox_count"], 0)
 
@@ -128,6 +133,7 @@ class LibraryV2RecoveryTestCase(unittest.TestCase):
                 s.add(f); s.commit()
 
             with TestClient(app) as c:
+                c.post("/library/import/recovery/scan")
                 r = c.get("/library/import/recovery/summary")
                 self.assertGreater(r.json()["missing_managed_count"], 0)
 
@@ -144,6 +150,7 @@ class LibraryV2RecoveryTestCase(unittest.TestCase):
                 s.add(ii); s.commit()
 
             with TestClient(app) as c:
+                c.post("/library/import/recovery/scan")
                 r = c.get("/library/import/recovery/summary")
                 self.assertGreater(r.json()["failed_import_count"], 0)
 
@@ -156,6 +163,7 @@ class LibraryV2RecoveryTestCase(unittest.TestCase):
             s.commit()
 
         with TestClient(app) as c:
+            c.post("/library/import/recovery/scan")
             r = c.get("/library/import/recovery/summary")
             self.assertGreater(r.json()["incomplete_batch_count"], 0)
 
@@ -167,6 +175,7 @@ class LibraryV2RecoveryTestCase(unittest.TestCase):
             s.commit()
 
         with TestClient(app) as c:
+            c.post("/library/import/recovery/scan")
             r = c.get("/library/import/recovery/summary")
             self.assertGreater(r.json()["incomplete_journal_count"], 0)
 
