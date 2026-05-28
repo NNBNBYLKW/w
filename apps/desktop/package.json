@@ -53,7 +53,7 @@
     }
   },
   "dependencies": {
-    "electron-updater": "^6.3.0"
+    "electron-updater": "^6.8.3"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",

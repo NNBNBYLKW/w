@@ -461,6 +461,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle("asset-workbench:check-for-updates", async () => {
     const result = await autoUpdater.checkForUpdates();
+    if (!result) return { updateAvailable: false };
     return { updateAvailable: result.updateInfo.version !== app.getVersion() };
   });
 
