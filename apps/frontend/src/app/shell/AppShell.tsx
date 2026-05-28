@@ -18,6 +18,7 @@ export function AppShell() {
   const { locale } = useLocale();
   const isDetailsPanelOpen = useUIStore((state) => state.isDetailsPanelOpen);
   const isSidebarCollapsed = useUIStore((state) => state.isSidebarCollapsed);
+  const isQuickPanelOpen = useUIStore((state) => state.isQuickPanelOpen);
   const isDesktopShell = hasDesktopWindowControlsBridge();
   const pageContentRef = useRef<HTMLDivElement | null>(null);
   const [showTopFade, setShowTopFade] = useState(false);
@@ -66,11 +67,23 @@ export function AppShell() {
   }, [location.pathname, isDetailsPanelOpen, locale]);
 
   const shell = (
-    <div className={`app-shell app-shell--design-pen${isSidebarCollapsed ? " app-shell--sidebar-collapsed" : ""}`}>
+    <div className={`app-shell app-shell--design-pen${isSidebarCollapsed ? " app-shell--sidebar-collapsed" : ""}${isQuickPanelOpen ? " app-shell--quick-panel-open" : ""}`}>
       <a className="skip-link" href="#workbench-main-content">
         {t("shell.skipToContent")}
       </a>
       <AppSidebar />
+      {isQuickPanelOpen && (
+        <div className="quick-access-panel">
+          <h4>Recent Files</h4>
+          <ul className="quick-access-panel__list">
+            <li className="quick-access-panel__item">—</li>
+          </ul>
+          <h4 style={{ marginTop: 16 }}>Favorites</h4>
+          <ul className="quick-access-panel__list">
+            <li className="quick-access-panel__item">—</li>
+          </ul>
+        </div>
+      )}
       <div className="app-shell__main">
         <div
           className={`app-shell__content${

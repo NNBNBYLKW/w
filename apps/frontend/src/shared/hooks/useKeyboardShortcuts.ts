@@ -6,6 +6,7 @@ export function useKeyboardShortcuts() {
   const navigate = useNavigate();
   const setDetailsPanelOpen = useUIStore((s) => s.setDetailsPanelOpen);
   const toggleSidebarCollapsed = useUIStore((s) => s.toggleSidebarCollapsed);
+  const toggleQuickPanelOpen = useUIStore((s) => s.toggleQuickPanelOpen);
   const isDetailsPanelOpen = useUIStore((s) => s.isDetailsPanelOpen);
 
   useEffect(() => {
@@ -20,8 +21,9 @@ export function useKeyboardShortcuts() {
       if ((e.ctrlKey || e.metaKey) && e.key === "d") { e.preventDefault(); setDetailsPanelOpen(!isDetailsPanelOpen); }
       if ((e.ctrlKey || e.metaKey) && e.key === "h") { e.preventDefault(); navigate("/home"); }
       if ((e.ctrlKey || e.metaKey) && e.key === "l") { e.preventDefault(); navigate("/library"); }
+      if ((e.ctrlKey || e.metaKey) && e.key === "q") { e.preventDefault(); toggleQuickPanelOpen(); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [navigate, setDetailsPanelOpen, toggleSidebarCollapsed, isDetailsPanelOpen]);
+  }, [navigate, setDetailsPanelOpen, toggleSidebarCollapsed, isDetailsPanelOpen, toggleQuickPanelOpen]);
 }

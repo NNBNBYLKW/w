@@ -185,6 +185,14 @@
   background: var(--design-bg-deep);
 }
 
+.app-shell--quick-panel-open {
+  grid-template-columns: 236px 200px minmax(0, 1fr) !important;
+}
+
+.app-shell--quick-panel-open.app-shell--sidebar-collapsed {
+  grid-template-columns: 74px 200px minmax(0, 1fr) !important;
+}
+
 .app-shell--design-pen.app-shell--sidebar-collapsed {
   grid-template-columns: 74px minmax(0, 1fr);
 }
@@ -475,4 +483,36 @@
 @keyframes page-loader-pulse {
   0%, 100% { opacity: 0.4; }
   50% { opacity: 0.8; }
+}
+
+/* ── Quick access panel ── */
+.quick-access-panel {
+  width: 200px;
+  border-right: 1px solid var(--color-border);
+  padding: 12px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.quick-access-panel h4 {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+}
+.quick-access-panel__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.quick-access-panel__item {
+  padding: 4px 0;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.quick-access-panel__item:hover {
+  color: var(--color-accent-primary);
 }
