@@ -99,4 +99,12 @@ export const common = {
     all: "All tags",
     unavailable: "Tags unavailable",
   },
+  viewModes: {
+    switchView: "Switch view",
+    view: "View",
+    detailsView: "Details view",
+    details: "Details",
+    iconView: "Icon view",
+    icons: "Icons",
+  },
 } as const;
