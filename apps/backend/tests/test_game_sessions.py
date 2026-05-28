@@ -11,7 +11,7 @@ from sqlalchemy import text
 class GameSessionTestCase(unittest.TestCase):
     def setUp(self):
         with SessionLocal() as s:
-            s.execute(text("DELETE FROM game_sessions")); s.execute(text("DELETE FROM files")); s.execute(text("DELETE FROM sources")); s.commit()
+            self._safe_delete(s, ["files", "sources"])
             src = Source(path="D:\\Test", created_at=utcnow(), updated_at=utcnow())
             s.add(src); s.flush()
             f = File(source_id=src.id, path="D:\\Test\\game.exe", parent_path="D:\\Test", name="game.exe", file_type="other", file_kind="executable", auto_placement="none", discovered_at=utcnow(), last_seen_at=utcnow(), updated_at=utcnow())
@@ -21,7 +21,16 @@ class GameSessionTestCase(unittest.TestCase):
 
     def tearDown(self):
         with SessionLocal() as s:
-            s.execute(text("DELETE FROM game_sessions")); s.execute(text("DELETE FROM files")); s.execute(text("DELETE FROM sources")); s.commit()
+            self._safe_delete(s, ["game_sessions", "files", "sources"])
+
+    @staticmethod
+    def _safe_delete(session, tables: list[str]):
+        for table in tables:
+            try:
+                session.execute(text(f"DELETE FROM {table}"))
+            except Exception:
+                pass
+        session.commit()
 
     def test_start_session(self):
         with TestClient(app) as c:
