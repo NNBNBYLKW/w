@@ -36,9 +36,24 @@
         "to": "ffmpeg"
       }
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "NNBNBYLKW",
+      "repo": "w"
+    },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build-resources/icon.ico",
+      "certificateFile": "${env.CSC_LINK}",
+      "certificatePassword": "${env.CSC_KEY_PASSWORD}"
+    },
+    "nsis": {
+      "installerIcon": "build-resources/icon.ico",
+      "installerHeaderIcon": "build-resources/icon.ico"
     }
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.0"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",
