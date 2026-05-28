@@ -2,6 +2,7 @@ import os
 
 from fastapi import APIRouter, Depends, Path, Query
 from fastapi.responses import FileResponse
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.schemas.file import (
@@ -31,6 +32,7 @@ from app.api.schemas.file import (
     SortOrder,
 )
 from app.api.schemas.tag import TagCreateRequest, TagListResponse
+from app.db.models.file import File
 from app.db.session.session import get_db
 from app.services.color_tags.service import ColorTagsService
 from app.services.details.service import DetailsService
@@ -136,6 +138,21 @@ def warmup_file_thumbnails(
     db: Session = Depends(get_db),
 ) -> ThumbnailWarmupResponse:
     return ThumbnailWarmupResponse(**thumbnail_service.warmup_thumbnails(db, payload.file_ids).__dict__)
+
+
+@router.get("/files/duplicates")
+def list_duplicates(min_size: int = 0, db: Session = Depends(get_db)):
+    rows = db.execute(
+        select(File.checksum_hint, func.count(File.id).label("cnt"))
+        .where(File.checksum_hint.isnot(None), File.file_kind != "other", File.size_bytes >= min_size)
+        .group_by(File.checksum_hint)
+        .having(func.count(File.id) > 1)
+    ).fetchall()
+    groups = []
+    for ch, cnt in rows:
+        files = db.execute(select(File).where(File.checksum_hint == ch)).scalars().all()
+        groups.append({"checksum": ch, "count": cnt, "files": [{"id": f.id, "name": f.name, "path": f.path, "size_bytes": f.size_bytes} for f in files]})
+    return {"items": groups}
 
 
 @router.get("/debug/thumbnails/warmup")
