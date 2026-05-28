@@ -20,9 +20,11 @@ function planActionSeverity(action: OrganizeActionItemVM): string {
   return "neutral";
 }
 
-function copyToClipboard(text: string) {
-  navigator.clipboard.writeText(text).catch(() => {});
-}
+const guidanceText: Record<string, string> = {
+  stale: "Source file has been moved or deleted. Remove this action or update the target path.",
+  blocked: "Target path already has a file with the same name. Edit the target path or remove this action.",
+  warning: "No issues found, but review is recommended before execution.",
+};
 
 function PlanActionRow({
   action,
@@ -34,6 +36,7 @@ function PlanActionRow({
   onUpdateTarget: (targetPath: string) => void;
 }) {
   const [targetPath, setTargetPath] = useState(action.target_path ?? "");
+  const [copiedPath, setCopiedPath] = useState<string | null>(null);
   useEffect(() => {
     setTargetPath(action.target_path ?? "");
   }, [action.target_path]);
@@ -46,14 +49,21 @@ function PlanActionRow({
     severity === "warning" ? "library-action-row--warning" : "",
   ].filter(Boolean).join(" ");
 
+  const handleCopyPath = async (path: string) => {
+    try {
+      await navigator.clipboard.writeText(path);
+      setCopiedPath(path);
+      setTimeout(() => setCopiedPath(null), 2000);
+    } catch { /* silently fail */ }
+  };
+
   const targetLen = action.target_path ? action.target_path.length : 0;
-  const pathLenClass = targetLen >= PATH_LENGTH_WARN ? "danger-text" : targetLen >= 220 ? "warning-text" : "";
 
   return (
     <div className={rowClass}>
       <div>
         <strong>{action.action_type}</strong>
-        <span className={`status-pill status-pill--${severity === "danger" ? "danger" : severity === "warning" ? "warning" : "neutral"}`}>
+        <span className={`status-pill status-pill--${severity === "danger" ? "danger" : severity === "warning" ? "warning" : "neutral"}${severity === "warning" ? " plan-status-pill--warning" : ""}`}>
           {action.conflict_status}
         </span>
         <span className="status-pill status-pill--neutral">{action.status}</span>
@@ -64,8 +74,8 @@ function PlanActionRow({
       {action.source_path ? (
         <div className="library-action-row__path">
           <small title={action.source_path}>{t("features.library.organize.sourcePath")}: {action.source_path}</small>
-          <button className="library-action-row__copy-btn" type="button" title={t("features.library.organize.copyPath")} onClick={() => copyToClipboard(action.source_path!)}>
-            {t("features.library.organize.copy")}
+          <button className="library-action-row__copy-btn" type="button" title={t("features.library.organize.copyPath")} onClick={() => handleCopyPath(action.source_path!)}>
+            {copiedPath === action.source_path ? "Copied!" : t("features.library.organize.copy")}
           </button>
         </div>
       ) : null}
@@ -80,15 +90,25 @@ function PlanActionRow({
         <div className="library-action-row__path">
           <small title={action.target_path ?? undefined}>{t("features.library.organize.targetPath")}: {action.target_path ?? t("common.states.unavailable")}</small>
           {action.target_path ? (
-            <button className="library-action-row__copy-btn" type="button" title={t("features.library.organize.copyPath")} onClick={() => copyToClipboard(action.target_path!)}>
-              {t("features.library.organize.copy")}
+            <button className="library-action-row__copy-btn" type="button" title={t("features.library.organize.copyPath")} onClick={() => handleCopyPath(action.target_path!)}>
+              {copiedPath === action.target_path ? "Copied!" : t("features.library.organize.copy")}
             </button>
           ) : null}
         </div>
       )}
       {action.target_path ? (
-        <small className={pathLenClass}>{t("features.library.organize.pathLength")}: {targetLen} / {PATH_LENGTH_MAX}</small>
+        <div className="library-action-row__path-lengths">
+          <span
+            className={targetLen > 240 ? "path-length path-length--warning" : "path-length"}
+            title={targetLen > 240 ? `Path is ${targetLen} chars. Windows limit is 260.` : undefined}
+          >
+            {targetLen}
+          </span>
+        </div>
       ) : null}
+      {action.conflict_status !== "ok" && action.conflict_status !== "unchecked" && (
+        <p className="organize-action-guidance">{guidanceText[action.conflict_status ?? ""] ?? ""}</p>
+      )}
       {!isProblem && action.conflict_message ? <small>{action.conflict_message}</small> : null}
       {action.before_path ? <small title={action.before_path}>{t("features.library.organize.beforePath")}: {action.before_path}</small> : null}
       {action.after_path ? <small title={action.after_path}>{t("features.library.organize.afterPath")}: {action.after_path}</small> : null}
@@ -225,15 +245,14 @@ export function PlanDetail({
     setMergeResult(null);
   }, [planId]);
 
-  const severityOrder = useMemo(() => ({ blocked: 0, stale: 1, warning: 2, ok: 3, unchecked: 4 } as Record<string, number>), []);
+  const severityOrder: Record<string, number> = { blocked: 0, stale: 0, warning: 1, ok: 2, unchecked: 2 };
   const sortedActions = useMemo(() => {
     const actions = detailQuery.data?.actions ?? [];
     return [...actions].sort((a, b) => {
-      const sa = severityOrder[a.conflict_status ?? "unchecked"] ?? 4;
-      const sb = severityOrder[b.conflict_status ?? "unchecked"] ?? 4;
+      const sa = severityOrder[a.conflict_status ?? "unchecked"] ?? 2;
+      const sb = severityOrder[b.conflict_status ?? "unchecked"] ?? 2;
       if (sa !== sb) return sa - sb;
-      if (a.action_order !== b.action_order) return a.action_order - b.action_order;
-      return String(a.target_path ?? "").localeCompare(String(b.target_path ?? ""));
+      return a.action_order - b.action_order;
     });
   }, [detailQuery.data?.actions, severityOrder]);
 
@@ -329,24 +348,15 @@ export function PlanDetail({
       {mutationError ? (
         <p className="danger-text">{mutationError.message}</p>
       ) : null}
-      {preflightResult ? (
-        <div className={`library-execution-notice${preflightResult.can_execute ? " library-execution-notice--ok" : " library-execution-notice--blocked"}`}>
-          <strong>
-            {preflightResult.can_execute
-              ? preflightResult.warning_count > 0
-                ? t("features.library.organize.preflightWarnings")
-                : t("features.library.organize.preflightAllOk")
-              : t("features.library.organize.preflightCannotExecute")}
-          </strong>
-          <span>
-            {preflightResult.can_execute
-              ? preflightResult.warning_count > 0
-                ? t("features.library.organize.preflightWarningsHint")
-                : t("features.library.organize.preflightAllOkHint")
-              : t("features.library.organize.preflightCannotExecuteHint")}
-          </span>
+      {preflightResult && (
+        <div className={`preflight-banner preflight-banner--${preflightResult.can_execute ? (preflightResult.warning_count > 0 ? "warning" : "ok") : "blocked"}`}>
+          {!preflightResult.can_execute
+            ? `${preflightResult.blocked_count} blocking issue(s) found — must resolve before execution`
+            : preflightResult.warning_count > 0
+              ? `${preflightResult.warning_count} warning(s) — can still execute, review recommended`
+              : "Preflight passed — safe to execute"}
         </div>
-      ) : null}
+      )}
       {preflightResult ? (
         <div className="library-preflight-summary">
           <span className="library-preflight-summary__chip library-preflight-summary__chip--blocked">
@@ -587,6 +597,16 @@ export function PlanDetail({
         </div>
       ) : null}
       <h5>{t("features.library.organize.pathPreview")}</h5>
+      {preflightResult && (
+        <div className="preflight-summary-card">
+          <h4>Preflight Summary</h4>
+          <div className="preflight-summary-counts">
+            <span className="preflight-count preflight-count--blocked">Blocked: {preflightResult.blocked_count}</span>
+            <span className="preflight-count preflight-count--warning">Warnings: {preflightResult.warning_count}</span>
+            <span className="preflight-count preflight-count--ok">OK: {preflightResult.actions.filter(a => a.conflict_status === "ok").length}</span>
+          </div>
+        </div>
+      )}
       <div className="library-action-list">
         {sortedActions.map((action) => (
           <PlanActionRow
