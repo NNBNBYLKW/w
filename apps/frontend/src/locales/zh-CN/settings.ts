@@ -1,14 +1,4 @@
 export const settings = {
-  appearance: {
-    eyebrow: "外观",
-    title: "主题",
-    description: "选择 Workbench 的显示外观。当前选择会保存在本机上。",
-    ariaLabel: "主题",
-    options: {
-      light: "浅色",
-      dark: "深色",
-    },
-  },
   locale: {
     eyebrow: "界面语言",
     title: "语言",
@@ -76,31 +66,5 @@ export const settings = {
       runScan: "运行扫描",
       running: "运行中...",
     },
-  },
-  sourcesRedirect: {
-    eyebrow: "扫描文件夹",
-    title: "来源管理",
-    description: "在文件库中添加要扫描的文件夹，运行扫描并管理已索引来源。",
-    action: "在文件库中打开",
-  },
-  about: {
-    eyebrow: "关于",
-    title: "Workbench",
-    description: "应用程序信息和运行时路径。",
-    appName: "应用名称",
-    version: "版本",
-    databasePath: "数据库路径",
-    dataDirectory: "数据目录",
-    loading: "正在加载系统信息...",
-  },
-  cacheManagement: {
-    eyebrow: "缓存",
-    title: "缓存管理",
-    description: "管理本地缓存数据以释放磁盘空间。",
-    clearThumbnails: "清除缩略图缓存",
-    clearThumbnailsConfirmTitle: "清除缩略图缓存？",
-    clearThumbnailsConfirmMessage: "这将删除所有缓存的缩略图、视频预览和EXE图标。它们会在需要时重新生成。",
-    clearThumbnailsSuccess: "缩略图缓存已清除。",
-    clearThumbnailsFailed: "清除缩略图缓存失败。",
   },
 } as const;

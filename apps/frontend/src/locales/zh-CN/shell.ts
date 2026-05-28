@@ -1,20 +1,9 @@
 export const shell = {
-  skipToContent: "跳到主工作区内容",
   sidebar: {
     eyebrow: "本地优先资产工作台",
     title: "资产工作台",
     expand: "展开侧栏",
     collapse: "收起侧栏",
-    navigationLabel: "工作台导航",
-    groups: {
-      main: "资产工作台",
-      fileLibrary: "文件库",
-      manage: "管理",
-      refind: "再找回",
-      system: "系统",
-    },
-    footerKicker: "本地优先",
-    footerCopy: "浏览 · 检视 · 整理 · 再找回",
   },
   topbar: {
     eyebrow: "Windows 本地资产工作台",

@@ -38,7 +38,6 @@ export function LocaleProvider({ children }: PropsWithChildren) {
     }
 
     window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
-    window.document.documentElement.lang = locale;
   }, [locale]);
 
   const value = useMemo<LocaleContextValue>(

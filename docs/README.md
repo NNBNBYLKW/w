@@ -12,29 +12,17 @@ Document boundary:
 
 ## Current Main Docs
 
-- [Workbench 小白使用说明书](USER_MANUAL_BEGINNER.md)
-  - 面向非技术用户的完整使用说明
-  - 中文，覆盖从安装到常见问题的全部内容
-  - 软件是什么/不是什么、安全规则、操作步骤、当前限制、推荐测试流程
 - [测试版当前状态总览](<测试版当前状态总览.md>)
   - What the project currently is
   - What capability lines already exist
   - What the current product shape looks like
-  - Documents、classification/manual placement、Games preview、video preview、i18n、dark mode 当前状态
 - [测试版范围与边界](<测试版范围与边界.md>)
   - Current beta boundary
   - Must-have scope
   - Deferred and explicitly out-of-scope items
-- [文件分类规则](FILE_CLASSIFICATION_RULES.md)
-  - 当前文件分类规则的完整说明
-  - 扩展名 → file_kind / placement 映射表
-  - Library organize 检测逻辑与全局分类的区别
-  - 脚本文件分类、已知限制和未来演进方向
 - [测试版验证准备](<测试版验证准备.md>)
   - Validation goals
   - Suggested walkthroughs
-  - 开发启动、后端指纹检查、PDF thumbnail warmup 后端验收
-  - 当前功能验收清单：Documents、classification、Games preview、video preview、i18n、dark mode
   - Observation template
   - Feedback priority rules
 - [测试版发布准备](<测试版发布准备.md>)
@@ -44,47 +32,8 @@ Document boundary:
   - Known limitations for external validation
 - [前端文本层与语言切换](<前端文本层与语言切换.md>)
   - 当前前端文案组织方式
-  - `t(key, params?)`、locale 资源、`Settings` 语言切换和 Light / Dark 主题入口说明
+  - `t(key, params?)`、locale 资源和 `Settings` 语言切换说明
   - 后续补文案、补语言和继续接入页面的维护入口
-
-### Beta & User Docs
-
-- [BETA_USER_GUIDE.md](BETA_USER_GUIDE.md) — Core concepts, first run, basic workflow, safety rules, recovery
-- [BETA_TESTER_CHECKLIST.md](BETA_TESTER_CHECKLIST.md) — Step-by-step QA checklist with bug report template
-- [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) — Current constraints: packaging, performance, organize, AI, UI, platform
-- [RECOVERY_GUIDE.md](RECOVERY_GUIDE.md) — Troubleshooting for common scenarios
-- [PHASE6_SUMMARY.md](archive/phase6/PHASE6_SUMMARY.md) (archived) — Phase 6 historical summary
-
-### Library v2 / Phase 8 Docs (Current)
-
-Library v2 Phase 7-8 + M2/M3 complete. Managed library workflow with file-library-centered navigation.
-
-- [Library v2 Overview](library-v2/README.md) — What Library v2 is and how it works
-- [Architecture](library-v2/ARCHITECTURE.md) — Data flow, storage states, service layers, AI boundary
-- [API Reference](library-v2/API_REFERENCE.md) — All Library v2 endpoints
-- [Manual Acceptance Guide](library-v2/MANUAL_ACCEPTANCE_GUIDE.md) — Step-by-step smoke tests
-- [Known Limitations](library-v2/KNOWN_LIMITATIONS.md) — Current constraints and future backlog
-- [Beta Testing Checklist](library-v2/BETA_TESTING_CHECKLIST.md) — QA checklist for testers
-- [Phase 7 Completion Report](library-v2/PHASE7_COMPLETION_REPORT.md) — Per-phase summary and test results
-- [Phase 8 Beta Readiness Review](library-v2/PHASE8_BETA_READINESS_REVIEW.md) — Beta readiness decision
-- [Phase 8 Final Acceptance](library-v2/PHASE8_FINAL_ACCEPTANCE_CHECKLIST.md) — Acceptance checklist
-
-### Library Historical Docs (Archived)
-
-Superseded by [Library v2](library-v2/README.md) (Phase 7-8).
-
-- [Archive: Library Phase 1-5 plans](archive/library-v2-prephase7/) — Historical phase planning documents
-- [Archive: Library specification drafts](archive/library-v2-prephase7/library_ai_revised_v2_1.md) — Historical structure/naming specs
-- [Archive: Phase 6 summary](archive/phase6/PHASE6_SUMMARY.md) — Phase 6 historical summary
-
-### Tools Docs
-
-- [Archive: Tools/Plans](archive/plans/) — Historical design specs (Tools, Media Metadata)
-
-### UI Design Reference
-
-- `designs/design.pen` — Pencil UI design mockup (visual reference, not contract)
-- `result.md` (repo root) — Latest UI design preservation review or audit report (one-off, replaced on each completed task)
 
 ## API Contract Docs
 
@@ -98,28 +47,19 @@ If you are working on frontend UI refactors or need the current backend contract
 - [api/core-workbench.md](api/core-workbench.md)
   - health, system status, sources, search, files, shared details, thumbnail, open-actions boundary
 - [api/library-subsets.md](api/library-subsets.md)
-  - media, documents (`/library/books` compatibility route), games, software
+  - media, books, games, software
 - [api/organization-and-retrieval.md](api/organization-and-retrieval.md)
   - tags, color tags, collections, recent family, batch organize, user meta, game status
 
 ## Recommended Reading Order
 
-**For new users (non-technical):**
-1. [USER_MANUAL_BEGINNER.md](USER_MANUAL_BEGINNER.md) — the only doc you need to get started
-
-**For developers and testers:**
 1. [../README.md](../README.md)
-2. [PHASE6_SUMMARY.md](PHASE6_SUMMARY.md) — current Phase 6 completion status
-3. [BETA_USER_GUIDE.md](BETA_USER_GUIDE.md) — first-time user guide
-4. [BETA_TESTER_CHECKLIST.md](BETA_TESTER_CHECKLIST.md) — QA checklist
-5. [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) — current constraints
-6. [RECOVERY_GUIDE.md](RECOVERY_GUIDE.md) — troubleshooting
-7. [测试版当前状态总览](<测试版当前状态总览.md>)
-8. [测试版范围与边界](<测试版范围与边界.md>)
-9. [测试版验证准备](<测试版验证准备.md>)
-10. [测试版发布准备](<测试版发布准备.md>)
+2. [测试版当前状态总览](<测试版当前状态总览.md>)
+3. [测试版范围与边界](<测试版范围与边界.md>)
+4. [测试版验证准备](<测试版验证准备.md>)
+5. [测试版发布准备](<测试版发布准备.md>)
 
-如果你这次主要在做前端 UI 协作、workbench shell 调整、details / navigation 相关收口，或确认 Documents / Games preview / dark mode / i18n 当前状态，应优先以：
+如果你这次主要在做前端 UI 协作、workbench shell 调整或 details / navigation 相关收口，当前界面现状应优先以：
 
 - `README.md`
 - [测试版当前状态总览](<测试版当前状态总览.md>)
@@ -127,20 +67,9 @@ If you are working on frontend UI refactors or need the current backend contract
 
 为准，而不是先从历史执行稿或 archive 材料反推当前界面口径。
 
-如果你这次主要在做前端 UI 文案、locale 切换、`Settings` 语言 / 主题入口或继续补齐页面接入，优先再看：
+如果你这次主要在做前端 UI 文案、locale 切换、`Settings` 语言入口或继续补齐页面接入，优先再看：
 
 - [前端文本层与语言切换](<前端文本层与语言切换.md>)
-
-如果你这次主要在做开发启动、backend runtime、thumbnail warmup、PDF 缩略图验收或“为什么手动验收像旧代码”这类问题，优先看：
-
-- [../README.md](../README.md) 的“启动方式”
-- [测试版验证准备](<测试版验证准备.md>) 的开发模式启动验收与 PDF thumbnail warmup 验收
-
-如果你这次主要在做分类、手动归类、Files Archives quick filter、Documents smart view 或 Games / Software archive 误入问题，优先看：
-
-- [测试版当前状态总览](<测试版当前状态总览.md>) 的当前完成状态
-- [测试版验证准备](<测试版验证准备.md>) 的当前功能验收清单
-- [api/core-workbench.md](api/core-workbench.md) 与 [api/library-subsets.md](api/library-subsets.md) 的当前 contract
 
 If you are specifically touching frontend contract work, continue with:
 
@@ -176,7 +105,7 @@ Recent frontend work is still part of beta-stage experience closure:
 - the sidebar can expand / collapse
 - details can show / hide and the center pane fills the freed space
 - backend state, details toggle, and scrollbar polish are current UI expression changes, not new product capabilities
-- frontend high-visibility copy now uses a lightweight text layer, with current locale switching and Light / Dark theme switching in `Settings`
+- frontend high-visibility copy now uses a lightweight text layer and current locale switching in `Settings`
 
 For collaboration, treat these as current interface facts rather than as a new feature batch.
 
@@ -202,39 +131,3 @@ When docs need to be updated during the beta stage:
 - keep temporary drafts and local working notes in `_wip/`
 
 The top level of `docs/` should stay small and clearly beta-oriented.
-
-### After Every Code Change
-
-After every code change, check whether one of these docs must be updated:
-
-1. **`README.md`**
-   - if project entry point, startup flow, current status, or major navigation changes
-
-2. **`docs/README.md`**
-   - if document structure or current-doc index changes
-
-3. **`docs/api/*`**
-   - if backend HTTP contract changes
-
-4. **`docs/测试版当前状态总览.md`**
-   - if implemented capabilities or current product shape change
-
-5. **`docs/测试版范围与边界.md`**
-   - if scope/boundary changes
-
-6. **`docs/测试版验证准备.md`**
-   - if manual validation path or checklist changes
-
-7. **`docs/测试版发布准备.md`**
-   - if packaging, startup, bundled runtime, or beta delivery changes
-
-8. **`docs/前端文本层与语言切换.md`**
-   - if locale/theme/text runtime changes
-
-9. **Library roadmap docs (`library_phase1_plan.md` ~ `library_phase5_plan.md`)**
-   - if Library phase status changes
-
-10. **`docs/archive/plans/`** — if Tools or other module plans change
-
-If no docs update is needed, the commit or PR report should explicitly say:
-**”Docs checked: no update needed.”**

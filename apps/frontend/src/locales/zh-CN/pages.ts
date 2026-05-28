@@ -2,7 +2,7 @@ export const pages = {
   home: {
     eyebrow: "轻量概览",
     title: "首页",
-    description: "使用这个轻量仪表盘查看系统状态，并快速进入文档、软件、媒体和游戏资产。",
+    description: "使用这个轻量概览页作为系统状态、来源覆盖情况和当前已索引文件工作流的主入口。",
   },
   onboarding: {
     eyebrow: "开始使用",
@@ -19,30 +19,25 @@ export const pages = {
     title: "文件",
     description: "按来源和精确目录浏览已索引文件记录。",
   },
-  library: {
-    eyebrow: "文件库",
-    title: "文件库",
-    description: "你的文件管理中心。扫描文件夹来索引文件，添加受管库作为整理目标，导入文件到暂存区，执行整理计划。使用侧边栏的浏览分类来探索已组织的内容。",
-  },
   books: {
     eyebrow: "子库浏览面",
-    title: "文档",
-    description: "文档文件的预筛选视图。如需完整的对象+文件浏览体验（含分类导航），请使用「浏览」。",
+    title: "图书",
+    description: "在聚焦的子库界面中浏览识别出的电子书文件。选择会继续进入共享详情与现有打开动作。",
   },
   media: {
     eyebrow: "视觉子库界面",
     title: "媒体",
-    description: "图片和视频的预筛选视图。如需完整的对象+文件浏览体验（含分类导航），请使用「浏览」。",
+    description: "在视觉优先的子库界面中浏览已索引图片和视频。选择会继续进入共享详情与现有打开动作。",
   },
   games: {
     eyebrow: "子库浏览面",
     title: "游戏",
-    description: "游戏入口文件的预筛选视图。如需完整的对象+文件浏览体验（含分类导航），请使用「浏览」。",
+    description: "在聚焦的子库界面中浏览识别出的游戏入口文件。选择会继续进入共享详情与现有打开动作。",
   },
   software: {
     eyebrow: "子库浏览面",
     title: "软件",
-    description: "软件相关文件的预筛选视图。如需完整的对象+文件浏览体验（含分类导航），请使用「浏览」。",
+    description: "在聚焦的子库界面中浏览识别出的软件相关文件。选择会继续进入共享详情与现有打开动作。",
   },
   recent: {
     eyebrow: "最近检索家族",
@@ -63,10 +58,5 @@ export const pages = {
     eyebrow: "来源与系统入口",
     title: "设置",
     description: "把这个轻量页面作为本地优先工作台的来源和系统入口。",
-  },
-  browseV2: {
-    eyebrow: "内容浏览",
-    title: "浏览",
-    description: "按内容领域浏览已组织的对象和松散文件。侧边栏提供分类导航。选择对象可查看成员、添加或移除文件。",
   },
 } as const;

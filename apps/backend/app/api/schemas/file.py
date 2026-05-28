@@ -149,6 +149,7 @@ class ThumbnailWarmupResponse(BaseModel):
     failed: list[int]
 
 
+
 class ColorTagUpdateRequest(BaseModel):
     color_tag: str | None
 

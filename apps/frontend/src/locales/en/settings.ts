@@ -1,14 +1,4 @@
 export const settings = {
-  appearance: {
-    eyebrow: "Appearance",
-    title: "Theme",
-    description: "Choose how Workbench looks. Your selection is saved on this device.",
-    ariaLabel: "Theme",
-    options: {
-      light: "Light",
-      dark: "Dark",
-    },
-  },
   locale: {
     eyebrow: "Interface language",
     title: "Language",
@@ -77,31 +67,5 @@ export const settings = {
       runScan: "Run scan",
       running: "Running...",
     },
-  },
-  sourcesRedirect: {
-    eyebrow: "Scan folders",
-    title: "Source management",
-    description: "Add folders to scan, run scans, and manage indexed sources in the File Library.",
-    action: "Open in File Library",
-  },
-  about: {
-    eyebrow: "About",
-    title: "Workbench",
-    description: "Application information and runtime paths.",
-    appName: "App name",
-    version: "Version",
-    databasePath: "Database path",
-    dataDirectory: "Data directory",
-    loading: "Loading system info...",
-  },
-  cacheManagement: {
-    eyebrow: "Cache",
-    title: "Cache management",
-    description: "Manage locally cached data to free up disk space.",
-    clearThumbnails: "Clear thumbnail cache",
-    clearThumbnailsConfirmTitle: "Clear thumbnail cache?",
-    clearThumbnailsConfirmMessage: "This will delete all cached thumbnails, video previews, and EXE icons. They will be regenerated on demand.",
-    clearThumbnailsSuccess: "Thumbnail cache cleared.",
-    clearThumbnailsFailed: "Failed to clear thumbnail cache.",
   },
 } as const;

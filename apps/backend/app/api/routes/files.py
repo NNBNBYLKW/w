@@ -162,6 +162,28 @@ def get_file_video_preview_frame(
     )
 
 
+@router.get("/files/{file_id}/video-preview", response_model=FileVideoPreviewResponse)
+def get_file_video_preview(
+    file_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+) -> FileVideoPreviewResponse:
+    return FileVideoPreviewResponse(item=thumbnail_service.get_video_preview(db, file_id))
+
+
+@router.get("/files/{file_id}/video-preview/frames/{frame_index}")
+def get_file_video_preview_frame(
+    file_id: int = Path(..., ge=1),
+    frame_index: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+) -> FileResponse:
+    frame_path = thumbnail_service.get_video_preview_frame_path(db, file_id, frame_index)
+    return FileResponse(
+        path=frame_path,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @router.post("/files/{file_id}/tags", response_model=TagListResponse)
 def attach_tag_to_file(
     payload: TagCreateRequest,

@@ -1,44 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FormEvent, useEffect, useState } from "react";
-
-import { usePolling } from "../../shared/hooks/usePolling";
+import { FormEvent, useState } from "react";
 
 import { t } from "../../shared/text";
-import { createSource, getSource, getSources, SourcesApiError, triggerSourceScan } from "../../services/api/sourcesApi";
-import { LoadingState } from "../../shared/ui/components";
+import { createSource, getSources, SourcesApiError, triggerSourceScan } from "../../services/api/sourcesApi";
 import { queryKeys } from "../../services/query/queryKeys";
-import { invalidateSourceSurfaces } from "../../services/query/invalidation";
-
-
-function ScanProgressIndicator({ sourceId, initialStatus }: { sourceId: number; initialStatus: string | null }) {
-  const { data, start } = usePolling(
-    () => getSource(sourceId),
-    (d) => d.last_scan_status !== "running",
-    2000,
-  );
-
-  useEffect(() => {
-    if (initialStatus === "running") {
-      start();
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (initialStatus !== "running" && !data) return null;
-
-  const status = data?.last_scan_status ?? initialStatus;
-  const count = data?.discovered_count;
-
-  if (status === "running") {
-    return <span style={{color:"var(--color-accent)",fontSize:13}}>Scanning...{count ? ` ${count} files found` : ""}</span>;
-  }
-  if (status === "succeeded") {
-    return <span style={{color:"var(--color-success)",fontSize:13}}>Scan complete{count ? `: ${count} files` : ""}</span>;
-  }
-  if (status === "failed") {
-    return <span style={{color:"var(--color-danger)",fontSize:13}}>Scan failed</span>;
-  }
-  return null;
-}
 
 
 export function SourceManagementFeature() {
@@ -76,7 +41,8 @@ export function SourceManagementFeature() {
       setPath("");
       setDisplayName("");
       setCreateFeedback(t("settings.sourceManagement.createSuccess"));
-      await invalidateSourceSurfaces(queryClient);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.sources });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.systemStatus });
     },
   });
 
@@ -95,7 +61,8 @@ export function SourceManagementFeature() {
           taskId: result.task_id,
         }),
       });
-      await invalidateSourceSurfaces(queryClient);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.sources });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.systemStatus });
     },
     onError: async (error, sourceId) => {
       const message =
@@ -109,7 +76,8 @@ export function SourceManagementFeature() {
         kind: "error",
         message,
       });
-      await invalidateSourceSurfaces(queryClient);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.sources });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.systemStatus });
     },
     onSettled: async (_data, _error, sourceId) => {
       setPendingSourceIds((current) => current.filter((pendingId) => pendingId !== sourceId));
@@ -187,7 +155,7 @@ export function SourceManagementFeature() {
   };
 
   return (
-    <section className="source-management settings-section-card">
+    <section className="source-management">
       <form className="form-grid" onSubmit={handleSubmit}>
         <div className="field-stack">
           <label htmlFor="source-path">{t("settings.sourceManagement.sourcePath")}</label>
@@ -243,11 +211,11 @@ export function SourceManagementFeature() {
       ) : null}
 
       <div className="feature-shell">
-        <div className="feature-header utility-surface__header">
+        <div className="feature-header">
           <span className="page-header__eyebrow">{t("settings.sourceManagement.savedSources.eyebrow")}</span>
           <h3>{t("settings.sourceManagement.savedSources.title")}</h3>
         </div>
-        {sourcesQuery.isLoading ? <LoadingState /> : null}
+        {sourcesQuery.isLoading ? <p>{t("settings.sourceManagement.savedSources.loading")}</p> : null}
         {sourcesQuery.data?.length === 0 ? (
           <p>{t("settings.sourceManagement.savedSources.empty")}</p>
         ) : null}
@@ -258,16 +226,15 @@ export function SourceManagementFeature() {
                 <strong>{source.display_name || source.path}</strong>
                 <p className="source-row__path">{source.path}</p>
                 <p className="source-row__path">
-                  {source.last_scan_status === "running" ? (
-                    <ScanProgressIndicator sourceId={source.id} initialStatus={source.last_scan_status} />
-                  ) : (
-                    t("settings.sourceManagement.savedSources.statusLabel", {
-                      status: formatScanStatusLabel(source.last_scan_status),
-                    })
-                  )}
+                  {t("settings.sourceManagement.savedSources.statusLabel", {
+                    status: formatScanStatusLabel(source.last_scan_status),
+                  })}
                 </p>
                 {source.last_scan_status === null ? (
                   <p className="source-row__path">{t("settings.sourceManagement.savedSources.runScanHint")}</p>
+                ) : null}
+                {source.last_scan_status === "running" ? (
+                  <p className="source-row__path">{t("settings.sourceManagement.savedSources.runningHint")}</p>
                 ) : null}
                 {source.last_scan_status === "failed" && source.last_scan_error_message ? (
                   <p className="source-row__path">
