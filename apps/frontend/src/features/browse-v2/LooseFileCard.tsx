@@ -1,5 +1,6 @@
 import type { BrowseV2LooseFileCard } from "../../services/api/browseV2Api";
 import { t } from "../../shared/text";
+import { getFilePosterUrl, getFileThumbnailUrl, getFileVideoUrl } from "../../services/api/fileDetailsApi";
 import { asTextKey, fileKindLabel, storageStateLabel, formatBytes } from "./helpers";
 
 
@@ -25,13 +26,17 @@ interface Props {
   checked?: boolean;
   onCheckboxToggle?: () => void;
   onClick: () => void;
+  isHovered?: boolean;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }
 
-export function LooseFileCard({ card, selected, checked, onCheckboxToggle, onClick }: Props) {
+export function LooseFileCard({ card, selected, checked, onCheckboxToggle, onClick, isHovered, onMouseEnter, onMouseLeave }: Props) {
   const sizeLabel = formatBytes(card.size_bytes);
   const fileKind = fileKindLabel(card.file_kind);
   const storageLabel = storageStateLabel(card.storage_state);
   const modifiedAt = formatDate(card.modified_at);
+  const isVideo = card.file_kind === "video";
 
   return (
     <button
@@ -39,12 +44,34 @@ export function LooseFileCard({ card, selected, checked, onCheckboxToggle, onCli
       type="button"
       onClick={onClick}
       aria-pressed={selected}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     >
       {onCheckboxToggle && (
         <span className="browse-v2-card__check" onClick={e => { e.stopPropagation(); onCheckboxToggle(); }}>
           <input className="browse-v2-card__check-input" type="checkbox" checked={!!checked} readOnly tabIndex={-1} />
         </span>
       )}
+      {isVideo ? (
+        <span className="browse-v2-card__thumbnail">
+          {isHovered ? (
+            <video
+              src={getFileVideoUrl(card.file_id)}
+              muted
+              autoPlay
+              preload="none"
+              poster={getFilePosterUrl(card.file_id) || undefined}
+              style={{ width: "100%", height: 120, objectFit: "cover" }}
+            />
+          ) : (
+            <img
+              src={getFilePosterUrl(card.file_id) || getFileThumbnailUrl(card.file_id)}
+              alt={card.name}
+              style={{ width: "100%", height: 120, objectFit: "cover" }}
+            />
+          )}
+        </span>
+      ) : null}
       <span className="browse-v2-card__mark browse-v2-card__mark--file" aria-hidden="true">
         {fileMark(card.file_kind)}
       </span>

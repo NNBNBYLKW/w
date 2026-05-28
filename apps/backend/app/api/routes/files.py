@@ -1,7 +1,7 @@
 import os
 
 from fastapi import APIRouter, Depends, Path, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -32,6 +32,7 @@ from app.api.schemas.file import (
     SortOrder,
 )
 from app.api.schemas.tag import TagCreateRequest, TagListResponse
+from app.core.errors.exceptions import BadRequestError
 from app.db.models.file import File
 from app.db.session.session import get_db
 from app.services.color_tags.service import ColorTagsService
@@ -41,6 +42,7 @@ from app.services.files.service import FilesService
 from app.services.file_user_meta.service import FileUserMetaService
 from app.services.tags.service import TagsService
 from app.services.thumbnails.service import ThumbnailService
+from app.workers.epub.parser import EpubParser
 
 
 router = APIRouter(tags=["files"])
@@ -238,6 +240,25 @@ def get_file_video_preview_frame(
     )
 
 
+@router.get("/files/{file_id}/stream")
+def get_file_stream(
+    file_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    file = files_service.get_file(db, file_id)
+    if not os.path.isfile(file.path):
+        raise BadRequestError("FILE_NOT_FOUND_ON_DISK", "File not found on disk.")
+    media_type = file.mime_type or "application/octet-stream"
+    return StreamingResponse(
+        open(file.path, "rb"),
+        media_type=media_type,
+        headers={
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "no-store",
+        },
+    )
+
+
 @router.post("/files/{file_id}/tags", response_model=TagListResponse)
 def attach_tag_to_file(
     payload: TagCreateRequest,
@@ -290,3 +311,12 @@ def update_file_placement(
     db: Session = Depends(get_db),
 ) -> FilePlacementResponse:
     return file_user_meta_service.update_file_placement(db, file_id, payload.manual_placement)
+
+
+@router.get("/files/{file_id}/epub-content")
+def get_epub_content(file_id: int = Path(..., ge=1), db: Session = Depends(get_db)):
+    file = files_service.get_file(db, file_id)
+    if not file.path.lower().endswith(".epub"):
+        raise BadRequestError("FILE_NOT_EPUB", "File is not an EPUB")
+    parsed = EpubParser().parse(file.path)
+    return {"item": parsed}

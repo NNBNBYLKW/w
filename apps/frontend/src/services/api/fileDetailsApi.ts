@@ -28,6 +28,14 @@ export function getFilePosterUrl(fileId: number): string {
   return `${getApiBaseUrl()}/files/${fileId}/poster`;
 }
 
+export function getFileVideoUrl(fileId: number): string {
+  return `${getApiBaseUrl()}/files/${fileId}/stream`;
+}
+
+export function getFileVideoPreviewUrl(fileId: number): string {
+  return `${getApiBaseUrl()}/files/${fileId}/stream`;
+}
+
 export function getFileVideoPreviewFrameUrl(fileId: number, frameIndex: number): string {
   return `${getApiBaseUrl()}/files/${fileId}/video-preview/frames/${frameIndex}`;
 }

@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 import type {
   BrowseV2Card,
@@ -35,6 +35,7 @@ export function BrowseV2CardList({
   onCardClick,
   onCheckboxToggle,
 }: BrowseV2CardListProps) {
+  const [hoveredId, setHoveredId] = useState<number | null>(null);
   const totalCardCount = objectCards.length + looseFileCards.length;
   const cardContainerRef = useRef<HTMLDivElement>(null);
   const { startIndex, endIndex, offsetY, totalHeight, onScroll } = useVirtualList(
@@ -107,6 +108,9 @@ export function BrowseV2CardList({
                             : undefined
                         }
                         onClick={() => onCardClick(card)}
+                        isHovered={hoveredId === card.file_id}
+                        onMouseEnter={() => setHoveredId(card.file_id)}
+                        onMouseLeave={() => setHoveredId(null)}
                       />
                     ))}
                   </div>

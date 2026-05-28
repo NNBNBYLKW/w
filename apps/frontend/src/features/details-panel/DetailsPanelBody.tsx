@@ -364,6 +364,8 @@ export function DetailsPanelBody({
                 previewLoadFailed={previewLoadFailed}
                 previewImageSrc={previewImageSrc}
                 name={item.name}
+                itemId={item.id}
+                metadata={metadata}
                 previewRef={previewRef}
                 onImageError={onPreviewImageError}
                 onImageLoad={onPreviewImageLoad}

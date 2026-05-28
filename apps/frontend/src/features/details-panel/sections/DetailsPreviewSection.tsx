@@ -2,6 +2,7 @@ import type React from "react";
 import { useState } from "react";
 import { t } from "../../../shared/text";
 import { Lightbox } from "../../../shared/ui/components";
+import { getFilePosterUrl, getFileVideoPreviewUrl, getFileThumbnailUrl } from "../../../services/api/fileDetailsApi";
 
 export interface DetailsPreviewSectionProps {
   isImageFile: boolean;
@@ -12,6 +13,8 @@ export interface DetailsPreviewSectionProps {
   previewLoadFailed: boolean;
   previewImageSrc: string | undefined;
   name: string;
+  itemId?: number;
+  metadata?: { page_count?: number | null } | null;
   previewRef: React.Ref<HTMLDivElement>;
   onImageError: () => void;
   onImageLoad: () => void;
@@ -26,11 +29,49 @@ export function DetailsPreviewSection({
   previewLoadFailed,
   previewImageSrc,
   name,
+  itemId,
+  metadata,
   previewRef,
   onImageError,
   onImageLoad,
 }: DetailsPreviewSectionProps) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [pdfPage, setPdfPage] = useState(0);
+
+  if (isVideoFile && itemId !== undefined) {
+    return (
+      <section className="details-preview-section">
+        <div className="details-preview-section__header">
+          <h4>{t("details.sections.preview")}</h4>
+        </div>
+        <div className="details-video-preview">
+          <video controls style={{ maxWidth: "100%", maxHeight: "60vh" }} poster={getFilePosterUrl(itemId) || undefined}>
+            <source src={getFileVideoPreviewUrl(itemId)} />
+          </video>
+        </div>
+      </section>
+    );
+  }
+
+  if (isPdfBookFile && itemId !== undefined) {
+    const pdfPageCount = metadata?.page_count ?? 1;
+    return (
+      <section className="details-preview-section">
+        <div className="details-preview-section__header">
+          <h4>{t("details.sections.preview")}</h4>
+        </div>
+        <div className="pdf-preview">
+          <div className="pdf-preview__toolbar">
+            <button onClick={() => setPdfPage(p => Math.max(0, p - 1))} disabled={pdfPage === 0}>Prev</button>
+            <span>Page {pdfPage + 1} of {pdfPageCount}</span>
+            <button onClick={() => setPdfPage(p => Math.min(pdfPageCount - 1, p + 1))} disabled={pdfPage >= pdfPageCount - 1}>Next</button>
+          </div>
+          <img src={`${getFileThumbnailUrl(itemId)}?page=${pdfPage}`} alt={`Page ${pdfPage + 1}`} />
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="details-preview-section">
       <div className="details-preview-section__header">
