@@ -53,4 +53,18 @@ plans/*
 
 release/*
 
+# Backup virtual environments
+.venv-py*/
+
+# PyInstaller artifacts
+*.spec
+apps/backend/build/workbench-backend/
+
+# Vite build cache
+apps/frontend/node_modules/.vite/
+
+# Electron packaging artifacts
+apps/desktop/builder-debug.yml
+apps/desktop/builder-effective-config.yaml
+
 skills-lock.json
