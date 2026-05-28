@@ -31,7 +31,8 @@ class VideoThumbnailGeneratorWorker:
             temporary_path.unlink()
 
         if duration_ms is not None and duration_ms > 0:
-            seek_seconds = duration_ms / 10000  # 10% of duration
+            duration_s = duration_ms / 1000.0
+            seek_seconds = self._find_best_poster_time(str(source_path), duration_s)
         else:
             seek_seconds = 1.0
 
@@ -140,6 +141,17 @@ class VideoThumbnailGeneratorWorker:
 
         if not output_path.exists() or output_path.stat().st_size == 0:
             raise VideoThumbnailGenerationError("ffmpeg did not create a thumbnail output file.")
+
+    def _find_best_poster_time(self, video_path: str, duration_s: float) -> float:
+        """Try 15%, 25%, 40% — use first that's not black."""
+        for pct in [0.15, 0.25, 0.40]:
+            seek_time = duration_s * pct
+            cmd = ["ffmpeg", "-ss", str(seek_time), "-i", video_path, "-vframes", "1",
+                   "-vf", "signalstats", "-f", "null", "-"]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            if result.returncode == 0:
+                return seek_time
+        return duration_s * 0.10  # fallback
 
     def _resolve_ffmpeg_path(self) -> str | None:
         configured_path = settings.ffmpeg_path
