@@ -4,6 +4,13 @@ export const shell = {
     title: "Asset Workbench",
     expand: "Expand sidebar",
     collapse: "Collapse sidebar",
+    groups: {
+      main: "Main",
+      fileLibrary: "File Library",
+      manage: "Manage",
+      refind: "Re-find",
+      system: "System",
+    },
   },
   topbar: {
     eyebrow: "Windows Local Asset Workbench",

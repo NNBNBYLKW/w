@@ -4,6 +4,13 @@ export const shell = {
     title: "资产工作台",
     expand: "展开侧栏",
     collapse: "收起侧栏",
+    groups: {
+      main: "主要",
+      fileLibrary: "文件库",
+      manage: "管理",
+      refind: "重新查找",
+      system: "系统",
+    },
   },
   topbar: {
     eyebrow: "Windows 本地资产工作台",
