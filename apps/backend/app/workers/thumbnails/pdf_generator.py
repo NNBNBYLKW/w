@@ -94,3 +94,14 @@ class PdfThumbnailGeneratorWorker:
                 page.close()
             if pdf is not None and hasattr(pdf, "close"):
                 pdf.close()
+
+    def render_pages(self, file_path: str, max_pages: int = 5) -> list[Image.Image]:
+        import pypdfium2 as pdfium
+        doc = pdfium.PdfDocument(file_path)
+        pages = []
+        for i in range(min(len(doc), max_pages)):
+            page = doc[i]
+            bitmap = page.render(scale=1.5)
+            pil_image = Image.frombytes("RGBA", (bitmap.width, bitmap.height), bitmap.data)
+            pages.append(pil_image)
+        return pages
