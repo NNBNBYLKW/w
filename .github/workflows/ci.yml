@@ -14,7 +14,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - run: pip install httpx
+      - run: pip install httpx pytest
       - run: python -m pytest tests/ -q --tb=line
       - name: Lint backend
         run: |
