@@ -78,6 +78,7 @@ contextBridge.exposeInMainWorld("assetWorkbench", {
   toggleMaximizeWindow: async (): Promise<WindowStatePayload> => ipcRenderer.invoke(toggleMaximizeWindowChannel),
   closeWindow: async (): Promise<void> => ipcRenderer.invoke(closeWindowChannel),
   getWindowState: async (): Promise<WindowStatePayload> => ipcRenderer.invoke(getWindowStateChannel),
+  launchFile: (filePath: string) => ipcRenderer.invoke("asset-workbench:launch-file", filePath),
   onWindowStateChange: (callback: (payload: WindowStatePayload) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, payload: WindowStatePayload) => {
       callback(payload);

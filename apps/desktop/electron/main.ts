@@ -464,6 +464,14 @@ app.whenReady().then(() => {
     return { updateAvailable: result.updateInfo.version !== app.getVersion() };
   });
 
+  ipcMain.handle("asset-workbench:launch-file", async (_event, filePath: string) => {
+    try {
+      const proc = spawn(filePath, [], { detached: true, stdio: "ignore", cwd: path.dirname(filePath) });
+      proc.unref();
+      return { ok: true };
+    } catch (e) { return { ok: false, reason: String(e) }; }
+  });
+
   createMainWindow();
 
   app.on("activate", () => {
