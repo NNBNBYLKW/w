@@ -312,7 +312,8 @@ export function BrowseV2Feature() {
               </div>
             ) : null}
             {data && items.length === 0 ? (
-              <EmptyState title={t("features.browseV2.empty")} />
+              <EmptyState title={t("features.browseV2.empty")}
+                action={{ label: t("features.homeOverview.scanCardAction"), onClick: () => navigate("/library?tab=sources") }} />
             ) : null}
             <BrowseV2CardList
               showObjects={showObjects}

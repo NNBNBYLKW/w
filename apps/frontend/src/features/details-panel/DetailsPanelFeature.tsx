@@ -8,7 +8,7 @@ import { useUIStore } from "../../app/providers/uiStore";
 import { t, useLocale } from "../../shared/text";
 import { useRetryingThumbnail, useThumbnailWarmup } from "../../shared/ui/thumbnail";
 import { getFileDetails, getFileThumbnailUrl, getFileVideoPreview, getFileVideoPreviewFrameUrl } from "../../services/api/fileDetailsApi";
-import { hasDesktopOpenActionsBridge } from "../../services/desktop/openActions";
+import { hasDesktopOpenActionsBridge, showItemInFolder as desktopShowItemInFolder } from "../../services/desktop/openActions";
 import { queryKeys } from "../../services/query/queryKeys";
 import { inferBookFormat, inferGameEntry, inferSoftwareFormat } from "./shared/detailsHelpers";
 import { useDetailsMutations } from "./hooks/useDetailsMutations";
@@ -151,6 +151,12 @@ export function DetailsPanelFeature() {
         openActionError={mutations.openActionError}
         onOpenFile={() => void mutations.handleOpenAction("file", item?.path)}
         onOpenFolder={() => void mutations.handleOpenAction("folder", item?.path)}
+        onShowInFolder={() => {
+          const normalizedPath = item?.path;
+          if (normalizedPath) {
+            void desktopShowItemInFolder(normalizedPath);
+          }
+        }}
         onAddTag={(event: React.FormEvent) => {
           event.preventDefault();
           mutations.addTagMutation.mutate(mutations.tagInput);

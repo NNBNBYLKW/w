@@ -24,6 +24,10 @@ export function getFileThumbnailUrl(fileId: number): string {
   return `${getApiBaseUrl()}/files/${fileId}/thumbnail`;
 }
 
+export function getFilePosterUrl(fileId: number): string {
+  return `${getApiBaseUrl()}/files/${fileId}/poster`;
+}
+
 export function getFileVideoPreviewFrameUrl(fileId: number, frameIndex: number): string {
   return `${getApiBaseUrl()}/files/${fileId}/video-preview/frames/${frameIndex}`;
 }

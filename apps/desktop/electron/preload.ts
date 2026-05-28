@@ -10,6 +10,7 @@ const closeWindowChannel = "asset-workbench:close-window";
 const getWindowStateChannel = "asset-workbench:get-window-state";
 const windowStateChangedChannel = "asset-workbench:window-state-changed";
 const openContainingFolderChannel = "asset-workbench:open-containing-folder";
+const showItemInFolderChannel = "asset-workbench:show-item-in-folder";
 
 type WindowStatePayload = {
   isMaximized: boolean;
@@ -60,6 +61,7 @@ async function openContainingFolder(filePath: string): Promise<OpenActionResult>
 
 contextBridge.exposeInMainWorld("assetWorkbench", {
   getBackendBaseUrl: () => process.env.BACKEND_URL ?? defaultBackendBaseUrl,
+  showItemInFolder: async (filePath: string): Promise<void> => ipcRenderer.invoke(showItemInFolderChannel, filePath),
   selectFolder: async (): Promise<string | null> => ipcRenderer.invoke(selectFolderChannel),
   selectFiles: async (): Promise<string[]> => ipcRenderer.invoke(selectFilesChannel),
   getDroppedFilePath: (file: unknown): string | null => {

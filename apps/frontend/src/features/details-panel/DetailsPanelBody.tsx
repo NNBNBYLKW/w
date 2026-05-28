@@ -89,6 +89,7 @@ export interface DetailsPanelBodyProps {
   onColorTagChange: (value: ColorTagValue | null) => void;
   onOpenFile: () => void;
   onOpenFolder: () => void;
+  onShowInFolder: () => void;
   isOpenActionPending: boolean;
   hasDesktopOpenActions: boolean;
   openActionError: string | null;
@@ -176,6 +177,7 @@ export function DetailsPanelBody({
   onColorTagChange,
   onOpenFile,
   onOpenFolder,
+  onShowInFolder,
   isOpenActionPending,
   hasDesktopOpenActions,
   openActionError,
@@ -341,6 +343,11 @@ export function DetailsPanelBody({
                       height: metadata.height ?? null,
                       duration_ms: metadata.duration_ms ?? null,
                       page_count: metadata.page_count ?? null,
+                      codec: metadata.codec ?? null,
+                      bitrate: metadata.bitrate ?? null,
+                      stream_count: metadata.stream_count ?? null,
+                      author: metadata.author ?? null,
+                      title: metadata.title ?? null,
                     }
                   : null
               }
@@ -458,6 +465,7 @@ export function DetailsPanelBody({
               openActionError={openActionError}
               onOpenFile={onOpenFile}
               onOpenFolder={onOpenFolder}
+              onShowInFolder={onShowInFolder}
               openFileLabel={openFileLabel}
             />
           </div>

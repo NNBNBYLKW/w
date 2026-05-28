@@ -351,6 +351,33 @@ class ThumbnailService:
 
         return thumbnail_path
 
+    def get_video_poster(self, session, file_id: int) -> ThumbnailResult:
+        file = self._get_video_file(session, file_id)
+        poster_path = self._build_video_poster_path(file)
+        if poster_path.exists():
+            return ThumbnailResult(path=poster_path, media_type="image/jpeg")
+
+        metadata = self.file_metadata_repository.get_by_file_id(session, file.id)
+        duration_ms = metadata.duration_ms if metadata is not None else None
+        try:
+            self.video_generator.generate_poster(
+                Path(file.path), poster_path, duration_ms=duration_ms,
+            )
+        except Exception as error:
+            if self.video_generator.is_expected_generation_failure(error):
+                raise NotFoundError("VIDEO_POSTER_NOT_AVAILABLE", "Video poster is not available.") from error
+            raise
+
+        return ThumbnailResult(path=poster_path, media_type="image/jpeg")
+
+    def _build_video_poster_path(self, file: File) -> Path:
+        modified_source = file.modified_at_fs or file.discovered_at
+        modified_marker = modified_source.strftime("%Y%m%d%H%M%S%f")
+        size_marker = file.size_bytes if file.size_bytes is not None else 0
+        cache_key = sha256(f"poster_{file.id}|{size_marker}|{modified_marker}".encode("utf-8")).hexdigest()[:16]
+        filename = f"poster_{file.id}_{cache_key}.jpg"
+        return self._get_video_thumbnail_cache_dir() / filename
+
     def _get_video_thumbnail_path(self, file: File) -> Path:
         thumbnail_path = self._build_video_thumbnail_path(file)
         if thumbnail_path.exists():

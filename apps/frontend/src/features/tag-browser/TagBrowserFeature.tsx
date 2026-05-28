@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useUIStore } from "../../app/providers/uiStore";
 import { t } from "../../shared/text";
+import { useErrorMessage } from "../../shared/hooks/useErrorMessage";
 import { ConfirmDialog, EmptyState, LoadingState, Pagination, WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
 import type { FileListSortBy, FileListSortOrder } from "../../entities/file/types";
 import { deleteTagApi, listFilesForTag, listTags, mergeTags, renameTag, TagsApiError } from "../../services/api/tagsApi";
@@ -532,21 +533,21 @@ export function TagBrowserFeature() {
       {renameMutation.isError && renameMutation.error instanceof Error ? (
         <div className="status-block page-card" style={{ marginTop: 8 }}>
           <strong>{t("features.tags.renameErrorTitle")}</strong>
-          <p>{renameMutation.error.message}</p>
+          <p>{useErrorMessage(renameMutation.error)}</p>
         </div>
       ) : null}
 
       {deleteTagMutation.isError && deleteTagMutation.error instanceof Error ? (
         <div className="status-block page-card" style={{ marginTop: 8 }}>
           <strong>{t("features.tags.deleteErrorTitle")}</strong>
-          <p>{deleteTagMutation.error.message}</p>
+          <p>{useErrorMessage(deleteTagMutation.error)}</p>
         </div>
       ) : null}
 
       {mergeMutation.isError && mergeMutation.error instanceof Error ? (
         <div className="status-block page-card" style={{ marginTop: 8 }}>
           <strong>{t("features.tags.mergeErrorTitle")}</strong>
-          <p>{mergeMutation.error.message}</p>
+          <p>{useErrorMessage(mergeMutation.error)}</p>
         </div>
       ) : null}
     </WorkbenchPage>

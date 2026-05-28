@@ -324,6 +324,8 @@ class FileRepository:
         color_tag: str | None,
         is_favorite: bool | None = None,
         min_rating: int | None = None,
+        source_id: int | None = None,
+        parent_path: str | None = None,
         page: int,
         page_size: int,
         sort_by: str,
@@ -344,6 +346,10 @@ class FileRepository:
             filters.append(File.file_type == file_type)
         if file_kind is not None:
             filters.append(File.file_kind == file_kind)
+        if source_id is not None:
+            filters.append(File.source_id == source_id)
+        if parent_path is not None:
+            filters.append(func.lower(File.parent_path) == parent_path.lower())
         needs_user_meta_join = False
         if library_placement is not None:
             filters.append(self._effective_placement_expr() == library_placement)

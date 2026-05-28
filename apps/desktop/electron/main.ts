@@ -450,6 +450,10 @@ app.whenReady().then(() => {
     return { ok: true as const };
   });
 
+  ipcMain.handle("asset-workbench:show-item-in-folder", async (_event, filePath: string) => {
+    shell.showItemInFolder(filePath);
+  });
+
   createMainWindow();
 
   app.on("activate", () => {

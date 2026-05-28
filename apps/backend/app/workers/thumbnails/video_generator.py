@@ -18,6 +18,26 @@ class VideoThumbnailGeneratorWorker:
     def __init__(self, *, timeout_seconds: int = 15) -> None:
         self.timeout_seconds = timeout_seconds
 
+    def generate_poster(
+        self,
+        source_path: Path,
+        output_path: Path,
+        *,
+        duration_ms: int | None = None,
+        width: int = 320,
+    ) -> None:
+        temporary_path = output_path.with_name(f".{output_path.stem}.tmp.jpg")
+        if temporary_path.exists():
+            temporary_path.unlink()
+
+        if duration_ms is not None and duration_ms > 0:
+            seek_seconds = duration_ms / 10000  # 10% of duration
+        else:
+            seek_seconds = 1.0
+
+        self._run_ffmpeg_frame_extract(source_path, temporary_path, seek_seconds=seek_seconds, width=width)
+        temporary_path.replace(output_path)
+
     def generate_thumbnail(self, source_path: Path, output_path: Path, *, width: int = 320) -> None:
         temporary_path = output_path.with_name(f".{output_path.stem}.tmp.jpg")
         if temporary_path.exists():

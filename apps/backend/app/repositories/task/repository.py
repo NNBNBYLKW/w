@@ -42,3 +42,13 @@ class TaskRepository:
         )
         latest_tasks = list(session.scalars(statement))
         return {task.source_id: task for task in latest_tasks if task.source_id is not None}
+
+    def list_tasks_by_source(self, session: Session, source_id: int, limit: int = 10) -> list[Task]:
+        statement = (
+            select(Task)
+            .where(Task.task_type == "scan_source")
+            .where(Task.source_id == source_id)
+            .order_by(Task.id.desc())
+            .limit(limit)
+        )
+        return list(session.scalars(statement))

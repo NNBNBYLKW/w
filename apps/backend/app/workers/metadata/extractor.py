@@ -9,6 +9,13 @@ from PIL import Image, UnidentifiedImageError
 from app.core.config.settings import settings
 from app.db.models.file import File
 
+
+try:
+    import pypdfium2 as pdfium
+    HAS_PYPDFIUM2 = True
+except ImportError:
+    HAS_PYPDFIUM2 = False
+
 FFPROBE_TIMEOUT_SECONDS = 10
 SUBPROCESS_STDERR_TAIL_CHARS = 4000
 
@@ -19,6 +26,11 @@ class ExtractedMetadata:
     height: int | None
     duration_ms: int | None
     page_count: int | None
+    codec: str | None = None
+    bitrate: int | None = None
+    stream_count: int | None = None
+    author: str | None = None
+    title: str | None = None
 
 
 class MetadataExtractorWorker:
@@ -27,6 +39,8 @@ class MetadataExtractorWorker:
             return self._extract_image_metadata(Path(file.path))
         if file.file_type == "video":
             return self._extract_video_metadata(Path(file.path))
+        if file.file_type == "document" and HAS_PYPDFIUM2:
+            return self._extract_pdf_metadata(Path(file.path))
         return None
 
     def _extract_image_metadata(self, file_path: Path) -> ExtractedMetadata:
@@ -95,12 +109,39 @@ class MetadataExtractorWorker:
         if duration_seconds is None:
             duration_seconds = self._parse_positive_float(format_block.get("duration"))
 
+        codec = video_stream.get("codec_name") if isinstance(video_stream, dict) else None
+        bitrate = self._parse_positive_int(format_block.get("bit_rate"))
+        video_stream_count = sum(
+            1 for stream in streams or []
+            if isinstance(stream, dict) and stream.get("codec_type") == "video"
+        ) if streams else None
+
         return ExtractedMetadata(
             width=width,
             height=height,
             duration_ms=round(duration_seconds * 1000) if duration_seconds is not None else None,
             page_count=None,
+            codec=codec,
+            bitrate=bitrate,
+            stream_count=video_stream_count,
         )
+
+    def _extract_pdf_metadata(self, file_path: Path) -> ExtractedMetadata | None:
+        try:
+            pdf = pdfium.PdfDocument(str(file_path))
+            page_count = len(pdf)
+            metadata = pdf.get_metadata_dict()
+            pdf.close()
+            return ExtractedMetadata(
+                width=None,
+                height=None,
+                duration_ms=None,
+                page_count=page_count,
+                author=metadata.get("author"),
+                title=metadata.get("title"),
+            )
+        except Exception:
+            return None
 
     def _resolve_ffprobe_path(self) -> str | None:
         configured_path = settings.ffmpeg_path

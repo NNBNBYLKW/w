@@ -34,6 +34,8 @@ class SearchService:
             color_tag=normalized_color_tag,
             is_favorite=params.is_favorite,
             min_rating=params.min_rating,
+            source_id=params.source_id,
+            parent_path=params.parent_path,
             page=params.page,
             page_size=params.page_size,
             sort_by=params.sort_by,

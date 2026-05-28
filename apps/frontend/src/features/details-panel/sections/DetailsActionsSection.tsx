@@ -7,6 +7,7 @@ export interface DetailsActionsSectionProps {
   openActionError: string | null;
   onOpenFile: () => void;
   onOpenFolder: () => void;
+  onShowInFolder: () => void;
   openFileLabel: string;
 }
 
@@ -16,6 +17,7 @@ export function DetailsActionsSection({
   openActionError,
   onOpenFile,
   onOpenFolder,
+  onShowInFolder,
   openFileLabel,
 }: DetailsActionsSectionProps) {
   return (
@@ -30,6 +32,9 @@ export function DetailsActionsSection({
         </ActionButton>
         <ActionButton variant="secondary" size="sm" onClick={onOpenFolder} disabled={isOpenActionPending || !hasDesktopOpenActions}>
           {t("details.actions.openContainingFolder")}
+        </ActionButton>
+        <ActionButton variant="secondary" size="sm" onClick={onShowInFolder} disabled={!hasDesktopOpenActions}>
+          {t("details.actions.showInFolder")}
         </ActionButton>
       </div>
       {!hasDesktopOpenActions ? (

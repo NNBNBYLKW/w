@@ -43,6 +43,23 @@ def delete_source(source_id: int, db: Session = Depends(get_db)) -> MessageRespo
     return MessageResponse(message="Source deleted.")
 
 
+@router.get("/{source_id}/scan-history")
+def get_source_scan_history(source_id: int, db: Session = Depends(get_db)):
+    tasks = source_service.task_service.list_tasks_by_source(db, source_id, limit=10)
+    return {
+        "items": [
+            {
+                "id": t.id,
+                "status": t.status,
+                "started_at": t.started_at,
+                "finished_at": t.finished_at,
+                "error_message": t.error_message,
+            }
+            for t in tasks
+        ]
+    }
+
+
 @router.post("/{source_id}/scan", response_model=TriggerScanResponse, status_code=status.HTTP_202_ACCEPTED)
 def trigger_scan(source_id: int, db: Session = Depends(get_db)) -> TriggerScanResponse:
     return source_service.trigger_scan(db, source_id)

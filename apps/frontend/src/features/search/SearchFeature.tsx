@@ -15,8 +15,9 @@ import type {
   SearchSortOrder,
   StorageStateFilter,
 } from "../../entities/file/types";
-import { getFileThumbnailUrl } from "../../services/api/fileDetailsApi";
+import { getFilePosterUrl, getFileThumbnailUrl } from "../../services/api/fileDetailsApi";
 import { searchFiles } from "../../services/api/searchApi";
+import { getSources } from "../../services/api/sourcesApi";
 import { listTags } from "../../services/api/tagsApi";
 import {
   hasDesktopOpenActionsBridge,
@@ -132,6 +133,14 @@ export function SearchFeature() {
     queryFn: listTags,
   });
 
+  const sourcesQuery = useQuery({
+    queryKey: queryKeys.sources,
+    queryFn: getSources,
+  });
+
+  const [selectedSourceId, setSelectedSourceId] = useState<string>("all");
+  const [parentPathFilter, setParentPathFilter] = useState("");
+
   const queryParams = {
     query: appliedQuery,
     file_type: fileType === "all" ? undefined : fileType,
@@ -139,6 +148,8 @@ export function SearchFeature() {
     storage_state: storageState === "all" ? undefined : storageState,
     tag_id: selectedTagId === "all" ? undefined : Number(selectedTagId),
     color_tag: selectedColorTag === "all" ? undefined : selectedColorTag,
+    source_id: selectedSourceId === "all" ? undefined : Number(selectedSourceId),
+    parent_path: parentPathFilter || undefined,
     is_favorite: isFavorite || undefined,
     min_rating: minRating > 0 ? minRating : undefined,
     page,
@@ -163,9 +174,11 @@ export function SearchFeature() {
       mark: getSearchTypeMark(item.file_type),
       markTone: item.file_type,
       thumbnailUrl:
-        item.file_type === "image" || item.file_type === "video" || item.file_type === "document"
+        item.file_type === "image" || item.file_type === "document"
           ? getFileThumbnailUrl(item.id)
-          : undefined,
+          : item.file_type === "video"
+            ? getFilePosterUrl(item.id)
+            : undefined,
       thumbnailAlt: item.name,
       selected: selectedItemId === String(item.id),
     }),
@@ -343,6 +356,36 @@ export function SearchFeature() {
                 </option>
               ))}
             </select>
+          </label>
+          <label className="field-stack search-toolbar__field">
+            <span>{t("common.labels.source")}</span>
+            <select
+              className="select-input"
+              value={selectedSourceId}
+              onChange={(event) => {
+                setSelectedSourceId(event.target.value);
+                setPage(1);
+              }}
+              disabled={sourcesQuery.isLoading || sourcesQuery.error instanceof Error}
+            >
+              <option value="all">All sources</option>
+              {(sourcesQuery.data ?? []).map((s) => (
+                <option key={s.id} value={s.id}>{s.display_name || s.path}</option>
+              ))}
+            </select>
+          </label>
+          <label className="field-stack search-toolbar__field">
+            <span>Parent path</span>
+            <input
+              className="text-input"
+              type="text"
+              value={parentPathFilter}
+              onChange={(event) => {
+                setParentPathFilter(event.target.value);
+                setPage(1);
+              }}
+              placeholder="e.g. /videos/games"
+            />
           </label>
           <label className="field-stack search-toolbar__field search-toolbar__field--checkbox">
             <span>Favorites only</span>

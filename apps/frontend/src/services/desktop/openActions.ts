@@ -11,11 +11,13 @@ export type OpenActionResult =
 type AssetWorkbenchBridge = {
   openFile?: (path: string) => Promise<OpenActionResult>;
   openContainingFolder?: (path: string) => Promise<OpenActionResult>;
+  showItemInFolder?: (path: string) => Promise<void>;
 };
 
 type AvailableAssetWorkbenchBridge = {
   openFile: (path: string) => Promise<OpenActionResult>;
   openContainingFolder: (path: string) => Promise<OpenActionResult>;
+  showItemInFolder: (path: string) => Promise<void>;
 };
 
 function getAssetWorkbenchBridge(): AvailableAssetWorkbenchBridge | null {
@@ -35,6 +37,9 @@ function getAssetWorkbenchBridge(): AvailableAssetWorkbenchBridge | null {
   return {
     openFile: assetWorkbench.openFile,
     openContainingFolder: assetWorkbench.openContainingFolder,
+    showItemInFolder: typeof assetWorkbench.showItemInFolder === "function"
+      ? assetWorkbench.showItemInFolder
+      : async () => {},
   };
 }
 
@@ -66,6 +71,14 @@ export async function openIndexedFile(path: string): Promise<OpenActionResult> {
   return bridge.openFile(path);
 }
 
+
+export async function showItemInFolder(path: string): Promise<void> {
+  const bridge = getAssetWorkbenchBridge();
+  if (!bridge) {
+    return;
+  }
+  await bridge.showItemInFolder(path);
+}
 
 export async function openIndexedContainingFolder(path: string): Promise<OpenActionResult> {
   const bridge = getAssetWorkbenchBridge();

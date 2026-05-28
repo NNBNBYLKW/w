@@ -151,6 +151,19 @@ def thumbnail_warmup_file_diagnostics(
     return thumbnail_service.get_warmup_debug_for_file(db, file_id)
 
 
+@router.get("/files/{file_id}/poster")
+def get_file_video_poster(
+    file_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+) -> FileResponse:
+    poster = thumbnail_service.get_video_poster(db, file_id)
+    return FileResponse(
+        path=poster.path,
+        media_type=poster.media_type,
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @router.get("/files/{file_id}/thumbnail")
 def get_file_thumbnail(
     file_id: int = Path(..., ge=1),

@@ -21,3 +21,11 @@ export type UpdateSourceInput = {
   display_name?: string | null;
   is_enabled?: boolean;
 };
+
+export type ScanTaskVM = {
+  id: number;
+  status: string;
+  started_at: string | null;
+  finished_at: string | null;
+  error_message: string | null;
+};

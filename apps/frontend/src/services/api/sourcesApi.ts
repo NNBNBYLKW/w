@@ -1,5 +1,5 @@
 import { getApiBaseUrl, parseResponse } from "./client";
-import type { CreateSourceInput, SourceVM, UpdateSourceInput } from "../../entities/source/types";
+import type { CreateSourceInput, ScanTaskVM, SourceVM, UpdateSourceInput } from "../../entities/source/types";
 import type { TriggerScanResult } from "../../entities/task/types";
 
 
@@ -69,4 +69,9 @@ export async function triggerSourceScan(sourceId: number): Promise<TriggerScanRe
     method: "POST",
   });
   return parseResponse<TriggerScanResult>(response, SourcesApiError);
+}
+
+export async function getSourceScanHistory(sourceId: number): Promise<{ items: ScanTaskVM[] }> {
+  const response = await fetch(`${getApiBaseUrl()}/sources/${sourceId}/scan-history`);
+  return parseResponse<{ items: ScanTaskVM[] }>(response, SourcesApiError);
 }

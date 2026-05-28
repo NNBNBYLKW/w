@@ -2,7 +2,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useState } from "react";
 
 import { t } from "../../shared/text";
-import { createSource, getSources, SourcesApiError, triggerSourceScan } from "../../services/api/sourcesApi";
+import { useErrorMessage } from "../../shared/hooks/useErrorMessage";
+import { createSource, getSourceScanHistory, getSources, SourcesApiError, triggerSourceScan } from "../../services/api/sourcesApi";
+import type { ScanTaskVM } from "../../entities/source/types";
 import { queryKeys } from "../../services/query/queryKeys";
 
 
@@ -18,6 +20,8 @@ export function SourceManagementFeature() {
     kind: "success" | "error";
     message: string;
   } | null>(null);
+  const [expandedHistorySourceId, setExpandedHistorySourceId] = useState<number | null>(null);
+  const [historyData, setHistoryData] = useState<Record<number, ScanTaskVM[]>>({});
   const selectFolder =
     (
       window as Window & {
@@ -83,6 +87,20 @@ export function SourceManagementFeature() {
       setPendingSourceIds((current) => current.filter((pendingId) => pendingId !== sourceId));
     },
   });
+
+  const fetchScanHistory = async (sourceId: number) => {
+    if (historyData[sourceId]) {
+      setExpandedHistorySourceId(expandedHistorySourceId === sourceId ? null : sourceId);
+      return;
+    }
+    try {
+      const data = await getSourceScanHistory(sourceId);
+      setHistoryData((prev) => ({ ...prev, [sourceId]: data.items }));
+      setExpandedHistorySourceId(sourceId);
+    } catch {
+      // Silently fail — history is non-blocking.
+    }
+  };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -206,7 +224,7 @@ export function SourceManagementFeature() {
       {createSourceMutation.error instanceof Error ? (
         <div className="status-block page-card">
           <strong>{t("settings.sourceManagement.createErrorTitle")}</strong>
-          <p>{getCreateErrorMessage(createSourceMutation.error)}</p>
+          <p>{useErrorMessage(createSourceMutation.error)}</p>
         </div>
       ) : null}
 
@@ -262,7 +280,35 @@ export function SourceManagementFeature() {
                     ? t("settings.sourceManagement.savedSources.running")
                     : t("settings.sourceManagement.savedSources.runScan")}
                 </button>
+                <button
+                  className="ghost-button"
+                  type="button"
+                  onClick={() => fetchScanHistory(source.id)}
+                >
+                  {t("common.actions.history")}
+                </button>
               </div>
+              {expandedHistorySourceId === source.id && historyData[source.id] ? (
+                <div className="source-scan-history">
+                  {historyData[source.id].length === 0 ? (
+                    <p className="source-row__path">{t("settings.sourceManagement.savedSources.noHistory")}</p>
+                  ) : (
+                    <ul className="source-scan-history__list">
+                      {historyData[source.id].map((task) => (
+                        <li key={task.id} className="source-scan-history__item">
+                          <span className={`status-pill status-pill--${task.status}`}>{task.status}</span>
+                          <span className="source-scan-history__time">
+                            {task.started_at ? new Date(task.started_at).toLocaleString() : "-"}
+                          </span>
+                          {task.error_message ? (
+                            <span className="source-scan-history__error">{task.error_message}</span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : null}
             </article>
           ))}
         </div>

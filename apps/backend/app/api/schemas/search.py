@@ -21,6 +21,8 @@ class SearchQueryParams(BaseModel):
     color_tag: str | None = None
     is_favorite: bool | None = None
     min_rating: int | None = Field(default=None, ge=1, le=5)
+    source_id: int | None = Field(default=None, ge=1)
+    parent_path: str | None = None
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=50, ge=1, le=100)
     sort_by: SearchSortBy = "modified_at"
