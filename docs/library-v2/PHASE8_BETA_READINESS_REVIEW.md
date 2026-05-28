@@ -22,7 +22,8 @@ Phase 8 is **beta-ready for controlled local testing after audit P0/P1 stabiliza
 | member_status soft-deactivate | Complete |
 | file_path_history for all operations | Complete |
 | operation_journal for all operations | Complete |
-| Recovery diagnostics (read-only) | Complete |
+| Recovery diagnostics | Complete |
+| Narrow recovery safe repair (post-Phase 8 source update) | Partial: `path_mismatch` and `import_failed_retryable` only |
 
 ## 3. Beta Testing Focus
 
@@ -47,7 +48,7 @@ Priority test areas:
 | Removed member hidden by default | Low | Soft-delete preserves DB row; member can be inspected directly |
 | No automatic rollback | Low | Failed plans leave files in place; manual recovery needed |
 | No delete/trash model | Low | Documented as deferred; users warned not to rely on app for deletion |
-| Recovery diagnostic only | Low | Scan detects issues but does not repair |
+| Recovery repair is intentionally narrow | Low | Current source only repairs `path_mismatch` and `import_failed_retryable`; all other findings stay manual |
 
 ## 5. Recommended Beta Rules
 

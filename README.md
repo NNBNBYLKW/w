@@ -15,7 +15,7 @@ Windows local-first asset management workbench built around indexed files, share
 
 ## 项目简介
 
-Workbench 是一个建立在 **Windows 本地文件系统** 之上的 local-first 资产工作台。版本 **0.2.0**。
+Workbench 是一个建立在 **Windows 本地文件系统** 之上的 local-first 资产工作台。版本 **0.3.0**。
 
 它不是试图替代真实文件系统，而是在真实文件之上补一层**索引、详情、组织和再找回**能力，让本地资产更容易被浏览、轻量整理和重新找到。当前产品的核心形态是：
 
@@ -30,7 +30,7 @@ Workbench 是一个建立在 **Windows 本地文件系统** 之上的 local-firs
 
 ## 当前阶段
 
-项目当前处于**测试版阶段（v0.2.0）**，已完成 M2 导航重构和 M3 质量优化：
+项目当前处于**测试版阶段（v0.3.0）**，已完成 M2 导航重构和 M3 质量优化：
 
 - **Phase 8 — Browse v2 / Object Management**（完成）
   - Browse v2 领域分类浏览（媒体/文档/应用/素材）
@@ -47,6 +47,12 @@ Workbench 是一个建立在 **Windows 本地文件系统** 之上的 local-firs
   - P1 体验优化（错误处理、角色标签、过时文案、操作反馈）
   - P2 技术债清理（utcnow 替换、代码分割、plan_kind 常量化、schema 版本管理、日志轮转、DB 备份、recovery 增强、操作历史、CI/CD）
   - 前端测试基础设施（Vitest + 27 tests）
+- **v0.3.0 current source state**
+  - backend / frontend / desktop 版本号已统一到 `0.3.0`
+  - 数据库 runtime schema version 当前为 `9`
+  - `recovery_findings` 已持久化，且有窄范围 safe repair API（仅 `path_mismatch` 与 `import_failed_retryable`）
+  - 扫描时会为大于 1MB 的文件写入 `checksum_hint`，并提供只读 duplicate report API；当前不自动去重、不自动删除
+  - 当前有 backend-only soft trash / restore API 和 `trash_entries` 表；它不是 Explorer 式回收站，也不会物理删除文件
 - `Library` 文件库 Phase 1-4（已完成）
 - `Tools` 第一版（Video Merge 视频合并工具）
 - 测试版范围冻结
@@ -111,6 +117,13 @@ Workbench 是一个建立在 **Windows 本地文件系统** 之上的 local-firs
   - `imports`
   - `tagged`
   - `color-tagged`
+- `duplicate report`
+  - 扫描时对大于 1MB 的文件计算 `checksum_hint`
+  - `GET /files/duplicates` 只报告疑似重复文件，不做自动清理
+- backend-only `trash / restore`
+  - `POST /files/{file_id}/trash` 仅设置 `files.is_deleted` 并写入 `trash_entries`
+  - `POST /files/{file_id}/restore` 恢复索引可见性
+  - 当前没有桌面端删除工作流，也不从文件系统删除源文件
 - `favorite` / `rating`
   - 作为全局轻量 user meta 使用
 - `shared details`
@@ -151,6 +164,8 @@ Workbench 是一个建立在 **Windows 本地文件系统** 之上的 local-firs
 - 不把 `Software` 做成安装管理平台
 - 不把 `Collections` 做成 smart rules platform
 - 不做复杂统一对象中台或新一轮大架构重写
+- 不把当前 duplicate report 做成自动去重 / 自动清理系统
+- 不把当前 backend-only trash API 表达成完整文件删除或回收站产品能力
 
 如果某项需求会把项目重新带回”继续扩功能”的节奏，它就不是当前 README 应该表达成既定事实的内容。
 
@@ -171,7 +186,7 @@ Workbench 是一个建立在 **Windows 本地文件系统** 之上的 local-firs
 - `apps/backend`
   - FastAPI 后端
   - 提供索引文件、搜索、shared details、tags / color tags、collections、recent family、subset libraries 等 HTTP API
-  - 当前使用 SQLite，本地启动时会从 baseline SQL 初始化数据库
+  - 当前使用 SQLite，本地启动时会从 baseline SQL 初始化数据库，并通过 runtime schema version / `_ensure_*()` helper 补齐增量表结构
 - `apps/frontend`
   - React + Vite 工作台前端
   - 提供统一 app shell、主页面和 shared details 交互

@@ -186,7 +186,7 @@ See `docs/KNOWN_LIMITATIONS.md` for the current list. Key ones:
 - **Large scans can be slow.** A 10K-file test scan took ~4.5 minutes. Larger libraries will take longer.
 - **Media thumbnails load slowly** on the Media page for large libraries (loading many images at once).
 - **Clean-machine installer smoke test** has not been completed yet — the packaging pipeline has been verified but the installer has not been tested on a fresh Windows machine.
-- **No frontend automated tests.** Frontend quality relies on manual QA and backend test coverage.
+- **Frontend automated tests are partial.** Vitest and Playwright smoke infrastructure exist, but manual QA is still required for beta release confidence.
 - **No cross-volume move atomicity guarantee.** Moving files between different drives is not guaranteed to be atomic.
-- **No operation journal.** There is no transaction log for file operations — but preflight and the plan status system provide safety.
+- **Operation logs are not automatic rollback.** `operation_journal` and `file_path_history` exist, but recovery still relies on explicit retry, copy-failed-actions, rollback drafts, or manual review.
 - **Rule-based suggestions only.** No real AI auto-classification.

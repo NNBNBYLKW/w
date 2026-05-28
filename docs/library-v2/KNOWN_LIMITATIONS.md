@@ -2,18 +2,18 @@
 
 > Phase 8 complete after audit P0/P1 stabilization. These limitations remain by design.
 
-## Not Yet Implemented
+## Current Partial / Not Yet Implemented
 
 | Feature | Status | Notes |
 |---|---|---|
-| App-level trash / delete | Future | No trash table or undo mechanism |
-| Automatic recovery repair | Future | Recovery is detection-only; retry is manual |
-| Persistent recovery findings | Future | Findings are computed on-demand, not persisted |
-| Duplicate / hash detection | Future | `files.checksum_hint` column exists but is not populated |
+| App-level trash / delete | Partial backend | `trash_entries` exists and `/files/{id}/trash`, `/files/{id}/restore`, `/trash` are implemented. This is soft index state only; there is no desktop delete workflow and no filesystem delete. |
+| Automatic recovery repair | Partial backend | Only `path_mismatch` and `import_failed_retryable` are accepted by the safe repair endpoint. Other recovery findings remain manual. |
+| Persistent recovery findings | Implemented | `recovery_findings` table is populated by recovery scan and can be read through persisted findings endpoints. |
+| Duplicate / hash detection | Partial backend | Scanner fills `files.checksum_hint` for files larger than 1 MB and `/files/duplicates` reports groups. No auto dedupe or cleanup. |
 | Move import | Future | Import is copy-only in all phases |
 | Source cleanup | Future | Original source files are never deleted |
 | AI classification | Future | Detection is rule-based; AI may be suggestion layer only |
-| Database migration versioning | Future | Current system uses idempotent SQL + ensure helpers, not Alembic |
+| Database migration versioning | Implemented runtime gate | Current source uses `schema_version` plus idempotent SQL / `_ensure_*()` helpers, not Alembic. Current schema version is `9`. |
 
 ## Design Boundaries (by choice)
 
@@ -37,7 +37,7 @@
 | AI auto-classification | AI must never write final facts or execute |
 | Managed compose plan review UI | No dedicated plan review page within Browse v2 |
 | Object amendment add/remove single-mode plans | Implemented; add-only and remove-only plans are supported |
-| Object amendment mixed add/remove | Not implemented |
+| Object amendment mixed add/remove | Partial backend | Draft plan creation accepts mixed add+remove, but execute/finalize is not complete: finalization currently handles add-only and remove-only amendment types. |
 | Object amendment direct preflight/execute UI | Not implemented; plan-only frontend exists |
 | Object amendment removed member history UI | Not implemented |
 | Object amendment automatic rollback | Not implemented |

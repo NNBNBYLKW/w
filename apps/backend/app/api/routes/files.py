@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Path, Query
 from fastapi.responses import FileResponse, StreamingResponse
@@ -46,6 +47,8 @@ from app.services.tags.service import TagsService
 from app.services.thumbnails.service import ThumbnailService
 from app.services.classification.suggester import RuleBasedSuggester
 from app.workers.epub.parser import EpubParser
+from app.db.models.trash_entry import TrashEntry
+from datetime import datetime, timedelta
 
 
 router = APIRouter(tags=["files"])
@@ -362,3 +365,76 @@ def end_game_session(
     session.duration_seconds = int((session.ended_at - session.started_at).total_seconds())
     db.commit()
     return {"item": {"id": session.id, "duration_seconds": session.duration_seconds}}
+
+
+@router.post("/files/{file_id}/trash")
+def trash_file(
+    file_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+):
+    file = files_service.get_file(db, file_id)
+    if file is None:
+        raise NotFoundError("FILE_NOT_FOUND", "File not found.")
+
+    existing = db.query(TrashEntry).filter(TrashEntry.file_id == file_id).first()
+    if existing:
+        raise BadRequestError("ALREADY_TRASHED", "File is already in trash.")
+
+    now = utcnow()
+    trash_entry = TrashEntry(
+        file_id=file_id,
+        original_path=file.path,
+        trashed_at=now,
+        expires_at=now + timedelta(days=30),
+    )
+    file.is_deleted = True
+    file.updated_at = now
+    db.add(trash_entry)
+    db.commit()
+    return {
+        "item": {
+            "id": trash_entry.id,
+            "file_id": file_id,
+            "original_path": file.path,
+            "trashed_at": trash_entry.trashed_at.isoformat(),
+            "expires_at": trash_entry.expires_at.isoformat(),
+        }
+    }
+
+
+@router.post("/files/{file_id}/restore")
+def restore_file(
+    file_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+):
+    trash_entry = db.query(TrashEntry).filter(TrashEntry.file_id == file_id).first()
+    if trash_entry is None:
+        raise NotFoundError("NOT_IN_TRASH", "File is not in trash.")
+
+    file = files_service.get_file(db, file_id)
+    if file is not None:
+        file.is_deleted = False
+        file.updated_at = utcnow()
+
+    db.delete(trash_entry)
+    db.commit()
+    return {"item": {"file_id": file_id, "status": "restored"}}
+
+
+@router.get("/trash")
+def list_trash(
+    db: Session = Depends(get_db),
+):
+    entries = db.query(TrashEntry).order_by(TrashEntry.trashed_at.desc()).all()
+    return {
+        "items": [
+            {
+                "id": e.id,
+                "file_id": e.file_id,
+                "original_path": e.original_path,
+                "trashed_at": e.trashed_at.isoformat(),
+                "expires_at": e.expires_at.isoformat(),
+            }
+            for e in entries
+        ]
+    }

@@ -271,13 +271,17 @@ class ObjectAmendmentPlanTestCase(unittest.TestCase):
         })
         assert resp.status_code == 400
 
-    def test_rejects_mixed(self):
+    def test_accepts_mixed(self):
         obj_id, mid, _ = self._seed_object_with_member()
         fid = self._seed_managed_file("mixed.jpg")
         resp = self.client.post(f"/library/objects/{obj_id}/amendment-plans", json={
             "add_file_ids": [fid], "remove_member_ids": [mid],
         })
-        assert resp.status_code == 400
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["amendment_type"] == "add_and_remove_members"
+        assert data["add_count"] == 1
+        assert data["remove_count"] == 1
 
     def test_plan_summary_all_or_nothing(self):
         obj_id, _, _ = self._seed_object_with_member()

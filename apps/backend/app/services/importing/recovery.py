@@ -23,6 +23,9 @@ from app.db.models.library_object import LibraryObjectMember as LOM
 from app.db.models.library_root import LibraryRoot
 
 
+SAFE_REPAIR_TYPES = frozenset({"path_mismatch", "import_failed_retryable"})
+
+
 @dataclass
 class RecoveryFinding:
     finding_type: str

@@ -52,6 +52,8 @@ def initialize_database() -> None:
             _ensure_collection_ordering(connection)
         if current < 8:
             _ensure_game_sessions(connection)
+        if current < 9:
+            _ensure_trash_entries(connection)
         _ensure_schema_version(connection)
         connection.commit()
     finally:
@@ -511,7 +513,21 @@ def _ensure_game_sessions(connection: sqlite3.Connection) -> None:
     """)
 
 
-CURRENT_SCHEMA_VERSION = 8
+def _ensure_trash_entries(connection: sqlite3.Connection) -> None:
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS trash_entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            file_id INTEGER NOT NULL REFERENCES files(id),
+            original_path TEXT NOT NULL,
+            trashed_at DATETIME NOT NULL,
+            expires_at DATETIME NOT NULL
+        )
+    """)
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_trash_entries_expires_at ON trash_entries(expires_at)")
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_trash_entries_file_id ON trash_entries(file_id)")
+
+
+CURRENT_SCHEMA_VERSION = 9
 
 
 def _get_schema_version(connection: sqlite3.Connection) -> int:

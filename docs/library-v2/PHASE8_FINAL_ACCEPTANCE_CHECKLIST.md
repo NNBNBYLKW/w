@@ -15,14 +15,14 @@
 - Recovery diagnostics (read-only)
 - File path history + operation journal for all operations
 
-### Phase 8 NOT Included
-- Mixed add+remove amendment
+### Phase 8 NOT Included / Post-Phase 8 Partial
+- Mixed add+remove amendment full execute/finalize. Current source accepts mixed draft creation, but finalization still only handles add-only and remove-only.
 - Removed member history UI
 - Direct preflight/execute UI from object detail
-- Delete / trash / recycle bin
+- Delete / trash / recycle bin UI or physical filesystem delete. Current source has backend-only soft trash metadata APIs.
 - Source cleanup
 - Automatic rollback
-- Automatic recovery repair
+- Automatic recovery repair beyond the current safe subset
 - Scraper / poster wall / AI
 
 ## 2. Acceptance Environment
@@ -154,7 +154,7 @@
 - [ ] completed_with_errors: no membership mutation
 - [ ] Failed plan: no finalized state
 - [ ] No automatic rollback UI
-- [ ] Recovery is diagnostic only (no auto-repair)
+- [ ] Recovery safe repair is narrow; unsupported finding types remain manual
 
 ## 11. Build / Regression
 
@@ -168,13 +168,13 @@
 
 ## 12. Known Limitations for Beta
 
-- Mixed add+remove amendment not supported
+- Mixed add+remove amendment execute/finalize not supported
 - Removed member history UI not implemented
 - Direct preflight/execute UI from object detail not implemented
-- Delete / trash not implemented
+- Delete / trash UI and physical filesystem delete not implemented
 - Source cleanup not implemented
 - Automatic rollback not implemented
-- Automatic recovery repair not implemented
+- Automatic recovery repair only supports the current safe subset
 - Scraper / poster wall / AI not implemented
 
 ## 13. Pass / Fail Criteria
@@ -190,7 +190,7 @@
 - [ ] Frontend + desktop builds pass
 
 ### Acceptable limitations
-- No mixed add/remove in UI
+- No mixed add/remove execute/finalize support
 - No direct preflight/execute buttons in object detail
 - No removed member history view
-- No delete/trash capability
+- No delete/trash UI or physical delete capability

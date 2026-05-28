@@ -1,6 +1,6 @@
 # Workbench Library v2
 
-> Status: **Phase 7A–7F Complete, Phase 8 Complete** | 288 tests | 2026-05-19
+> Status: **Phase 7A–7F Complete, Phase 8 Complete, v0.3.0 source updates documented** | 2026-05-28
 
 ## What is Library v2
 
@@ -36,6 +36,8 @@ Default browse/search shows **All** — external files are never hidden.
 | 7D | Execute + path sync: move to managed, sync files.path, storage_state=managed | ✓ |
 | 7E | Storage scope: search/browse/details filters, storage summary | ✓ |
 | 7F | Recovery: orphan/missing detection, failed import retry, diagnostics | ✓ |
+| 8+ | Browse v2 object management: compose, amendment add/remove, soft member status | ✓ |
+| 13+ | Source-backed updates: soft trash API, persisted recovery findings, safe repair subset, checksum duplicate report, mixed amendment draft creation | Partial / documented |
 
 ## Safety Invariants
 
@@ -45,6 +47,9 @@ Default browse/search shows **All** — external files are never hidden.
 - Preflight required before execute
 - operation_journal for all file operations
 - file_path_history for all path changes
+- recovery_findings are persisted
+- backend-only trash/restore is soft index state, not filesystem deletion
+- duplicate detection is report-only; no auto cleanup
 - AI never executes actions or writes final facts
 
 ## Document Index

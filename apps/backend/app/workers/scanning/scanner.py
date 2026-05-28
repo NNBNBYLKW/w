@@ -11,6 +11,7 @@ from app.core.classification import (
     VIDEO_EXTENSIONS,
     classify_file,
 )
+from app.workers.checksum.worker import ChecksumWorker
 
 
 REPARSE_POINT_ATTRIBUTE = 0x0400
@@ -39,6 +40,7 @@ class DiscoveredFileRecord:
     modified_at_fs: datetime | None
     source_id: int = 0
     skip_metadata: bool = False
+    checksum_hint: str | None = None
 
 
 class ScannerWorker:
@@ -84,6 +86,12 @@ class ScannerWorker:
         suffix = file_path.suffix.lower()
         extension = suffix.removeprefix(".") or None
         classification = classify_file(extension, str(file_path))
+        checksum_hint: str | None = None
+        if stat_result.st_size > 1_048_576:
+            try:
+                checksum_hint = ChecksumWorker.compute_sha256(entry_path)
+            except Exception:
+                pass
         return DiscoveredFileRecord(
             path=str(file_path),
             parent_path=str(file_path.parent),
@@ -98,6 +106,7 @@ class ScannerWorker:
             created_at_fs=self._from_timestamp(stat_result.st_ctime),
             modified_at_fs=self._from_timestamp(stat_result.st_mtime),
             skip_metadata=bool(suffix and suffix in SKIP_METADATA_EXTENSIONS),
+            checksum_hint=checksum_hint,
         )
 
     def _should_skip_entry(self, entry: os.DirEntry[str], stat_result: os.stat_result) -> bool:

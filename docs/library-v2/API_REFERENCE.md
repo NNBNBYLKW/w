@@ -92,9 +92,11 @@ Default is no filter (All). Invalid values return 422.
 | `POST` | `/library/import/recovery/scan` | Run recovery scan, return summary |
 | `GET` | `/library/import/recovery/summary` | Get summary counts |
 | `GET` | `/library/import/recovery/findings` | Paginated findings (filter: severity, type) |
+| `GET` | `/library/import/recovery/findings/persisted` | Read persisted findings |
+| `POST` | `/library/import/recovery/findings/{finding_id}/repair` | Run a narrow safe repair |
 | `POST` | `/library/import/inbox/items/{id}/retry` | Retry failed import (copy-only) |
 
-Recovery is read-only except for retry. Retry: source must exist, copy-only, no overwrite, journal written.
+Recovery scan writes persisted findings. Retry: source must exist, copy-only, no overwrite, journal written. Safe repair is intentionally limited to `path_mismatch` and `import_failed_retryable`; unsupported finding types return `400` and must be handled manually.
 
 ## Browse v2 (Phase 8A)
 
@@ -177,13 +179,16 @@ Safety: `completed_with_errors` or `failed` plans do NOT create partial objects.
 
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/library/objects/{object_id}/amendment-plans` | Create amendment draft plan (add-only or remove-only) |
+| `POST` | `/library/objects/{object_id}/amendment-plans` | Create amendment draft plan (add-only, remove-only, or mixed draft) |
 
-**Add-only request:** `{ "add_file_ids": [1,2], "remove_member_ids": [], "target_library_root_id": 1 }`  
-**Remove-only request:** `{ "add_file_ids": [], "remove_member_ids": [10,11], "target_library_root_id": 1, "remove_target_policy": "managed_loose_area" }`  
-**Response:** `{ "plan_id": 1, "plan_kind": "object_amendment", "object_id": 5, "amendment_type": "add_members", "status": "draft", "add_count": 2, ... }`  
+- **Add-only request:** `{ "add_file_ids": [1,2], "remove_member_ids": [], "target_library_root_id": 1 }`
+- **Remove-only request:** `{ "add_file_ids": [], "remove_member_ids": [10,11], "target_library_root_id": 1, "remove_target_policy": "managed_loose_area" }`
+- **Mixed draft request:** `{ "add_file_ids": [1], "remove_member_ids": [10], "target_library_root_id": 1 }`
+- **Response:** `{ "plan_id": 1, "plan_kind": "object_amendment", "object_id": 5, "amendment_type": "add_members", "status": "draft", "add_count": 2, ... }`
 
-Safety: Draft plan only. No file move. No member mutation. Mixed add+remove rejected in v1. Amended members remain active until execute. Remove target uses managed loose area policy and includes a planned mkdir action for the removed-member loose target directory.
+Safety: Draft plan only. No file move. No member mutation. Amended members remain active until execute. Remove target uses managed loose area policy and includes a planned mkdir action for the removed-member loose target directory.
+
+Current source note: mixed add+remove requests produce `amendment_type = "add_and_remove_members"` and draft actions, but full execute/finalize support is not complete yet. Finalization currently handles `add_members` and `remove_members` only, so mixed amendment must not be treated as an end-to-end supported workflow until that branch is implemented and tested.
 
 ### Amendment Preflight (8D-B)
 
@@ -199,6 +204,6 @@ No file move, no member mutation. Preflight blocks stale plans at mark_ready pha
 The existing `POST /library/organize/plans/{id}/execute` flow now supports `plan_kind="object_amendment"`. After all required move actions succeed:
 - **Add member**: Creates active `LibraryObjectMember`, updates `files.path/name/parent_path/managed_root_id/storage_state`, writes `FilePathHistory` and `OperationJournal`
 - **Remove member**: Sets `member_status = "removed"` (soft-deactivate), moves file to managed loose area, updates file paths, writes history and journal
-- **Both**: Updates plan `summary_json` with `finalized: true, finalized_add_count/finalized_remove_count`
+- Mixed add+remove finalize is not currently implemented in source.
 
 Safety: `completed_with_errors` or `failed` plans do NOT mutate membership. All required amendment move actions must succeed and finalization is guarded against duplicate finalization. No hard delete. No source cleanup.

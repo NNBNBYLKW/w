@@ -139,6 +139,7 @@ class FileRepository:
                 "last_seen_at": now,
                 "updated_at": now,
                 "is_deleted": False,
+                "checksum_hint": r.checksum_hint,
             }
             for r in records
         ]
@@ -149,6 +150,7 @@ class FileRepository:
                 "last_seen_at": now,
                 "size_bytes": stmt.excluded.size_bytes,
                 "modified_at_fs": stmt.excluded.modified_at_fs,
+                "checksum_hint": stmt.excluded.checksum_hint,
             },
         )
         session.execute(stmt)

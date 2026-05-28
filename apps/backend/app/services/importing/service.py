@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import uuid
 from dataclasses import dataclass, field
@@ -21,6 +22,22 @@ from app.services.importing.object_boundary import (
     ObjectBoundaryResult,
     detect_object_type,
 )
+
+
+def _move_or_copy(src_path: str, dst_tmp: str) -> None:
+    """Move if same volume, fall back to copy."""
+    try:
+        src_dev = os.stat(src_path).st_dev
+        dst_dir = os.path.dirname(dst_tmp) or "."
+        dst_dev = os.stat(dst_dir).st_dev
+        if src_dev == dst_dev:
+            import shutil as _shutil
+            _shutil.move(src_path, dst_tmp)
+            return
+    except Exception:
+        pass
+    import shutil as _shutil
+    _shutil.copy2(src_path, dst_tmp)
 
 
 _FILE_KIND_TO_TYPE: dict[str, str] = {

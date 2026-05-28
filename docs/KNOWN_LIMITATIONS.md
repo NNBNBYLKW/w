@@ -40,7 +40,7 @@ This document lists the known limitations as of the beta release (May 2026). The
 | Limitation | Detail | Mitigation |
 |-----------|--------|-----------|
 | Cross-volume move not atomic | Moving files between different drives uses copy+delete rather than an atomic rename. If the app crashes during this, the source file may still exist. | Organize plans block overwrites. Failed actions are logged. Use the same volume for source and managed root when possible. |
-| No operation journal | There is no transaction log for file operations. The plan status and action logs provide visibility, but no automatic rollback on crash. | H2 startup recovery marks stale executing plans as failed. Preflight checks prevent unsafe operations. |
+| Operation journal is not full rollback | `operation_journal` and `file_path_history` exist for import / organize / compose / amendment flows, but they do not provide automatic crash rollback. | H2 startup recovery marks stale executing plans as failed. Preflight checks prevent unsafe operations. Rollback remains an explicit draft plan. |
 | Rollback is manual | Rollback creates a draft plan only. It does not automatically execute or reverse file moves. | You must explicitly mark ready, preflight, and execute the rollback plan. |
 | mkdir and asset.yaml not rollbacked | Rollback only reverses move and rename actions. Directories created during execution and asset.yaml files are not removed. | Minor — directories and metadata files are harmless to leave behind. |
 | Managed root path exclusion | System directories (C:\Windows, Program Files), drive roots, and internal app directories are blocked. Other potentially unsafe paths (e.g., user profile root) are not blocked but are discouraged. | Choose a dedicated folder for your managed library. |
@@ -61,7 +61,7 @@ This document lists the known limitations as of the beta release (May 2026). The
 
 | Limitation | Detail | Mitigation |
 |-----------|--------|-----------|
-| No frontend automated tests | The frontend has no test framework (vitest, jest, Playwright CI). Quality relies on manual QA and the backend test suite (477 tests). | Backend API is well-tested. Frontend is verified via manual smoke tests. |
+| Frontend tests are partial | Vitest tests and a Playwright smoke configuration exist, but they do not yet cover every user workflow or run as a full product-quality gate in all environments. | Keep manual smoke tests for release candidates and expand automated coverage around core browse / details / organize flows. |
 | Media grid not virtualized | Large libraries with many media files may cause the Media page to render many DOM nodes simultaneously. | Pagination limits visible items. Virtualization is a future optimization. |
 | Skeleton components duplicated | Browse features (Books, Games, Media, Software) define identical skeleton components inline. | Cosmetic. Will be consolidated to a shared component in a future cleanup. |
 

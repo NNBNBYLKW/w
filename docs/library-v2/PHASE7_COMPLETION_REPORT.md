@@ -1,6 +1,7 @@
 # Library v2 Phase 7 Completion Report
 
 > Date: 2026-05-15 | Tests: 195 passing | Status: **Complete**
+> Historical note: this records the Phase 7 completion state. For current source status after v0.3.0 updates, prefer `README.md`, `docs/library-v2/README.md`, `docs/library-v2/API_REFERENCE.md`, and `docs/library-v2/KNOWN_LIMITATIONS.md`.
 
 ## Phase 7A — Data Foundation
 
@@ -66,11 +67,11 @@ Recovery diagnostics: orphan inbox detection, missing inbox/managed file detecti
 
 ## Known Limitations
 
-- App-level trash/delete not implemented
-- Automatic recovery repair not implemented
-- Persistent recovery findings table not implemented
+- App-level trash/delete was not implemented in Phase 7; current source has backend-only soft trash metadata APIs, not filesystem delete
+- Automatic recovery repair was not implemented in Phase 7; current source now has a narrow safe repair endpoint for `path_mismatch` and `import_failed_retryable`
+- Persistent recovery findings table was not implemented in Phase 7; current source now persists `recovery_findings`
 - Folder import detection is rule-based (not AI)
-- Duplicate/hash pipeline not implemented
+- Duplicate/hash pipeline was not implemented in Phase 7; current source has scan-time `checksum_hint` and a report-only duplicates endpoint
 - Source cleanup not implemented
 
 ## Test Commands

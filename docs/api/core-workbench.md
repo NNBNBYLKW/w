@@ -19,6 +19,8 @@
 - `GET /files/{file_id}` 是 shared details 的统一详情合同
 - `GET /files/{file_id}/thumbnail` 当前支持 image / video thumbnails、Windows `.exe` 图标缩略图，以及 `.pdf` 第一页缩略图
 - `GET /files/{file_id}/video-preview` 与 frame route 当前支持 DetailsPanel 的 6 帧视频预览
+- `GET /files/duplicates` 当前提供基于 `checksum_hint` 的只读重复文件报告；扫描时只为大于 1MB 的文件计算 SHA-256，当前不自动去重、不自动删除
+- `POST /files/{file_id}/trash`、`POST /files/{file_id}/restore`、`GET /trash` 当前提供 backend-only soft trash API；它只更新索引状态和 `trash_entries`，不物理删除文件，也不是桌面端完整回收站工作流
 - 当前有持久化分类字段：`file_kind` / `auto_placement` / `manual_placement`，smart views 使用 `effective_placement = manual_placement ?? auto_placement`
 - 用户侧 Documents / 文档 当前使用兼容 route `/library/books` 与 wire value `books`
 - 当前有 `Tools / 工具` 的第一版内置工具：`video_merge`；它只允许按固定参数调用 FFmpeg 合并视频，不支持任意 bat / shell / script 执行
@@ -33,6 +35,8 @@
 - 没有文件树或 breadcrumb browse API
 - 没有复杂 query DSL、聚合统计或多维 faceting
 - 没有对所有文件类型提供统一 thumbnail 合同；当前只覆盖 image / video / `.exe` / `.pdf`
+- 没有自动 duplicate cleanup / merge / delete contract
+- 没有面向前端产品闭环的 trash UI 或物理删除 contract
 - 没有任意命令执行、PowerShell/bat 注册、插件式工具系统或自动把工具输出加入索引
 - Library Phase 5A reconcile 接口已实现；Phase 5B copy-failed-actions 接口已实现；Phase 5C generate-rollback 接口已实现；Phase 5D-1 asset.yaml safe merge draft 已实现；Phase 5D-2 organize templates 已实现（含 anime template hotfix）；Phase 5D-3 rule-based suggestions 已实现
 
@@ -574,6 +578,121 @@ sort_order?: asc | desc
   - `metadata` 可能整体为 `null`，也可能内部字段单独为 `null`
   - `manual_placement: null` 表示用户选择 Auto；`auto_placement: "none"` 表示系统明确没有推荐库位置；`manual_placement: "files_only"` 表示用户明确排除出 smart views
   - open actions 依赖这里返回的 `path`
+
+## GET /files/duplicates
+
+- Method: `GET`
+- Path: `/files/duplicates`
+- Purpose: 返回基于 `checksum_hint` 的只读疑似重复文件分组
+- Query params:
+
+```text
+min_size?: integer >= 0
+```
+
+- Request body: 无
+- Response shape:
+
+```json
+{
+  "items": [
+    {
+      "checksum": "sha256-hex",
+      "count": 2,
+      "files": [
+        {
+          "id": 1,
+          "name": "clip.mp4",
+          "path": "D:\\Assets\\clip.mp4",
+          "size_bytes": 12345678
+        }
+      ]
+    }
+  ]
+}
+```
+
+- Notes / constraints / caveats:
+  - 当前 scanner 只为大于 1MB 的文件计算 SHA-256 并写入 `files.checksum_hint`
+  - route 过滤 `checksum_hint IS NOT NULL`、`file_kind != "other"`、`size_bytes >= min_size`
+  - 这是 report-only API；不会合并、删除、移动或自动标记重复文件
+
+## POST /files/{file_id}/trash
+
+- Method: `POST`
+- Path: `/files/{file_id}/trash`
+- Purpose: 将 indexed file 标记为 soft trash
+- Request body: 无
+- Response shape:
+
+```json
+{
+  "item": {
+    "id": 1,
+    "file_id": 10,
+    "original_path": "D:\\Assets\\cover.jpg",
+    "trashed_at": "2026-05-28T10:00:00",
+    "expires_at": "2026-06-27T10:00:00"
+  }
+}
+```
+
+- Common error / failure behavior:
+  - `404 FILE_NOT_FOUND`
+  - `400 ALREADY_TRASHED`
+- Notes / constraints / caveats:
+  - 只设置 `files.is_deleted = true` 并写入 `trash_entries`
+  - 不调用 Windows recycle bin，不删除真实文件，不移动真实文件
+  - 当前是 backend-only API；前端 beta 主路径没有完整 trash UI
+
+## POST /files/{file_id}/restore
+
+- Method: `POST`
+- Path: `/files/{file_id}/restore`
+- Purpose: 从 soft trash 恢复 indexed file
+- Request body: 无
+- Response shape:
+
+```json
+{
+  "item": {
+    "file_id": 10,
+    "status": "restored"
+  }
+}
+```
+
+- Common error / failure behavior:
+  - `404 NOT_IN_TRASH`
+- Notes / constraints / caveats:
+  - 若对应 `File` 仍存在，会设置 `files.is_deleted = false`
+  - 成功后删除对应 `trash_entries` 行
+
+## GET /trash
+
+- Method: `GET`
+- Path: `/trash`
+- Purpose: 列出当前 soft trash 条目
+- Request body: 无
+- Response shape:
+
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "file_id": 10,
+      "original_path": "D:\\Assets\\cover.jpg",
+      "trashed_at": "2026-05-28T10:00:00",
+      "expires_at": "2026-06-27T10:00:00"
+    }
+  ]
+}
+```
+
+- Notes / constraints / caveats:
+  - 当前按 `trashed_at DESC` 排序
+  - `expires_at` 当前为 30 天后；源码中没有自动清理任务
 
 ## PATCH /files/{file_id}/placement
 

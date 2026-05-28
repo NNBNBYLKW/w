@@ -38,7 +38,9 @@ Browse/Search
 
 Recovery
   → Read-only scan: orphans, missing files, failed imports, incomplete operations
+  → Persisted recovery_findings
   → Retry failed import (copy-only)
+  → Safe repair only for path_mismatch and import_failed_retryable
 ```
 
 ## Phase 8 Object Management Flow
@@ -47,7 +49,8 @@ Browse v2 combines formal `library_objects`, active import object candidates, an
 
 Managed compose and object amendment are plan-first flows:
 - `object_creation_managed_compose` creates a draft plan from managed loose files, then finalizes a formal object only after all required move actions succeed.
-- `object_amendment` supports add-only and remove-only plans. Add-member finalization creates active member rows. Remove-member finalization soft-deactivates existing rows with `member_status = "removed"` and moves files to the managed loose area.
+- `object_amendment` draft generation accepts add-only, remove-only, and mixed add+remove requests. Add-only finalization creates active member rows. Remove-only finalization soft-deactivates existing rows with `member_status = "removed"` and moves files to the managed loose area.
+- Mixed add+remove is currently draft/preflight surface only in source: the finalize branch recognizes `add_members` and `remove_members`, but not `add_and_remove_members`. Treat mixed amendment execution as not complete until finalization support and regression coverage exist.
 - `completed_with_errors` and `failed` amendment plans do not mutate membership. Amendment finalization also checks `summary_json.finalized` to avoid duplicate finalization.
 - Removed member files are treated as managed loose for future compose/add-member eligibility; active members remain excluded.
 
@@ -77,6 +80,9 @@ Managed compose and object amendment are plan-first flows:
 - `import_object_members` — membership + role per file in object
 - `operation_journal` — append-only audit log for all file operations
 - `file_path_history` — old_path → new_path for each change
+- `recovery_findings` — persisted recovery scan findings
+- `trash_entries` — backend-only soft trash metadata for indexed files
+- `schema_version` — runtime migration gate; current source version is `9`
 
 ### Organize extensions
 - `organize_actions.inbox_item_id` — traceability to import
@@ -90,9 +96,11 @@ API Routes (routes/*.py)
   → ImportService (services/importing/service.py)
     → ImportRepository (repositories/importing/repository.py)
     → LibraryOrganizeService (services/library/organize.py)
-    → ImportRecoveryService (services/importing/recovery.py) — read-only diagnostics
+    → ImportRecoveryService (services/importing/recovery.py) — persisted diagnostics
   → Object boundary detection (services/importing/object_boundary.py) — pure, no DB
 ```
+
+Recovery repair is intentionally narrow in current source. `POST /library/import/recovery/findings/{finding_id}/repair` only accepts `path_mismatch` and `import_failed_retryable`; other finding types return `400` and remain manual review items.
 
 ## Managed Import Source Sentinel
 

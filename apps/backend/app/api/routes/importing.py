@@ -29,7 +29,8 @@ from app.schemas.importing import (
     ObjectCandidateUpdateRequest,
     PlanGeneratedResponse,
 )
-from app.services.importing.recovery import recovery_service
+from app.services.importing.recovery import recovery_service, SAFE_REPAIR_TYPES
+from sqlalchemy import text
 from app.services.importing.service import import_service
 
 
@@ -458,6 +459,58 @@ def list_persisted_findings(
     return recovery_service.get_persisted_findings(
         db, severity=severity, scan_id=scan_id, page=page, page_size=page_size,
     )
+
+
+@router.post("/recovery/findings/{finding_id}/repair")
+def repair_recovery_finding(
+    finding_id: int,
+    db: Session = Depends(get_db),
+):
+    row = db.execute(
+        text("SELECT id, finding_type, entity_type, entity_id FROM recovery_findings WHERE id = :id"),
+        {"id": finding_id},
+    ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Finding not found.")
+
+    finding_type = row.finding_type
+    if finding_type not in SAFE_REPAIR_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Finding type '{finding_type}' is not safe to auto-repair. "
+                   f"Safe types: {sorted(SAFE_REPAIR_TYPES)}",
+        )
+
+    if finding_type == "import_failed_retryable":
+        entity_type = row.entity_type
+        entity_id = row.entity_id
+        if entity_type == "inbox_item" and entity_id:
+            try:
+                result = import_service.retry_failed_import(db, entity_id)
+                db.commit()
+                return {"status": "repaired", "finding_id": finding_id, "detail": result}
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail="Cannot repair: entity not found or not an inbox item.")
+
+    if finding_type == "path_mismatch":
+        # Path mismatches are repaired by updating the finding to acknowledge
+        entity_type = row.entity_type
+        entity_id = row.entity_id
+        msg = "Path mismatch acknowledged. Manual review may still be needed."
+        if entity_type == "library_object_member" and entity_id:
+            from app.db.models.library_object import LibraryObjectMember as LOM
+            lom = db.get(LOM, entity_id)
+            if lom and lom.file_id:
+                from app.db.models.file import File as FileModel
+                f = db.get(FileModel, lom.file_id)
+                if f and f.path:
+                    lom.absolute_path = f.path
+                    db.commit()
+                    msg = f"Path mismatch repaired: member #{entity_id} path updated to '{f.path}'."
+        return {"status": "repaired", "finding_id": finding_id, "detail": msg}
+
+    raise HTTPException(status_code=400, detail="No repair handler for this finding type.")
 
 
 @router.get("/recent-operations")
