@@ -2,6 +2,10 @@
   color-scheme: dark;
   font-family: "Segoe UI Variable", "Aptos", "Segoe UI", system-ui, sans-serif;
 
+  --accent-hue: 217;
+  --accent-sat: 91%;
+  --color-accent: hsl(var(--accent-hue), var(--accent-sat), 48%);
+
   --palette-void-950: #06080c;
   --palette-void-900: #0a0e14;
   --palette-void-850: #0e141c;

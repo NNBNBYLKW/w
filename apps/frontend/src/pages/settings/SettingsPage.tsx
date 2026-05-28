@@ -1,6 +1,7 @@
 import { SourceManagementFeature } from "../../features/source-management/SourceManagementFeature";
 import { SystemStatusFeature } from "../../features/system-status/SystemStatusFeature";
 import { t, useLocale, type LocaleCode } from "../../shared/text";
+import { ACCENT_PRESETS, useAccentColor } from "../../shared/theme";
 
 
 export function SettingsPage() {
@@ -9,6 +10,7 @@ export function SettingsPage() {
     { label: t("settings.locale.options.en"), value: "en" },
     { label: t("settings.locale.options.zhCN"), value: "zh-CN" },
   ];
+  const { accent, setAccent } = useAccentColor();
 
   return (
     <section className="page-card">
@@ -34,6 +36,28 @@ export function SettingsPage() {
             >
               {option.label}
             </button>
+          ))}
+        </div>
+      </section>
+      <section className="feature-shell">
+        <div className="feature-header">
+          <span className="page-header__eyebrow">Appearance</span>
+          <h3>Accent Color</h3>
+          <p>Choose a custom accent color for the application.</p>
+        </div>
+        <div className="settings-accent-grid" role="group" aria-label="Accent color presets">
+          {ACCENT_PRESETS.map((preset) => (
+            <button
+              key={preset.name}
+              className={`settings-accent-swatch${accent.hue === preset.hue && accent.sat === preset.sat ? " settings-accent-swatch--selected" : ""}`}
+              type="button"
+              onClick={() => setAccent(preset.hue, preset.sat)}
+              aria-label={preset.name}
+              title={preset.name}
+              style={{
+                backgroundColor: `hsl(${preset.hue}, ${preset.sat}%, 48%)`,
+              }}
+            />
           ))}
         </div>
       </section>

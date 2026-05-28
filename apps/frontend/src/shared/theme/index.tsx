@@ -79,3 +79,31 @@ export function useTheme(): ThemeContextValue {
 
   return context;
 }
+
+const ACCENT_STORAGE_KEY = "WORKBENCH_ACCENT";
+
+export const ACCENT_PRESETS = [
+  { name: "Blue", hue: 217, sat: 91 },
+  { name: "Green", hue: 142, sat: 71 },
+  { name: "Purple", hue: 271, sat: 91 },
+  { name: "Red", hue: 0, sat: 84 },
+  { name: "Orange", hue: 24, sat: 94 },
+  { name: "Cyan", hue: 187, sat: 85 },
+  { name: "Pink", hue: 330, sat: 81 },
+  { name: "Gray", hue: 220, sat: 14 },
+];
+
+export function useAccentColor() {
+  const [accent, setAccentState] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(ACCENT_STORAGE_KEY) ?? '{"hue":217,"sat":91}'); }
+    catch { return { hue: 217, sat: 91 }; }
+  });
+  const setAccent = (hue: number, sat: number) => {
+    const val = { hue, sat };
+    localStorage.setItem(ACCENT_STORAGE_KEY, JSON.stringify(val));
+    setAccentState(val);
+    document.documentElement.style.setProperty("--accent-hue", String(hue));
+    document.documentElement.style.setProperty("--accent-sat", `${sat}%`);
+  };
+  return { accent, setAccent };
+}
