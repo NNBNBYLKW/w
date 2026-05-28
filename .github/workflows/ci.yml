@@ -16,6 +16,10 @@ jobs:
       - run: pip install -r requirements.txt
       - run: pip install httpx
       - run: python -m pytest tests/ -q --tb=line
+      - name: Lint backend
+        run: |
+          pip install ruff
+          ruff check apps/backend/ --select=E,F --ignore=E501 || true
 
   frontend:
     runs-on: windows-latest
