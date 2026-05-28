@@ -4,6 +4,7 @@ import http from "node:http";
 import { execFile, spawn, type ChildProcess } from "node:child_process";
 
 import { app, BrowserWindow, dialog, ipcMain, shell, type OpenDialogOptions } from "electron";
+import { autoUpdater } from "electron-updater";
 
 
 const frontendUrl = process.env.FRONTEND_URL ?? "http://127.0.0.1:5173";
@@ -355,6 +356,10 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 app.whenReady().then(() => {
+  if (app.isPackaged) {
+    autoUpdater.checkForUpdatesAndNotify();
+  }
+
   ipcMain.handle(selectFolderChannel, async () => {
     const ownerWindow = BrowserWindow.getFocusedWindow();
     const options: OpenDialogOptions = {
@@ -452,6 +457,11 @@ app.whenReady().then(() => {
 
   ipcMain.handle("asset-workbench:show-item-in-folder", async (_event, filePath: string) => {
     shell.showItemInFolder(filePath);
+  });
+
+  ipcMain.handle("asset-workbench:check-for-updates", async () => {
+    const result = await autoUpdater.checkForUpdates();
+    return { updateAvailable: result.updateInfo.version !== app.getVersion() };
   });
 
   createMainWindow();
