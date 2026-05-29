@@ -6,7 +6,7 @@ Pure read-only — no DB writes, no file operations, no schema changes.
 from __future__ import annotations
 
 from pathlib import Path
-from sqlalchemy import func, select
+from sqlalchemy import func, literal_column, select, text, union_all, exists
 from sqlalchemy.orm import Session
 
 from app.db.models.file import File
@@ -106,33 +106,183 @@ class BrowseV2Service:
         include_objects = card_kind in ("all", "object")
         include_loose = card_kind in ("all", "loose_file")
 
-        object_cards: list[BrowseV2ObjectCard] = []
-        loose_file_cards: list[BrowseV2LooseFileCard] = []
         summary = BrowseV2Summary()
 
-        # ── Object cards from library_objects ────────────────
+        # ── Pre-compute member file IDs for loose file exclusion ──
+        member_file_ids: set[int] = set()
+
+        # From library_object_members (active only)
+        lom_rows = session.query(LibraryObjectMember.file_id).filter(
+            LibraryObjectMember.member_status == "active"
+        ).all()
+        member_file_ids.update(r[0] for r in lom_rows if r[0] is not None)
+
+        # From active import_object_members
+        iom_rows = (
+            session.query(ImportObjectMember.inbox_item_id)
+            .join(ImportObjectCandidate,
+                  ImportObjectMember.import_object_candidate_id == ImportObjectCandidate.id)
+            .filter(ImportObjectCandidate.status.in_(["pending_review", "confirmed"]))
+            .all()
+        )
+        # inbox_item_ids → file_ids
+        from app.db.models.importing import InboxItem
+        iom_inbox_ids = [r[0] for r in iom_rows if r[0] is not None]
+        if iom_inbox_ids:
+            ii_rows = session.query(InboxItem.file_id).filter(
+                InboxItem.id.in_(iom_inbox_ids)
+            ).all()
+            member_file_ids.update(r[0] for r in ii_rows if r[0] is not None)
+
+        # ── Build unified UNION subqueries ──────────────────
+        subqueries = []
+
+        # Library objects
         if include_objects and type_filter:
-            member_count_subq = (
-                select(func.count(LibraryObjectMember.id))
-                .where(
-                    LibraryObjectMember.object_id == LibraryObject.id,
-                    LibraryObjectMember.member_status == "active",
-                )
-                .correlate(LibraryObject.__table__)
-                .scalar_subquery()
-            )
-            lo_query = session.query(LibraryObject, member_count_subq).filter(
+            lo_cols = [
+                LibraryObject.id.label("source_id"),
+                literal_column("'library_object'").label("source_type"),
+                (LibraryObject.title).label("sort_title"),
+                LibraryObject.root_name.label("sort_name"),
+                LibraryObject.last_scanned_at.label("sort_modified"),
+            ]
+            lo_q = select(*lo_cols).where(
                 LibraryObject.object_type.in_(type_filter),
             )
-            lo_rows = lo_query.all()
+            # Library objects are always "managed"; only keep when filter matches
+            if storage_state != "all" and storage_state != "managed":
+                lo_q = lo_q.where(text('0=1'))
+            subqueries.append(lo_q)
 
-            for lo, member_count in lo_rows:
-                if storage_state != "all":
-                    # library_objects don't have storage_state yet; skip if filtering
-                    # but keep for "managed" since these ARE managed objects
-                    if storage_state not in ("managed",):
-                        continue
+        # Import object candidates (dedup against library_objects via NOT EXISTS)
+        if include_objects and type_filter:
+            ioc_cols = [
+                ImportObjectCandidate.id.label("source_id"),
+                literal_column("'import_candidate'").label("source_type"),
+                func.coalesce(ImportObjectCandidate.inbox_root_path,
+                              literal_column("''")).label("sort_title"),
+                literal_column("''").label("sort_name"),
+                ImportObjectCandidate.updated_at.label("sort_modified"),
+            ]
+            ioc_q = select(*ioc_cols).where(
+                ImportObjectCandidate.suggested_object_type.in_(type_filter),
+                ImportObjectCandidate.status.in_(["pending_review", "confirmed"]),
+                ~exists(
+                    select(LibraryObject.id).where(
+                        func.lower(LibraryObject.root_path) ==
+                        func.lower(ImportObjectCandidate.inbox_root_path)
+                    )
+                ),
+            )
+            # Import candidates are always in "inbox" state
+            if storage_state != "all" and storage_state != "inbox":
+                ioc_q = ioc_q.where(text('0=1'))
+            subqueries.append(ioc_q)
 
+        # Loose files
+        if include_loose:
+            file_cols = [
+                File.id.label("source_id"),
+                literal_column("'loose_file'").label("source_type"),
+                (File.name).label("sort_title"),
+                File.name.label("sort_name"),
+                File.modified_at_fs.label("sort_modified"),
+            ]
+            file_q = select(*file_cols).where(
+                File.is_deleted == False,
+            )
+            if member_file_ids:
+                file_q = file_q.where(~File.id.in_(member_file_ids))
+            if storage_state != "all":
+                file_q = file_q.where(File.storage_state == storage_state)
+            subqueries.append(file_q)
+
+        if not subqueries:
+            return BrowseV2Response(
+                items=[], summary=summary, total=0,
+                page=page, page_size=page_size,
+                object_count=0, loose_file_count=0,
+            )
+
+        # ── UNION all subqueries ────────────────────────────
+        combined = union_all(*subqueries).alias("combined")
+
+        # Count total
+        total = session.execute(
+            select(func.count()).select_from(combined)
+        ).scalar() or 0
+
+        # Sort expression
+        if sort_by == "title":
+            sort_col = combined.c.sort_title
+        else:
+            sort_col = combined.c.sort_modified
+            # Default to sort_title when sort_modified is NULL
+            sort_col = func.coalesce(sort_col, combined.c.sort_title)
+
+        if sort_order == "desc":
+            sort_col = sort_col.desc()
+        else:
+            sort_col = sort_col.asc()
+
+        # SQL-level offset/limit pagination
+        offset = (page - 1) * page_size
+        rows = session.execute(
+            select(combined)
+            .order_by(sort_col)
+            .offset(offset)
+            .limit(page_size)
+        ).fetchall()
+
+        # ── Build card dicts from paginated rows ────────────
+        items: list[BrowseV2ObjectCard | BrowseV2LooseFileCard] = []
+
+        # Batch load library objects
+        lo_ids = [r.source_id for r in rows if r.source_type == "library_object"]
+        lo_map = {}
+        if lo_ids:
+            for lo in session.query(LibraryObject).filter(LibraryObject.id.in_(lo_ids)).all():
+                member_count = session.query(func.count(LibraryObjectMember.id)).filter(
+                    LibraryObjectMember.object_id == lo.id,
+                    LibraryObjectMember.member_status == "active",
+                ).scalar() or 0
+                lo_map[lo.id] = (lo, member_count)
+
+        # Batch load import candidates
+        ioc_ids = [r.source_id for r in rows if r.source_type == "import_candidate"]
+        ioc_map = {}
+        if ioc_ids:
+            for ioc in session.query(ImportObjectCandidate).filter(
+                ImportObjectCandidate.id.in_(ioc_ids)
+            ).all():
+                ioc_map[ioc.id] = ioc
+
+        # Batch load files
+        file_ids = [r.source_id for r in rows if r.source_type == "loose_file"]
+        file_map = {}
+        inbox_file_ids = []
+        if file_ids:
+            for f in session.query(File).filter(File.id.in_(file_ids)).all():
+                file_map[f.id] = f
+                if f.storage_state == "inbox":
+                    inbox_file_ids.append(f.id)
+
+        # Pre-load inbox item info for inbox files
+        inbox_info: dict[int, tuple[int, int]] = {}
+        if inbox_file_ids:
+            from app.db.models.importing import InboxItem as II
+            ii_rows = session.query(II).filter(
+                II.file_id.in_(inbox_file_ids)
+            ).all()
+            inbox_info = {ii.file_id: (ii.id, ii.import_batch_id) for ii in ii_rows if ii.file_id}
+
+        # Assemble cards in query order
+        for row in rows:
+            if row.source_type == "library_object":
+                entry = lo_map.get(row.source_id)
+                if entry is None:
+                    continue
+                lo, member_count = entry
                 card = BrowseV2ObjectCard(
                     namespaced_id=f"library_object:{lo.id}",
                     object_source="library_object",
@@ -145,37 +295,15 @@ class BrowseV2Service:
                     needs_review=bool(lo.needs_review),
                     badges=_badges_for_object("library_object", "managed", bool(lo.needs_review)),
                 )
-                object_cards.append(card)
+                items.append(card)
                 summary.total_objects += 1
                 summary.managed_objects += 1
 
-        # ── Object cards from import_object_candidates ──────
-        if include_objects and type_filter:
-            # Get set of library_object root paths for dedup
-            lo_root_paths = {
-                (lo.root_path or "").lower()
-                for lo in session.query(LibraryObject.root_path).all()
-            }
-
-            ioc_query = session.query(ImportObjectCandidate).filter(
-                ImportObjectCandidate.suggested_object_type.in_(type_filter),
-                ImportObjectCandidate.status.in_(["pending_review", "confirmed"]),
-            )
-            for ioc in ioc_query.all():
-                # Dedup: skip if a library_object already covers this root
-                if (ioc.inbox_root_path or "").lower() in lo_root_paths:
+            elif row.source_type == "import_candidate":
+                ioc = ioc_map.get(row.source_id)
+                if ioc is None:
                     continue
-
-                ss = _storage_state_from_path(
-                    ioc.inbox_root_path, None
-                )
-                # Derive state from inbox_root_path
-                if ss == "external":
-                    ss = "inbox"  # import candidates are in inbox
-
-                if storage_state != "all" and storage_state != ss:
-                    continue
-
+                ss = "inbox"
                 card = BrowseV2ObjectCard(
                     namespaced_id=f"import_object_candidate:{ioc.id}",
                     object_source="import_object_candidate",
@@ -189,65 +317,14 @@ class BrowseV2Service:
                     confidence=ioc.confidence,
                     badges=_badges_for_object("import_object_candidate", ss, True),
                 )
-                object_cards.append(card)
+                items.append(card)
                 summary.total_objects += 1
-                if ss == "inbox":
-                    summary.inbox_objects += 1
+                summary.inbox_objects += 1
 
-        # ── Loose file cards ────────────────────────────────
-        if include_loose:
-            # Collect file_ids that are object members
-            member_file_ids: set[int] = set()
-
-            # From library_object_members (active only — Phase 8D-A1)
-            lom_rows = session.query(LibraryObjectMember.file_id).filter(
-                LibraryObjectMember.member_status == "active"
-            ).all()
-            member_file_ids.update(r[0] for r in lom_rows if r[0] is not None)
-
-            # From active import_object_members
-            iom_rows = (
-                session.query(ImportObjectMember.inbox_item_id)
-                .join(ImportObjectCandidate,
-                      ImportObjectMember.import_object_candidate_id == ImportObjectCandidate.id)
-                .filter(ImportObjectCandidate.status.in_(["pending_review", "confirmed"]))
-                .all()
-            )
-            # inbox_item_ids → file_ids
-            from app.db.models.importing import InboxItem
-            iom_inbox_ids = [r[0] for r in iom_rows if r[0] is not None]
-            if iom_inbox_ids:
-                ii_rows = session.query(InboxItem.file_id).filter(
-                    InboxItem.id.in_(iom_inbox_ids)
-                ).all()
-                member_file_ids.update(r[0] for r in ii_rows if r[0] is not None)
-
-            # Query all filtered loose files. Combined object+loose pagination is
-            # applied once after cards are merged to keep totals stable.
-            file_query = session.query(File).filter(
-                File.is_deleted == False,
-            )
-            if member_file_ids:
-                file_query = file_query.filter(~File.id.in_(member_file_ids))
-
-            if storage_state != "all":
-                file_query = file_query.filter(File.storage_state == storage_state)
-
-            file_rows = file_query.order_by(
-                File.modified_at_fs.desc() if sort_order == "desc" else File.modified_at_fs.asc()
-            ).all()
-
-            # Pre-load inbox item info for inbox files (Phase 8C-2)
-            inbox_file_ids = [f.id for f in file_rows if f.storage_state == "inbox"]
-            inbox_info: dict[int, tuple[int, int]] = {}  # file_id -> (inbox_item_id, batch_id)
-            if inbox_file_ids:
-                from app.db.models.importing import InboxItem as II
-                ii_rows = session.query(II).filter(
-                    II.file_id.in_(inbox_file_ids)
-                ).all()
-                inbox_info = {ii.file_id: (ii.id, ii.import_batch_id) for ii in ii_rows if ii.file_id}
-
-            for f in file_rows:
+            elif row.source_type == "loose_file":
+                f = file_map.get(row.source_id)
+                if f is None:
+                    continue
                 ii_data = inbox_info.get(f.id) if f.storage_state == "inbox" else None
                 card = BrowseV2LooseFileCard(
                     file_id=f.id,
@@ -261,34 +338,29 @@ class BrowseV2Service:
                     import_batch_id=ii_data[1] if ii_data else None,
                     badges=_badges_for_loose_file(f.file_kind, f.storage_state),
                 )
-                loose_file_cards.append(card)
+                items.append(card)
                 summary.total_loose_files += 1
                 if f.storage_state == "external":
                     summary.external_loose += 1
 
-        # ── Merge all cards, then sort, then paginate once ──
-        all_cards: list[BrowseV2ObjectCard | BrowseV2LooseFileCard] = object_cards + loose_file_cards
-        all_cards.sort(key=lambda c: (
-            0 if c.card_kind == "object" else 1,
-            str(
-                c.display_title
-                if isinstance(c, BrowseV2ObjectCard)
-                else c.name
-            ).casefold(),
-        ))
-
-        total_items = len(all_cards)
-        start = (page - 1) * page_size
-        items = all_cards[start:start + page_size]
+        # Compute counts from paginated rows (for display in response)
+        object_count = sum(
+            1 for r in rows
+            if r.source_type in ("library_object", "import_candidate")
+        )
+        loose_file_count = sum(
+            1 for r in rows
+            if r.source_type == "loose_file"
+        )
 
         return BrowseV2Response(
             items=items,
             summary=summary,
-            total=total_items,
+            total=total,
             page=page,
             page_size=page_size,
-            object_count=len(object_cards),
-            loose_file_count=len(loose_file_cards),
+            object_count=object_count,
+            loose_file_count=loose_file_count,
         )
 
     # ── Phase 8B: Object Detail ─────────────────────────────
