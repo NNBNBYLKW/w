@@ -243,4 +243,4 @@ class BrowseV2ObjectDetailTestCase(unittest.TestCase):
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["notes"]) >= 1
-        assert "read-only" in data["notes"][0].lower() or "Phase 8" in data["notes"][0]
+        assert "object detail" in data["notes"][0].lower()

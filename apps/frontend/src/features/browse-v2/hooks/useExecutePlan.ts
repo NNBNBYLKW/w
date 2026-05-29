@@ -46,7 +46,9 @@ export function useExecutePlan() {
       const planId = s.planId;
       await executePlan(planId);
       if (cancelledRef.current) return;
+      let pollCount = 0;
       const poll = setInterval(async () => {
+        pollCount++;
         try {
           const detail = await getOrganizePlan(planId);
           const actions = detail.actions as Array<{status: string}>;
@@ -61,6 +63,31 @@ export function useExecutePlan() {
           }
         } catch { /* keep polling */ }
       }, 2000);
+      // Adaptive polling: adjust interval based on poll count
+      // After 3 polls at 2s, switch to 5s, then 10s, then 30s
+      const adaptiveAdjust = setInterval(() => {
+        if (pollRef.current === null) { clearInterval(adaptiveAdjust); return; }
+        clearInterval(pollRef.current);
+        const newDelay = pollCount <= 3 ? 2000 : pollCount <= 6 ? 5000 : pollCount <= 10 ? 10000 : 30000;
+        const newPoll = setInterval(async () => {
+          pollCount++;
+          try {
+            const detail = await getOrganizePlan(planId);
+            const actions = detail.actions as Array<{status: string}>;
+            const done = actions.filter(a => a.status === "succeeded" || a.status === "failed").length;
+            setS(prev => ({ ...prev, progress: { total: actions.length, done } }));
+            if (["completed", "completed_with_errors", "failed"].includes(detail.plan.status)) {
+              clearInterval(newPoll); pollRef.current = null;
+              let summary: Record<string, unknown> | null = null;
+              try { if (detail.plan.summary_json) summary = JSON.parse(detail.plan.summary_json); } catch {}
+              setS(prev => ({ ...prev, loading: false, executed: true, executionStatus: detail.plan.status, summary, progress: null }));
+            }
+          } catch { /* keep polling */ }
+        }, newDelay);
+        pollRef.current = newPoll;
+      }, 20000); // Re-evaluate every 20s
+      const origCleanup = pollRef.current;
+      pollRef.current = poll;
       pollRef.current = poll;
     } catch (e) { if (cancelledRef.current) return; setS(prev => ({ ...prev, loading: false, error: String(e) })); }
   };

@@ -438,7 +438,7 @@ class BrowseV2Service:
             member_page_size=member_page_size,
             member_total=member_total,
             needs_review=bool(lo.needs_review),
-            notes=["Object detail is read-only in Phase 8B."],
+            notes=["Object detail view"],
         )
 
     def _import_candidate_detail(
@@ -512,7 +512,7 @@ class BrowseV2Service:
             member_page=member_page,
             member_page_size=member_page_size,
             member_total=member_total,
-            notes=["Object detail is read-only in Phase 8B."],
+            notes=["Object detail view"],
         )
 
     def get_storage_summary(self, session: Session) -> dict:

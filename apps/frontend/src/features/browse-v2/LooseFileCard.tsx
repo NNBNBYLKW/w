@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { BrowseV2LooseFileCard } from "../../services/api/browseV2Api";
 import { t } from "../../shared/text";
 import { getFilePosterUrl, getFileThumbnailUrl, getFileVideoUrl } from "../../services/api/fileDetailsApi";
@@ -31,7 +32,7 @@ interface Props {
   onMouseLeave?: () => void;
 }
 
-export function LooseFileCard({ card, selected, checked, onCheckboxToggle, onClick, isHovered, onMouseEnter, onMouseLeave }: Props) {
+function LooseFileCardInner({ card, selected, checked, onCheckboxToggle, onClick, isHovered, onMouseEnter, onMouseLeave }: Props) {
   const sizeLabel = formatBytes(card.size_bytes);
   const fileKind = fileKindLabel(card.file_kind);
   const storageLabel = storageStateLabel(card.storage_state);
@@ -87,7 +88,6 @@ export function LooseFileCard({ card, selected, checked, onCheckboxToggle, onCli
         </span>
         <span className="browse-v2-card__meta">
           {modifiedAt ? <span>{modifiedAt}</span> : null}
-          {sizeLabel ? <span>{sizeLabel}</span> : null}
         </span>
         <span className="browse-v2-card__path" title={card.path} translate="no">
           {card.path?.replace(/\\/g, "/").split("/").slice(-2).join("/") || ""}
@@ -96,3 +96,5 @@ export function LooseFileCard({ card, selected, checked, onCheckboxToggle, onCli
     </button>
   );
 }
+
+export const LooseFileCard = memo(LooseFileCardInner);

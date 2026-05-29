@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { BrowseV2ObjectCard } from "../../services/api/browseV2Api";
 import { t } from "../../shared/text";
 import { asTextKey, objectSourceLabel, objectTypeLabel, storageStateLabel, confidenceLabel } from "./helpers";
@@ -20,7 +21,7 @@ interface Props {
   onClick: () => void;
 }
 
-export function ObjectCard({ card, selected, onClick }: Props) {
+function ObjectCardInner({ card, selected, onClick }: Props) {
   const rawType = card.object_type?.toLowerCase() ?? "";
   const typeLabel = objectTypeLabel(card.object_type);
   const storageLabel = storageStateLabel(card.storage_state);
@@ -52,6 +53,7 @@ export function ObjectCard({ card, selected, onClick }: Props) {
             {typeLabel ? <span className="status-badge status-badge--info">{typeLabel}</span> : null}
             {storageLabel ? <span className="status-badge status-badge--secondary">{storageLabel}</span> : null}
             {card.needs_review ? <span className="status-badge status-badge--warning">{t("features.browseV2.needsReview")}</span> : null}
+            {confidence ? <span className="status-badge status-badge--muted">{confidence}</span> : null}
           </span>
           {card.member_count > 0 ? (
             <span className="browse-v2-card__meta">
@@ -160,3 +162,5 @@ export function ObjectCard({ card, selected, onClick }: Props) {
     </button>
   );
 }
+
+export const ObjectCard = memo(ObjectCardInner);

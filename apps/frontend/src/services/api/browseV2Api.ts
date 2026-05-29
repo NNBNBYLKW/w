@@ -56,6 +56,8 @@ export async function listBrowseCards(params: {
   category?: string;
   storage_state?: string;
   card_kind?: string;
+  file_type?: string;
+  needs_review?: string;
   page?: number;
   page_size?: number;
   sort_by?: string;
@@ -66,6 +68,8 @@ export async function listBrowseCards(params: {
   if (params.category) sp.set("category", params.category);
   if (params.storage_state) sp.set("storage_state", params.storage_state);
   if (params.card_kind) sp.set("card_kind", params.card_kind);
+  if (params.file_type) sp.set("file_type", params.file_type);
+  if (params.needs_review) sp.set("needs_review", params.needs_review);
   if (params.page) sp.set("page", String(params.page));
   if (params.page_size) sp.set("page_size", String(params.page_size));
   if (params.sort_by) sp.set("sort_by", params.sort_by);

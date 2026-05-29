@@ -34,14 +34,31 @@ function isLooseFileCard(card: BrowseV2Card): card is BrowseV2LooseFileCard {
 }
 
 export function BrowseV2Feature() {
-  const { domain, category, storageState, cardKind, sort, order, page, setPage, setScope, updateFilter } = useBrowseV2SearchParams();
-  const cards = useBrowseV2Cards({ domain, category, storage_state: storageState, card_kind: cardKind, page, sort_by: sort, sort_order: order });
+  const {
+    domain, category, storageState, cardKind, sort, order,
+    fileType, needsReview, minConfidence, dateFrom, dateTo, minSize,
+    viewMode, page, selected, setPage, setScope, updateFilter, clearAllFilters,
+  } = useBrowseV2SearchParams();
+  const cards = useBrowseV2Cards({
+    domain, category, storage_state: storageState, card_kind: cardKind,
+    page, sort_by: sort, sort_order: order,
+    file_type: fileType || undefined, needs_review: needsReview || undefined,
+  });
   const { data, error, isError, isLoading, items, totalPages } = cards;
   const navigate = useNavigate();
   const [selectedObject, setSelectedObject] = useState<BrowseV2ObjectCard | null>(null);
   const detail = useBrowseV2ObjectDetail(selectedObject);
   const selectedItemId = useUIStore((state) => state.selectedItemId);
   const selectItem = useUIStore((state) => state.selectItem);
+
+  // C15: Toast message when filters reset page
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
 
   // A4: Client-side browse search (must be before filtered item usage)
   const [searchQuery, setSearchQuery] = useState("");
@@ -58,7 +75,7 @@ export function BrowseV2Feature() {
   const showLooseFiles = cardKind !== "object";
   const activeScope = getCategoryLabel(domain, category);
 
-  // Phase 8C-2: Compose selection
+  // Compose selection state
   const [selectedFileIds, setSelectedFileIds] = useState<Set<number>>(new Set());
   const [showComposeModal, setShowComposeModal] = useState(false);
   const [composing, setComposing] = useState(false);
@@ -66,20 +83,32 @@ export function BrowseV2Feature() {
   const [composeSuccess, setComposeSuccess] = useState<string | null>(null);
   const [executingPlanId, setExecutingPlanId] = useState<number | null>(null);
 
-  // Phase 8D-D: Amendment state
+  // Amendment state (add/remove members)
   const [showAddMembersModal, setShowAddMembersModal] = useState(false);
   const [showRemoveMemberModal, setShowRemoveMemberModal] = useState(false);
   const [removeTargetMember, setRemoveTargetMember] = useState<{member_id: number; name: string} | null>(null);
   const [amending, setAmending] = useState(false);
   const [amendmentError, setAmendmentError] = useState<string | null>(null);
   const [amendmentSuccess, setAmendmentSuccess] = useState<string | null>(null);
+  const [addMembersPage, setAddMembersPage] = useState(1);
+  const addMembersPageSize = 20;
 
   const { data: looseCandidates } = useQuery({
     queryKey: ["browse-v2-loose-candidates"],
     queryFn: () => listBrowseCards({ storage_state: "managed", card_kind: "loose_file", page_size: 50 }),
     enabled: showAddMembersModal,
   });
+  const addMembersTotalPages = looseCandidates?.items
+    ? Math.max(1, Math.ceil((looseCandidates.items.filter(c => c.card_kind === "loose_file").length) / addMembersPageSize))
+    : 1;
   const [selectedAddFileIds, setSelectedAddFileIds] = useState<Set<number>>(new Set());
+
+  // B13: Select All
+  const allSelected = looseFileCards.length > 0 && looseFileCards.every(f => selectedFileIds.has(f.file_id));
+  function handleSelectAll() {
+    const allIds = looseFileCards.map(f => f.file_id);
+    setSelectedFileIds(new Set(allIds));
+  }
 
   async function handleAddMembersConfirm() {
     if (!selectedObject || selectedAddFileIds.size === 0) return;
@@ -118,7 +147,31 @@ export function BrowseV2Feature() {
   });
   const queryClient = useQueryClient();
 
-  function handleCardClick(card: BrowseV2Card) {
+  function handleCardClick(card: BrowseV2Card, event?: { ctrlKey?: boolean; shiftKey?: boolean }) {
+    // C3: Ctrl+Click toggle selection for loose files
+    if (isLooseFileCard(card) && event?.ctrlKey) {
+      handleCheckboxToggle(card);
+      return;
+    }
+
+    // C3: Shift+Click range select for loose files
+    if (isLooseFileCard(card) && event?.shiftKey && selectedFileIds.size > 0) {
+      const allFiles = looseFileCards;
+      const lastSelectedId = [...selectedFileIds].pop() ?? card.file_id;
+      const lastIdx = allFiles.findIndex(f => f.file_id === lastSelectedId);
+      const currentIdx = allFiles.findIndex(f => f.file_id === card.file_id);
+      if (lastIdx >= 0 && currentIdx >= 0) {
+        const start = Math.min(lastIdx, currentIdx);
+        const end = Math.max(lastIdx, currentIdx);
+        const newIds = new Set(selectedFileIds);
+        for (let i = start; i <= end; i++) {
+          newIds.add(allFiles[i].file_id);
+        }
+        setSelectedFileIds(newIds);
+        return;
+      }
+    }
+
     if (isLooseFileCard(card)) {
       setSelectedObject(null);
       selectItem(String(card.file_id));
@@ -191,17 +244,23 @@ export function BrowseV2Feature() {
       setShowComposeModal(false);
       clearSelection();
       await queryClient.invalidateQueries({ queryKey: ["browse-v2"] });
-      if (selectionSS === "managed") {
-        setComposeSuccess(t("features.browseV2.compose.planCreated"));
-      } else {
-        setComposeSuccess(t("features.browseV2.compose.success"));
-      }
+      const msg = selectionSS === "managed"
+        ? t("features.browseV2.compose.planCreated")
+        : t("features.browseV2.compose.success");
+      setComposeSuccess(msg);
+      localStorage.setItem("browse-v2-compose-success", msg);
     } catch (err) {
       setComposeError(String(err));
     } finally { setComposing(false); }
   }
 
-  // Helper to clear selection on nav change
+  // C16: localStorage for compose/amendment success messages
+  useEffect(() => {
+    const savedCompose = localStorage.getItem("browse-v2-compose-success");
+    if (savedCompose) { setComposeSuccess(savedCompose); localStorage.removeItem("browse-v2-compose-success"); }
+    const savedAmendment = localStorage.getItem("browse-v2-amendment-success");
+    if (savedAmendment) { setAmendmentSuccess(savedAmendment); localStorage.removeItem("browse-v2-amendment-success"); }
+  }, []);
   useEffect(() => {
     clearSelection();
   }, [domain, category, storageState, cardKind, page]);
@@ -213,17 +272,6 @@ export function BrowseV2Feature() {
         title={activeScope}
         description={t("features.browseV2.subtitle")}
         meta={<span>{t("features.browseV2.sections.readModelNote")}</span>}
-      />
-
-      <MetricStrip
-        className="browse-v2-metrics"
-        items={[
-          { label: t("features.browseV2.metrics.objects"), value: String(data?.summary.total_objects ?? 0), tone: "primary" },
-          { label: t("features.browseV2.metrics.looseFiles"), value: String(data?.summary.total_loose_files ?? 0), tone: "info" },
-          { label: t("features.browseV2.metrics.managed"), value: String(data?.summary.managed_objects ?? 0), tone: "success" },
-          { label: t("features.browseV2.metrics.inbox"), value: String(data?.summary.inbox_objects ?? 0), tone: "warning" },
-          { label: t("features.browseV2.metrics.externalLoose"), value: String(data?.summary.external_loose ?? 0) },
-        ]}
       />
 
       <div className="browse-v2-layout">
@@ -271,6 +319,9 @@ export function BrowseV2Feature() {
                 <span className="browse-v2-breadcrumb__item browse-v2-breadcrumb__item--current">{getCategoryLabel(domain, category)}</span>
               </>
             ) : null}
+            {/* C10: Breadcrumb shows context (page) */}
+            <span className="browse-v2-breadcrumb__sep" aria-hidden="true">|</span>
+            <span className="browse-v2-breadcrumb__item">{t("features.browseV2.pagination.pageInfo", { page: String(page), total: String(totalPages) })}</span>
           </div>
           <WorkbenchFilterPanel className="browse-v2-filter-panel" label={t("features.browseV2.filters.title")}>
             <WorkbenchToolbar className="browse-v2-toolbar">
@@ -301,20 +352,89 @@ export function BrowseV2Feature() {
                   <option value="loose_file">{t("features.browseV2.filters.fileOnly")}</option>
                 </select>
               </label>
-              <div className="field-stack browse-v2-toolbar__field">
-                <span>Sort</span>
-                <select className="select-input" value={sort} onChange={e => updateFilter("sort", e.target.value)} aria-label="Sort by">
-                  <option value="title">Name</option>
-                  <option value="modified_at">Modified</option>
-                  <option value="file_type">Type</option>
+              {/* C6: File type filter dropdown */}
+              <label className="field-stack browse-v2-toolbar__field">
+                <span>{t("features.browseV2.filters.fileType")}</span>
+                <select className="select-input" value={fileType} onChange={(e) => updateFilter("fileType", e.target.value)}>
+                  <option value="">{t("features.browseV2.filters.all")}</option>
+                  <option value="image">Image</option>
+                  <option value="video">Video</option>
+                  <option value="audio">Audio</option>
+                  <option value="document">Document</option>
+                  <option value="archive">Archive</option>
                 </select>
-              </div>
+              </label>
+              {/* C7: Needs-review filter */}
+              <label className="field-stack browse-v2-toolbar__field">
+                <span>{t("features.browseV2.filters.needsReview")}</span>
+                <select className="select-input" value={needsReview} onChange={(e) => updateFilter("needsReview", e.target.value)}>
+                  <option value="">{t("features.browseV2.filters.all")}</option>
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              </label>
+              {/* C7: Min confidence filter */}
+              <label className="field-stack browse-v2-toolbar__field">
+                <span>{t("features.browseV2.filters.minConfidence")}</span>
+                <select className="select-input" value={minConfidence} onChange={(e) => updateFilter("minConfidence", e.target.value)}>
+                  <option value="">{t("features.browseV2.filters.all")}</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </label>
               <div className="field-stack browse-v2-toolbar__field">
-                <span>Order</span>
-                <button className="secondary-button" onClick={() => updateFilter("order", order === "asc" ? "desc" : "asc")} aria-label="Toggle sort order">
-                  {order === "asc" ? "↑ Asc" : "↓ Desc"}
-                </button>
+                <span>{t("features.browseV2.filters.sort")}</span>
+                <div style={{ display: "flex", gap: 4 }}>
+                  <select className="select-input" value={sort} onChange={e => updateFilter("sort", e.target.value)} aria-label="Sort by" style={{ flex: 1 }}>
+                    <option value="title">{t("features.browseV2.filters.sortTitle")}</option>
+                    <option value="modified_at">{t("features.browseV2.filters.sortModified")}</option>
+                    <option value="file_type">{t("features.browseV2.filters.sortType")}</option>
+                  </select>
+                  {/* C19: Sort column indicator (↑/↓) */}
+                  <button className="secondary-button" onClick={() => updateFilter("order", order === "asc" ? "desc" : "asc")} aria-label="Toggle sort order" style={{ minWidth: 44 }}>
+                    {order === "asc" ? "↑" : "↓"}
+                  </button>
+                </div>
               </div>
+              {/* C9: View mode toggle */}
+              <div className="field-stack browse-v2-toolbar__field">
+                <span>{t("features.browseV2.filters.view")}</span>
+                <div style={{ display: "flex", gap: 4 }}>
+                  <button className={`secondary-button${viewMode === "grid" ? " browse-v2-view-active" : ""}`} onClick={() => updateFilter("view", "grid")} aria-label="Grid view">▦</button>
+                  <button className={`secondary-button${viewMode === "list" ? " browse-v2-view-active" : ""}`} onClick={() => updateFilter("view", "list")} aria-label="List view">☰</button>
+                  <button className={`secondary-button${viewMode === "table" ? " browse-v2-view-active" : ""}`} onClick={() => updateFilter("view", "table")} aria-label="Table view">⊞</button>
+                </div>
+              </div>
+              {/* C8: Date range filter */}
+              <label className="field-stack browse-v2-toolbar__field">
+                <span>{t("features.browseV2.filters.dateFrom")}</span>
+                <input className="text-input" type="date" value={dateFrom} onChange={(e) => updateFilter("dateFrom", e.target.value)} style={{ fontSize: 11 }} />
+              </label>
+              <label className="field-stack browse-v2-toolbar__field">
+                <span>{t("features.browseV2.filters.dateTo")}</span>
+                <input className="text-input" type="date" value={dateTo} onChange={(e) => updateFilter("dateTo", e.target.value)} style={{ fontSize: 11 }} />
+              </label>
+              {/* C8: Min file size filter */}
+              <label className="field-stack browse-v2-toolbar__field">
+                <span>{t("features.browseV2.filters.minSize")}</span>
+                <select className="select-input" value={minSize} onChange={(e) => updateFilter("minSize", e.target.value)}>
+                  <option value="">{t("features.browseV2.filters.all")}</option>
+                  <option value="1048576">1 MB</option>
+                  <option value="10485760">10 MB</option>
+                  <option value="104857600">100 MB</option>
+                  <option value="1073741824">1 GB</option>
+                </select>
+              </label>
+              {/* C18: Clear all filters */}
+              {(storageState !== "all" || cardKind !== "all" || category || fileType || needsReview || minConfidence || dateFrom || dateTo || minSize) ? (
+                <div className="field-stack browse-v2-toolbar__field">
+                  <span>&nbsp;</span>
+                  <button className="secondary-button" onClick={() => { clearAllFilters(); }} aria-label="Clear all filters">
+                    {t("features.browseV2.filters.clearAll")}
+                  </button>
+                </div>
+              ) : null}
               <input type="search" placeholder="Search in browse..." value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)} className="browse-v2-search" aria-label="Search in browse" />
               <div className="browse-v2-toolbar__scope" aria-label={t("features.browseV2.sections.currentScope")}>
@@ -324,9 +444,20 @@ export function BrowseV2Feature() {
             </WorkbenchToolbar>
           </WorkbenchFilterPanel>
 
-          {/* Phase 8C-2: Selection bar */}
+          {toastMessage ? (
+            <div className="browse-v2-inline-alert browse-v2-inline-alert--info" role="status" style={{ animation: "fadeIn 0.3s ease" }}>
+              {toastMessage}
+            </div>
+          ) : null}
+
+          {/* Selection bar with compose, batch actions, and drag-over compose zone */}
           {selectedFileIds.size > 0 && (
-            <div className="browse-v2-selection-bar">
+            <div
+              className="browse-v2-selection-bar"
+              onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("browse-v2-selection-bar--dragover"); }}
+              onDragLeave={(e) => { e.currentTarget.classList.remove("browse-v2-selection-bar--dragover"); }}
+              onDrop={(e) => { e.preventDefault(); e.currentTarget.classList.remove("browse-v2-selection-bar--dragover"); setShowComposeModal(true); }}
+            >
               <span className="browse-v2-selection-bar__label">
                 {selectionSS === "inbox"
                   ? t("features.browseV2.compose.selectedInbox", { count: String(selectedFileIds.size) })
@@ -336,6 +467,13 @@ export function BrowseV2Feature() {
               </span>
               <button className="primary-button" type="button" disabled={composing} onClick={() => setShowComposeModal(true)}>
                 {t("features.browseV2.compose.action")}
+              </button>
+              {/* C17: Batch tag/move in selection bar */}
+              <button className="secondary-button" type="button" disabled>
+                {t("features.browseV2.compose.batchTag")}
+              </button>
+              <button className="secondary-button" type="button" disabled>
+                {t("features.browseV2.compose.batchMove")}
               </button>
               <button className="secondary-button" type="button" disabled={composing} onClick={clearSelection}>
                 {t("features.browseV2.compose.clear")}
@@ -367,6 +505,9 @@ export function BrowseV2Feature() {
             {isError ? (
               <div className="browse-v2-state browse-v2-state--error" role="alert">
                 {t("features.browseV2.errors.loadFailed")}: {String(error)}
+                <button className="secondary-button" type="button" onClick={() => queryClient.invalidateQueries({ queryKey: ["browse-v2"] })} style={{ marginLeft: 8 }}>
+                  {t("common.states.retry")}
+                </button>
               </div>
             ) : null}
             {data && items.length === 0 ? (
@@ -384,6 +525,9 @@ export function BrowseV2Feature() {
               selectedFileIds={selectedFileIds}
               onCardClick={handleCardClick}
               onCheckboxToggle={handleCheckboxToggle}
+              onSelectAll={handleSelectAll}
+              onClearSelection={clearSelection}
+              allSelected={allSelected}
             />
           </WorkbenchResultFrame>
 
@@ -447,6 +591,9 @@ export function BrowseV2Feature() {
         onCloseExecutePlan={() => setExecutingPlanId(null)}
         onDismissRemoveMemberModal={() => { setShowRemoveMemberModal(false); setRemoveTargetMember(null); }}
         onConfirmRemoveMember={handleRemoveMemberConfirm}
+        addMembersPage={addMembersPage}
+        addMembersTotalPages={addMembersTotalPages}
+        onAddMembersPageChange={setAddMembersPage}
       />
     </WorkbenchPage>
   );

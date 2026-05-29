@@ -1,6 +1,7 @@
 import type { LibraryRootVM } from "../../entities/library/types";
 import type { BrowseV2Card, BrowseV2LooseFileCard } from "../../services/api/browseV2Api";
 import { t } from "../../shared/text";
+import { Pagination } from "../../shared/ui/components";
 import { ComposeObjectModal } from "./ComposeObjectModal";
 import { ExecutePlanPanel } from "./ExecutePlanPanel";
 
@@ -19,6 +20,9 @@ export interface BrowseV2ModalsProps {
   looseCandidates: { items: BrowseV2Card[] } | undefined;
   showRemoveMemberModal: boolean;
   removeTargetMember: { member_id: number; name: string } | null;
+  addMembersPage?: number;
+  addMembersTotalPages?: number;
+  onAddMembersPageChange?: (page: number) => void;
   onCancelCompose: () => void;
   onConfirmCompose: (params: {
     inbox_item_ids?: number[];
@@ -53,6 +57,9 @@ export function BrowseV2Modals({
   looseCandidates,
   showRemoveMemberModal,
   removeTargetMember,
+  addMembersPage = 1,
+  addMembersTotalPages = 1,
+  onAddMembersPageChange,
   onCancelCompose,
   onConfirmCompose,
   onDismissComposeError,
@@ -65,6 +72,13 @@ export function BrowseV2Modals({
   onDismissRemoveMemberModal,
   onConfirmRemoveMember,
 }: BrowseV2ModalsProps) {
+  // B4: Paginate loose candidates for add members
+  const addMembersPageSize = 20;
+  const allCandidates = looseCandidates?.items.filter((c): c is BrowseV2LooseFileCard => c.card_kind === "loose_file") ?? [];
+  const paginatedCandidates = allCandidates.slice(
+    (addMembersPage - 1) * addMembersPageSize,
+    addMembersPage * addMembersPageSize,
+  );
   return (
     <>
       {showComposeModal && (
@@ -106,7 +120,7 @@ export function BrowseV2Modals({
         </div>
       )}
 
-      {/* Phase 8D-D: Add Members Modal */}
+      {/* Add Members Modal */}
       {showAddMembersModal && (
         <div
           className="library-inbox-modal-overlay"
@@ -122,25 +136,27 @@ export function BrowseV2Modals({
               {t("features.browseV2.amendment.addMembersDescription")}
             </p>
             <div className="browse-v2-amendment-candidates">
-              {looseCandidates?.items.filter((c) => c.card_kind === "loose_file").length === 0 && (
+              {allCandidates.length === 0 && (
                 <p className="browse-v2-amendment-candidates__empty">
                   {t("features.browseV2.amendment.noManagedLooseCandidates")}
                 </p>
               )}
-              {looseCandidates?.items
-                .filter((c) => c.card_kind === "loose_file")
-                .map((card: any) => (
-                  <label className="browse-v2-amendment-candidate" key={card.file_id}>
-                    <input
-                      type="checkbox"
-                      checked={selectedAddFileIds.has(card.file_id)}
-                      onChange={() => onToggleAddFileId(card.file_id)}
-                      disabled={amending}
-                    />
-                    <span title={card.path}>{card.name}</span>
-                  </label>
-                ))}
+              {paginatedCandidates.map((card: BrowseV2LooseFileCard) => (
+                <label className="browse-v2-amendment-candidate" key={card.file_id}>
+                  <input
+                    type="checkbox"
+                    checked={selectedAddFileIds.has(card.file_id)}
+                    onChange={() => onToggleAddFileId(card.file_id)}
+                    disabled={amending}
+                  />
+                  <span title={card.path}>{card.name}</span>
+                </label>
+              ))}
             </div>
+            {/* B4: Pagination for add members modal */}
+            {addMembersTotalPages > 1 && onAddMembersPageChange && (
+              <Pagination page={addMembersPage} totalPages={addMembersTotalPages} onPageChange={onAddMembersPageChange} />
+            )}
             <p className="library-review-notice">
               {t("features.browseV2.amendment.draftPlanOnlyNotice")}
             </p>
@@ -170,7 +186,7 @@ export function BrowseV2Modals({
         <ExecutePlanPanel planId={executingPlanId} onClose={onCloseExecutePlan} />
       ) : null}
 
-      {/* Phase 8D-D: Remove Member Modal */}
+      {/* Remove Member Modal */}
       {showRemoveMemberModal && removeTargetMember && (
         <div
           className="library-inbox-modal-overlay"

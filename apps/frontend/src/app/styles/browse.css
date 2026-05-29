@@ -2405,3 +2405,23 @@
   position: static;
   max-height: none;
 }
+
+/* Phase 15 polish: selection bar transition (B8) */
+.browse-v2-selection-bar {
+  transition: height 0.3s ease, opacity 0.3s ease;
+}
+
+/* Phase 15 polish: member row hover (B9) */
+.browse-v2-member-row:hover {
+  background: var(--color-surface-hover, var(--accent-soft));
+}
+
+/* Phase 15 polish: detail panel open/close transition (C13) */
+.browse-v2-detail {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.browse-v2-detail:not(.browse-v2-detail--active) {
+  opacity: 0.5;
+  transform: translateX(8px);
+}
