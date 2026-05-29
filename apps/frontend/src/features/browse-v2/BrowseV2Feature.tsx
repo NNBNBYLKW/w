@@ -43,8 +43,17 @@ export function BrowseV2Feature() {
   const selectedItemId = useUIStore((state) => state.selectedItemId);
   const selectItem = useUIStore((state) => state.selectItem);
 
-  const objectCards = cards.items.filter(isObjectCard);
-  const looseFileCards = cards.items.filter(isLooseFileCard);
+  // A4: Client-side browse search (must be before filtered item usage)
+  const [searchQuery, setSearchQuery] = useState("");
+  const filteredItems = searchQuery.trim()
+    ? cards.items.filter(card => {
+        const title = card.card_kind === "object" ? card.display_title : card.name;
+        return title.toLowerCase().includes(searchQuery.toLowerCase());
+      })
+    : cards.items;
+
+  const objectCards = filteredItems.filter(isObjectCard);
+  const looseFileCards = filteredItems.filter(isLooseFileCard);
   const showObjects = cardKind !== "loose_file";
   const showLooseFiles = cardKind !== "object";
   const activeScope = getCategoryLabel(domain, category);
@@ -306,6 +315,8 @@ export function BrowseV2Feature() {
                   {order === "asc" ? "↑ Asc" : "↓ Desc"}
                 </button>
               </div>
+              <input type="search" placeholder="Search in browse..." value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)} className="browse-v2-search" aria-label="Search in browse" />
               <div className="browse-v2-toolbar__scope" aria-label={t("features.browseV2.sections.currentScope")}>
                 <span>{t("features.browseV2.sections.currentScope")}</span>
                 <strong>{activeScope}</strong>

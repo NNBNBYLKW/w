@@ -58,6 +58,8 @@ export async function listBrowseCards(params: {
   card_kind?: string;
   page?: number;
   page_size?: number;
+  sort_by?: string;
+  sort_order?: string;
 }): Promise<BrowseV2Response> {
   const sp = new URLSearchParams();
   if (params.domain) sp.set("domain", params.domain);
@@ -66,6 +68,8 @@ export async function listBrowseCards(params: {
   if (params.card_kind) sp.set("card_kind", params.card_kind);
   if (params.page) sp.set("page", String(params.page));
   if (params.page_size) sp.set("page_size", String(params.page_size));
+  if (params.sort_by) sp.set("sort_by", params.sort_by);
+  if (params.sort_order) sp.set("sort_order", params.sort_order);
   const res = await fetch(`${BASE()}?${sp}`);
   return parseResponse<BrowseV2Response>(res);
 }
