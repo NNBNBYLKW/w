@@ -9,7 +9,7 @@ import { createManagedComposePlan, createObjectAmendmentPlan } from "../../servi
 import { listLibraryRoots } from "../../services/api/libraryObjectsApi";
 import type { LibraryRootVM } from "../../entities/library/types";
 import { t } from "../../shared/text";
-import { DOMAINS } from "../../shared/browse-taxonomy";
+import { CATEGORY_TREE, DOMAINS } from "../../shared/browse-taxonomy";
 import { CardSkeleton, MetricStrip, Pagination, WorkbenchFilterPanel, WorkbenchMasthead, WorkbenchPage, WorkbenchResultFrame, WorkbenchToolbar } from "../../shared/ui/components";
 import { EmptyState } from "../../shared/ui/components/EmptyState";
 import { asTextKey, getCategoryLabel } from "./helpers";
@@ -218,6 +218,39 @@ export function BrowseV2Feature() {
       />
 
       <div className="browse-v2-layout">
+        <nav className="browse-v2-taxonomy" aria-label="Browse categories">
+          <div className="browse-v2-taxonomy__domain">
+            {DOMAINS.map(d => (
+              <button
+                key={d.value}
+                className={`browse-v2-taxonomy__domain-button${d.value === domain ? " browse-v2-taxonomy__domain-button--active" : ""}`}
+                onClick={() => updateFilter("domain", d.value)}
+              >
+                {t(asTextKey(d.labelKey))}
+              </button>
+            ))}
+          </div>
+          {domain && CATEGORY_TREE[domain]?.length > 0 && (
+            <div className="browse-v2-taxonomy__groups">
+              {CATEGORY_TREE[domain].map(group => (
+                <div key={group.groupKey ?? group.items[0]?.value ?? "default"} className="browse-v2-taxonomy__group">
+                  {group.groupKey && (
+                    <h4 className="browse-v2-taxonomy__group-label">{t(asTextKey(group.groupKey))}</h4>
+                  )}
+                  {group.items.map(cat => (
+                    <button
+                      key={cat.value}
+                      className={`browse-v2-taxonomy__item${cat.value === category ? " browse-v2-taxonomy__item--active" : ""}`}
+                      onClick={() => updateFilter("category", cat.value)}
+                    >
+                      {t(asTextKey(cat.labelKey))}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </nav>
         <main className="browse-v2-main" aria-live="polite">
           <div className="browse-v2-breadcrumb" aria-label={t("features.browseV2.taxonomyLabel")}>
             <span className="browse-v2-breadcrumb__item">{t("navigation.items.fileLibrary")}</span>
