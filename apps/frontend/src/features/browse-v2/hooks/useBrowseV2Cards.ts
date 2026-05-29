@@ -10,6 +10,8 @@ export function useBrowseV2Cards(params: {
   storage_state: string;
   card_kind: string;
   page: number;
+  sort_by?: string;
+  sort_order?: string;
 }) {
   const queryParams = useMemo(() => ({
     domain: params.domain,
@@ -18,7 +20,9 @@ export function useBrowseV2Cards(params: {
     card_kind: params.card_kind,
     page: params.page,
     page_size: PAGE_SIZE,
-  }), [params.domain, params.category, params.storage_state, params.card_kind, params.page]);
+    sort_by: params.sort_by,
+    sort_order: params.sort_order,
+  }), [params.domain, params.category, params.storage_state, params.card_kind, params.page, params.sort_by, params.sort_order]);
 
   const { data, isLoading, isError, error } = useQuery<BrowseV2Response>({
     queryKey: ["browse-v2", queryParams],

@@ -34,8 +34,8 @@ function isLooseFileCard(card: BrowseV2Card): card is BrowseV2LooseFileCard {
 }
 
 export function BrowseV2Feature() {
-  const { domain, category, storageState, cardKind, page, setPage, setScope, updateFilter } = useBrowseV2SearchParams();
-  const cards = useBrowseV2Cards({ domain, category, storage_state: storageState, card_kind: cardKind, page });
+  const { domain, category, storageState, cardKind, sort, order, page, setPage, setScope, updateFilter } = useBrowseV2SearchParams();
+  const cards = useBrowseV2Cards({ domain, category, storage_state: storageState, card_kind: cardKind, page, sort_by: sort, sort_order: order });
   const { data, error, isError, isLoading, items, totalPages } = cards;
   const navigate = useNavigate();
   const [selectedObject, setSelectedObject] = useState<BrowseV2ObjectCard | null>(null);
@@ -292,6 +292,20 @@ export function BrowseV2Feature() {
                   <option value="loose_file">{t("features.browseV2.filters.fileOnly")}</option>
                 </select>
               </label>
+              <div className="field-stack browse-v2-toolbar__field">
+                <span>Sort</span>
+                <select className="select-input" value={sort} onChange={e => updateFilter("sort", e.target.value)} aria-label="Sort by">
+                  <option value="title">Name</option>
+                  <option value="modified_at">Modified</option>
+                  <option value="file_type">Type</option>
+                </select>
+              </div>
+              <div className="field-stack browse-v2-toolbar__field">
+                <span>Order</span>
+                <button className="secondary-button" onClick={() => updateFilter("order", order === "asc" ? "desc" : "asc")} aria-label="Toggle sort order">
+                  {order === "asc" ? "↑ Asc" : "↓ Desc"}
+                </button>
+              </div>
               <div className="browse-v2-toolbar__scope" aria-label={t("features.browseV2.sections.currentScope")}>
                 <span>{t("features.browseV2.sections.currentScope")}</span>
                 <strong>{activeScope}</strong>

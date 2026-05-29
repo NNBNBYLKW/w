@@ -8,6 +8,8 @@ export function useBrowseV2SearchParams() {
   const category = searchParams.get("category") || "";
   const storageState = searchParams.get("storage") || "all";
   const cardKind = searchParams.get("kind") || "all";
+  const sort = searchParams.get("sort") ?? "title";
+  const order = searchParams.get("order") ?? "asc";
   const [page, setPage] = useState(1);
 
   function setScope(nextDomain: DomainValue, nextCategory = "") {
@@ -31,5 +33,5 @@ export function useBrowseV2SearchParams() {
     setPage(1);
   }
 
-  return { domain, category, storageState, cardKind, page, setPage, setScope, updateFilter };
+  return { domain, category, storageState, cardKind, sort, order, page, setPage, setScope, updateFilter };
 }
