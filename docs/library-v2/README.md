@@ -2,6 +2,13 @@
 
 > Status: **Phase 7A–7F Complete, Phase 8 Complete, v0.3.0 source updates documented** | 2026-05-28
 
+## Source vs Managed Root
+
+Understanding the difference between Sources and Managed Roots is essential:
+
+- **Source**: A folder you scan to **index** files. Sources are read-only — Workbench never modifies, moves, or deletes files within them. Files discovered via source scanning are marked as `external` and remain at their original location.
+- **Managed Root**: A folder where organized files **land**. Files are moved or copied from sources (or the inbox) into managed roots via organize plans. Once placed, files are marked as `managed` and are tracked within the library structure.
+
 ## What is Library v2
 
 Library v2 extends Workbench from a source-scan indexing tool into a managed library workflow. Users can import files and folders into a managed library, review and classify them, generate organize plans, execute moves, and browse by storage scope.
