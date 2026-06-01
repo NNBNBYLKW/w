@@ -1,6 +1,6 @@
 # Docs Index
 
-This directory is now organized for the **beta stage**.
+This directory is organized for the **v0.3.0 — Release Candidate** stage.
 
 The goal of the current docs set is to provide a small, clear entry system for development, validation, and collaboration without keeping completed execution drafts at the top level.
 
@@ -17,7 +17,7 @@ Document boundary:
   - What capability lines already exist
   - What the current product shape looks like
 - [测试版范围与边界](<测试版范围与边界.md>)
-  - Current beta boundary
+  - Current RC boundary
   - Must-have scope
   - Deferred and explicitly out-of-scope items
 - [测试版验证准备](<测试版验证准备.md>)
@@ -97,17 +97,17 @@ Current rule for `navigation/` SVG resources:
 
 These resources are current frontend UI assets for navigation and navigation-related controls. They should not be confused with desktop application icons or treated as API-facing capability changes.
 
-## Current UI Note
+## Current UI State
 
-Recent frontend work is still part of beta-stage experience closure:
+The workbench shell is stable at three panels: left navigation + center browse + right shared details.
 
-- the workbench shell is now more explicitly left navigation + center browse + right shared details
-- the sidebar can expand / collapse
+- sidebar can expand / collapse
 - details can show / hide and the center pane fills the freed space
-- backend state, details toggle, and scrollbar polish are current UI expression changes, not new product capabilities
-- frontend high-visibility copy now uses a lightweight text layer and current locale switching in `Settings`
+- frontend uses a lightweight text layer with locale switching in `Settings`
+- BrowseV2 features phase labels, skeletons, memo, URL persistence, context menu, drag-drop, multi-select, keyboard nav, and view modes
+- Batch operations (tag, color tag, favorite, rating, organize) are integrated across panels
 
-For collaboration, treat these as current interface facts rather than as a new feature batch.
+These are current interface facts, not a new feature batch.
 
 ## Archive
 
@@ -118,16 +118,30 @@ Historical materials are preserved under [archive/](archive/). They are grouped 
 - `正式版与历史冻结文档/`
 - `早期产品与架构草案/`
 - `其他历史辅助文档/`
+- `phase9-16-specs-and-plans/` — completed Phase 9-16 design specs and implementation plans (see below)
 
-These archived docs remain useful for traceability, but they are no longer the primary source of truth for the current beta stage.
+### Phase 9-16 Archive
+
+Completed phase design specs (`specs/`) and implementation plans (`plans/`) from Phase 9 through Phase 16 (including post-phase hardening and workflow UI hardening) have been moved to [archive/phase-9-16-specs-and-plans/](archive/phase-9-16-specs-and-plans/). These cover:
+
+- **Phase 9**: Stability and UX
+- **Phase 10**: Performance and quality
+- **Phase 11**: Polish and release
+- **Phase 12**: Deep-water capabilities (trash/restore, game launcher, AI recognition, duplicate detection)
+- **Phase 13**: Library v2 wrap-up
+- **Phase 14**: Test coverage
+- **Phase 15**: Browse v2 polish
+- **Phase 16**: AI recognition
+
+These archived docs remain useful for traceability, but they are no longer the primary source of truth for the current v0.3.0 RC stage.
 
 ## Maintenance Rule
 
-When docs need to be updated during the beta stage:
+When docs need to be updated during the RC stage:
 
 - prefer updating one of the current main docs
 - avoid adding new parallel “执行版 / 草案 / 总结” files at the top level
 - move completed or superseded materials into `archive/`
 - keep temporary drafts and local working notes in `_wip/`
 
-The top level of `docs/` should stay small and clearly beta-oriented.
+The top level of `docs/` should stay small and clearly RC-oriented.
